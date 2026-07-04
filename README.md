@@ -4,7 +4,7 @@ Este es un repositorio de práctica para aprender el flujo de trabajo con Git y 
 
 ## Objetivo
 
-El objetivo de este proyecto es entender como funciona un Pull Request de principio a fin:
+El objetivo de este proyecto es entender cómo funciona un Pull Request de principio a fin:
 
 1. Clonar un repositorio
 2. Crear una rama nueva
