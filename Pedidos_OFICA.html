@@ -241,7 +241,9 @@
   .breakdown .r.disc em{font-style:normal;color:var(--ink-3);font-weight:600}
   .breakdown .r.tot{background:var(--brand-tint);color:var(--brand-ink);font-weight:800;font-size:15px}
   .breakdown .r.disc span:last-child{color:var(--active)}
-  .actions{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:7px}
+  .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:7px}
+  .btn.save{border-color:#BFE3D2;color:var(--active)}
+  .btn.edit{border-color:#B7E7F7;color:var(--brand-ink)}
   .btn{
     -webkit-appearance:none;appearance:none;border:1px solid var(--line);background:var(--surface);
     color:var(--ink);border-radius:9px;padding:6px 4px;font-size:11px;font-weight:700;cursor:pointer;
@@ -271,6 +273,17 @@
   .sumrow .name{font-size:13.5px;line-height:1.25}
   .sumrow small{color:var(--ink-3);font-size:11.5px}
   .closex{border:none;background:var(--surface);width:34px;height:34px;border-radius:8px;font-size:18px;cursor:pointer;color:var(--ink-2)}
+
+  /* ===== Pedidos guardados ===== */
+  .orow{display:flex;align-items:stretch;gap:8px;padding:8px 16px;border-bottom:1px solid var(--line-2)}
+  .orow .oopen{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:9px 11px;cursor:pointer;font-family:inherit}
+  .orow .oopen:active{background:var(--surface-2)}
+  .orow .oname{font-size:14px;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .orow .ometa{font-size:11.5px;color:var(--ink-3)}
+  .orow .odel{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);border-radius:9px;width:42px;cursor:pointer;color:var(--crit);display:grid;place-items:center}
+  .orow .odel:active{background:var(--crit-tint)}
+  .orow .odel svg{width:16px;height:16px}
+  .ordersempty{padding:26px 16px;text-align:center;color:var(--ink-3);font-size:13px}
 
   /* toast */
   .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 96px);transform:translateX(-50%) translateY(20px);
@@ -310,6 +323,10 @@
       <button class="stocktoggle" id="btnHideNoStock" aria-pressed="true" title="Mostrar/ocultar referencias sin inventario">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
         <span>Mostrar Ref. Sin Inventario</span>
+      </button>
+      <button class="iconbtn" id="btnVerPedidos">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5h9M9 12h9M9 19h9M4 5h.01M4 12h.01M4 19h.01"/></svg>
+        <span class="btnlabel">Ver pedidos</span>
       </button>
       <button class="iconbtn" id="btnMeta" aria-expanded="false">
         <svg class="ic-list" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 6h11M8 12h11M8 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>
@@ -425,6 +442,12 @@
     <button class="btn ghost" id="aNew">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
       Nuevo</button>
+    <button class="btn save" id="aSave">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+      Guardar Pedido</button>
+    <button class="btn edit" id="aEdit" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+      Editar Pedido</button>
   </div>
 </div>
 
@@ -437,6 +460,13 @@
       <div class="linetot"><span class="lt-lbl">Total c/IVA</span><span class="lt-val" id="rTotCon"></span></div>
     </div>
     <div class="body" id="mBody"></div>
+  </div>
+</div>
+
+<div class="modal" id="ordersModal">
+  <div class="sheet">
+    <header><h2>Pedidos guardados</h2><button class="closex" id="opClose">×</button></header>
+    <div class="body" id="ordersList"></div>
   </div>
 </div>
 
@@ -16793,6 +16823,83 @@ function load(){
 let saveT=null;
 function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(STORE_KEY,JSON.stringify(state));}catch(e){}},250);}
 
+// ---- pedidos guardados (persisten en memoria del navegador) ----
+const ORDERS_KEY='ofica_pedidos_v1';
+let currentOrderId=null;   // id del pedido guardado que se está viendo/editando
+let locked=false;          // true = modo solo lectura (pedido guardado abierto)
+function loadOrders(){ try{const raw=localStorage.getItem(ORDERS_KEY);return raw?JSON.parse(raw):[];}catch(e){return [];} }
+function storeOrders(list){ try{localStorage.setItem(ORDERS_KEY,JSON.stringify(list));}catch(e){} }
+
+// refleja state.meta en los campos del detalle
+function syncMetaFields(){
+  const map={f_fecha:'fecha',f_vendedor:'vendedor',f_cliente:'cliente',f_codcliente:'codcliente',f_condicion:'condicion',f_numped:'numped',f_obs:'obs',f_desc1:'desc1',f_desc2:'desc2',f_desc3:'desc3'};
+  for(const id in map){ const e=document.getElementById(id); if(e) e.value = state.meta[map[id]]!=null ? state.meta[map[id]] : ''; }
+}
+
+// activa/desactiva el modo solo lectura (no re-renderiza; el llamador lo hace)
+function setLocked(on){
+  locked=on;
+  document.body.classList.toggle('viewmode',on);
+  ['f_fecha','f_vendedor','f_cliente','f_codcliente','f_condicion','f_numped','f_obs','f_desc1','f_desc2','f_desc3']
+    .forEach(id=>{const e=document.getElementById(id); if(e) e.disabled=on;});
+  const bSave=$('#aSave'), bEdit=$('#aEdit');
+  if(bSave) bSave.style.display = on?'none':'';
+  if(bEdit) bEdit.style.display = on?'':'none';
+}
+
+function guardarPedido(){
+  if(locked){ toast('Pulsa EDITAR PEDIDO para modificar'); return; }
+  if(totals().lineas===0){ toast('Agrega productos primero'); return; }
+  const nombre=(state.meta.cliente||'').trim();
+  if(!nombre){ toast('Indica el nombre del cliente'); return; }
+  const list=loadOrders();
+  const rec={
+    id: currentOrderId || ('P'+Date.now()+'-'+Math.floor(Math.random()*1000)),
+    nombre, codcliente: state.meta.codcliente||'', fecha: state.meta.fecha||'',
+    numped: state.meta.numped||'', total: totals().total, savedAt: new Date().toISOString(),
+    meta: JSON.parse(JSON.stringify(state.meta)), qty: JSON.parse(JSON.stringify(state.qty))
+  };
+  const idx=list.findIndex(o=>o.id===rec.id);
+  if(idx>=0) list[idx]=rec; else list.push(rec);
+  storeOrders(list); currentOrderId=rec.id;
+  toast(idx>=0?'Pedido actualizado':'Pedido guardado');
+}
+
+function openPedidos(){
+  const list=loadOrders().slice().sort((a,b)=>String(a.nombre||'').localeCompare(String(b.nombre||''),'es',{sensitivity:'base'}));
+  const box=$('#ordersList');
+  if(!list.length){
+    box.innerHTML='<div class="ordersempty">No hay pedidos guardados.</div>';
+  } else {
+    box.innerHTML=list.map(o=>`<div class="orow">
+      <button class="oopen" data-open="${esc(o.id)}">
+        <span class="oname">${esc(o.nombre||'(sin nombre)')}</span>
+        <span class="ometa">${o.codcliente?esc(o.codcliente)+' · ':''}${o.fecha?esc(fechaFmt(o.fecha)):''} · ${fmt.format(o.total||0)}</span>
+      </button>
+      <button class="odel" data-del="${esc(o.id)}" aria-label="Eliminar pedido">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+      </button>
+    </div>`).join('');
+  }
+  $('#ordersModal').classList.add('open');
+}
+function cerrarPedidos(){ $('#ordersModal').classList.remove('open'); }
+
+function abrirPedido(id){
+  const o=loadOrders().find(x=>x.id===id); if(!o) return;
+  state.qty=JSON.parse(JSON.stringify(o.qty||{}));
+  state.meta=JSON.parse(JSON.stringify(o.meta||{}));
+  currentOrderId=o.id; save();
+  syncMetaFields();
+  filter.onlyOn=false; syncChips();
+  setLocked(true);
+  render(); updateTotals();
+  cerrarPedidos();
+  toast('Pedido cargado');
+}
+
+function editarPedido(){ setLocked(false); render(); updateTotals(); toast('Edición habilitada'); }
+
 const byCode = {};
 CATALOGO.forEach(p=>byCode[p.codigo]=p);
 const CATS = [...new Set(CATALOGO.map(p=>p.categoria))];
@@ -16884,7 +16991,7 @@ function render(){
     const inv=Math.round(+p.inv||0);
     let sc='ok'; if(inv<=0)sc='no'; else if(inv<(+p.bulto||0))sc='low';
     const agotado = inv<=0;
-    const dis = agotado?' disabled':'';
+    const dis = (agotado||locked)?' disabled':'';
     const src = imgFor(p.codigo);
     const thumb = src
       ? `<div class="thumb"><img src="${src}" alt="" loading="lazy"></div>`
@@ -17183,6 +17290,7 @@ function newOrder(){
   state.qty={}; state.meta={vendedor:keep||'',desc1:kd1||'0',desc2:kd2||'0',desc3:kd3||'0'};
   const d=new Date(); state.meta.fecha=d.toISOString().slice(0,10);
   save();
+  currentOrderId=null; setLocked(false);
   ['f_cliente','f_codcliente','f_condicion','f_numped','f_obs'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('f_fecha').value=state.meta.fecha;
   filter.onlyOn=false; syncChips();
@@ -17285,6 +17393,27 @@ function wire(){
   $('#aExcel').addEventListener('click',exportExcel);
   $('#aPrint').addEventListener('click',doPrint);
   $('#aNew').addEventListener('click',newOrder);
+  // guardar / editar pedido
+  $('#aSave').addEventListener('click',guardarPedido);
+  $('#aEdit').addEventListener('click',editarPedido);
+  // ver pedidos guardados
+  $('#btnVerPedidos').addEventListener('click',openPedidos);
+  $('#opClose').addEventListener('click',cerrarPedidos);
+  $('#ordersModal').addEventListener('click',e=>{ if(e.target===$('#ordersModal')) cerrarPedidos(); });
+  $('#ordersList').addEventListener('click',e=>{
+    const del=e.target.closest('[data-del]');
+    if(del){ const list=loadOrders(); const o=list.find(x=>x.id===del.dataset.del);
+      if(o && confirm('¿Eliminar el pedido de '+(o.nombre||'')+'?')){ storeOrders(list.filter(x=>x.id!==del.dataset.del)); openPedidos(); } return; }
+    const open=e.target.closest('[data-open]');
+    if(open) abrirPedido(open.dataset.open);
+  });
+  // cerrar ventanas con ESC (sin modificar nada)
+  document.addEventListener('keydown',e=>{
+    if(e.key!=='Escape') return;
+    if($('#ordersModal').classList.contains('open')){ cerrarPedidos(); return; }
+    if($('#modal').classList.contains('open')){ $('#modal').classList.remove('open'); return; }
+    if(!$('#metaPanel').hasAttribute('hidden')){ setMetaOpen(false); }
+  });
 }
 
 // ---- PWA install hints (manifest + icono vía runtime) ----
