@@ -16968,7 +16968,7 @@ function totals(){
 // ---- render lista ----
 function render(){
   const list=$('#list'); const items=visibleProducts();
-  if(!items.length){list.innerHTML='<div class="empty">No hay productos que coincidan.<br>Ajusta la búsqueda o el filtro.</div>';return;}
+  if(!items.length){list.innerHTML='<div class="empty">'+(filter.onlyOn?'No tiene productos seleccionados con cantidades':'No hay productos que coincidan.<br>Ajusta la búsqueda o el filtro.')+'</div>';return;}
   let html=''; let cat=null;
   for(const p of items){
     if(p.categoria!==cat){
