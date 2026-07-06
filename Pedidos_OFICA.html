@@ -16911,7 +16911,7 @@ function abrirPedido(id){
   toast('Pedido cargado');
 }
 
-function editarPedido(){ setLocked(false); render(); updateTotals(); toast('Edición habilitada'); }
+function editarPedido(){ setLocked(false); filter.onlyOn=false; filter.cat=''; syncChips(); render(); updateTotals(); toast('Edición habilitada'); }
 
 const byCode = {};
 CATALOGO.forEach(p=>byCode[p.codigo]=p);
