@@ -171,6 +171,8 @@
   .tag.exento{background:var(--active-tint);color:var(--active)}
   .right{display:flex;align-items:center;gap:10px;flex:0 0 auto}
   .umvbox{border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:11.5px;font-weight:700;color:var(--ink-2);white-space:nowrap;background:var(--surface);text-align:center;line-height:1.15}
+  .bultopedbox{background:var(--brand-tint);border-color:#B7E7F7;color:var(--brand-ink)}
+  .bultopedbox .bpval{font-weight:800}
   .invline{margin-top:6px;display:flex;align-items:center;gap:8px}
   .inv{font-size:13px;font-weight:800;letter-spacing:.2px;display:inline-flex;align-items:baseline;gap:5px}
   .inv b{font-weight:800}
@@ -16889,7 +16891,7 @@ function render(){
         ${!exento?`<span class="sep">·</span><span class="plabel">Precio + IVA</span><span class="price">${fmt.format(netIva)}</span>`:`<span class="tag exento">Exento IVA</span>`}
       </div>
       <div class="prow">
-        <div class="invline"><span class="inv ${sc}"><b>INV.</b> ${fmtN.format(inv)} <span class="u">und</span></span>${agotado?`<span class="nostock">Sin stock</span>`:''}${step>1?`<span class="umvbox">UMV ${fmtN.format(step)}</span>`:''}${(+p.bulto>0)?`<span class="umvbox">BULTO ${fmtN.format(+p.bulto)}</span>`:''}</div>
+        <div class="invline"><span class="inv ${sc}"><b>INV.</b> ${fmtN.format(inv)} <span class="u">und</span></span>${agotado?`<span class="nostock">Sin stock</span>`:''}${step>1?`<span class="umvbox">UMV ${fmtN.format(step)}</span>`:''}${(+p.bulto>0)?`<span class="umvbox">BULTO ${fmtN.format(+p.bulto)}</span>`:''}${(+p.bulto>0)?`<span class="umvbox bultopedbox">BULTOS PEDIDO <b class="bpval">${(qty/(+p.bulto)).toFixed(2)}</b></span>`:''}</div>
         <div class="right">
           <div class="stepper">
             <button class="minus" data-act="dec" aria-label="Quitar ${step}"${dis}>−</button>
@@ -16920,6 +16922,7 @@ function refreshRow(row){
   const p=byCode[code]; const net=(+p.precioUsd||0)*factorGlobal(); const exento=ivaRateOf(p)===0;
   const v1=row.querySelector('.lt-sin .lt-val'); if(v1) v1.textContent = qty>0 ? fmt.format(net*qty) : '';
   const v2=row.querySelector('.lt-con .lt-val'); if(v2) v2.textContent = (qty>0 && !exento) ? fmt.format(net*(1+ivaRateOf(p))*qty) : '';
+  const bp=row.querySelector('.bpval'); const bulto=+p.bulto||0; if(bp) bp.textContent = bulto>0 ? (qty/bulto).toFixed(2) : '0.00';
 }
 
 // ---- totales UI ----
@@ -17191,7 +17194,7 @@ function wire(){
   $('#list').addEventListener('input',e=>{
     const inp=e.target.closest('input[data-inp]'); if(!inp) return;
     const row=inp.closest('.prod'); setQty(row.dataset.code,inp.value);
-    row.classList.toggle('on',(+state.qty[row.dataset.code]||0)>0); updateTotals();
+    row.classList.toggle('on',(+state.qty[row.dataset.code]||0)>0); refreshRow(row); updateTotals();
   });
   // buscar
   const q=$('#q');
