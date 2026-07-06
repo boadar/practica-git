@@ -293,6 +293,15 @@
   .cfbody p{margin:0 0 18px;font-size:14px;color:var(--ink);line-height:1.45}
   .cfbtns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .cfbtns .btn{padding:12px;font-size:13px}
+  #admPass{width:100%;border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-size:15px;background:var(--surface-2);margin-bottom:16px}
+  .logo{-webkit-appearance:none;appearance:none;cursor:pointer;padding:0}
+  .logo[aria-pressed="true"]{background:#fff;color:var(--brand);border-color:#fff}
+  .price.editing{display:inline-flex;align-items:center;gap:2px;font-weight:800;color:var(--brand-ink)}
+  .price.editing .priceedit{
+    width:74px;border:1px solid var(--brand);border-radius:7px;padding:3px 6px;
+    font-size:13px;font-weight:800;color:var(--brand-ink);background:#fff;text-align:right;
+    font-variant-numeric:tabular-nums
+  }
 
   /* toast */
   .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 96px);transform:translateX(-50%) translateY(20px);
@@ -323,7 +332,7 @@
 <div class="app">
   <div class="appbar">
     <div class="row">
-      <div class="logo">O</div>
+      <button class="logo" id="btnAdmin" type="button" title="Administrador — editar precios" aria-pressed="false">O</button>
       <div class="titlewrap">
         <h1>Pedido</h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
@@ -476,6 +485,20 @@
   <div class="sheet">
     <header><h2>Pedidos guardados</h2><button class="closex" id="opClose">×</button></header>
     <div class="body" id="ordersList"></div>
+  </div>
+</div>
+
+<div class="modal" id="adminModal">
+  <div class="sheet">
+    <header><h2>Clave de administrador</h2><button class="closex" id="admNo">×</button></header>
+    <div class="cfbody">
+      <p>Introduce la clave para editar los precios de las referencias.</p>
+      <input type="password" id="admPass" placeholder="Clave" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div class="cfbtns">
+        <button class="btn" id="admCancel">Cancelar</button>
+        <button class="btn primary" id="admOk">Aceptar</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -16849,6 +16872,8 @@ function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setIt
 const ORDERS_KEY='ofica_pedidos_v1';
 let currentOrderId=null;   // id del pedido guardado que se está viendo/editando
 let locked=false;          // true = modo solo lectura (pedido guardado abierto)
+let adminMode=false;       // true = edición de precios (clave de administrador)
+const ADMIN_KEY='Solita.2026';
 function loadOrders(){ try{const raw=localStorage.getItem(ORDERS_KEY);return raw?JSON.parse(raw):[];}catch(e){return [];} }
 function storeOrders(list){ try{localStorage.setItem(ORDERS_KEY,JSON.stringify(list));}catch(e){} }
 
@@ -17020,9 +17045,11 @@ function render(){
     const netIva=net*(1+ivaRateOf(p));
     const exento=ivaRateOf(p)===0;
     const step=(+p.umv>0)?+p.umv:1;
-    const priceHtml = f<1
-      ? `<span class="price"><span class="was">${fmt.format(p.precioUsd)}</span>${fmt.format(net)}</span>`
-      : `<span class="price">${fmt.format(p.precioUsd)}</span>`;
+    const priceHtml = adminMode
+      ? `<span class="price editing">$ <input type="text" inputmode="decimal" class="priceedit" data-price value="${(+p.precioUsd||0).toFixed(2)}" aria-label="Precio de ${esc(p.codigo)}"></span>`
+      : (f<1
+        ? `<span class="price"><span class="was">${fmt.format(p.precioUsd)}</span>${fmt.format(net)}</span>`
+        : `<span class="price">${fmt.format(p.precioUsd)}</span>`);
     const inv=Math.round(+p.inv||0);
     let sc='ok'; if(inv<=0)sc='no'; else if(inv<(+p.bulto||0))sc='low';
     const agotado = inv<=0;
@@ -17165,6 +17192,27 @@ function askConfirm(msg,okLabel){
     ok.addEventListener('click',fOk); cancel.addEventListener('click',fNo); x.addEventListener('click',fNo);
     m.classList.add('open');
   });
+}
+
+// pide la clave de administrador; devuelve el texto o null si se cancela
+function askPassword(){
+  return new Promise(res=>{
+    const m=$('#adminModal'), inp=$('#admPass'), ok=$('#admOk'), cancel=$('#admCancel'), x=$('#admNo');
+    function done(v){ m.classList.remove('open'); inp.value=''; ok.removeEventListener('click',fOk); cancel.removeEventListener('click',fNo); x.removeEventListener('click',fNo); inp.removeEventListener('keydown',fKey); res(v); }
+    function fOk(){done(inp.value);} function fNo(){done(null);}
+    function fKey(ev){ if(ev.key==='Enter'){ev.preventDefault();fOk();} else if(ev.key==='Escape'){ev.preventDefault();fNo();} }
+    ok.addEventListener('click',fOk); cancel.addEventListener('click',fNo); x.addEventListener('click',fNo); inp.addEventListener('keydown',fKey);
+    m.classList.add('open'); setTimeout(()=>inp.focus(),50);
+  });
+}
+
+// activa/desactiva la edición de precios (requiere clave para activar)
+async function toggleAdmin(){
+  if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); render(); updateTotals(); toast('Precios bloqueados'); return; }
+  const pass=await askPassword();
+  if(pass==null) return;
+  if(pass===ADMIN_KEY){ adminMode=true; $('#btnAdmin').setAttribute('aria-pressed','true'); render(); updateTotals(); toast('Edición de precios activada'); }
+  else toast('Clave incorrecta');
 }
 
 // ---- resumen modal ----
@@ -17398,6 +17446,15 @@ function wire(){
     }
     inp.dataset.prev=val;
   });
+  // edicion de precios (modo administrador)
+  $('#btnAdmin').addEventListener('click',toggleAdmin);
+  $('#list').addEventListener('change',e=>{
+    const pe=e.target.closest('input[data-price]'); if(!pe) return;
+    const row=pe.closest('.prod'); const p=byCode[row.dataset.code]; if(!p) return;
+    const v=parseFloat(String(pe.value).replace(',','.'))||0;
+    p.precioUsd=Math.max(0,v);
+    render(); updateTotals();
+  });
   // campo BULTOS PEDIDO editable manual: solo enteros; N bultos = N * und por bulto
   $('#list').addEventListener('focusin',e=>{
     const bi=e.target.closest('input[data-binp]'); if(!bi) return;
@@ -17494,6 +17551,7 @@ function wire(){
   // cerrar ventanas con ESC (sin modificar nada)
   document.addEventListener('keydown',e=>{
     if(e.key!=='Escape') return;
+    if($('#adminModal').classList.contains('open')){ $('#admNo').click(); return; }
     if($('#confirmModal').classList.contains('open')){ $('#cfNo').click(); return; }
     if($('#ordersModal').classList.contains('open')){ cerrarPedidos(); return; }
     if($('#modal').classList.contains('open')){ $('#modal').classList.remove('open'); return; }
