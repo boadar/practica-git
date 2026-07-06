@@ -16904,7 +16904,7 @@ function abrirPedido(id){
   state.meta=JSON.parse(JSON.stringify(o.meta||{}));
   currentOrderId=o.id; save();
   syncMetaFields();
-  filter.onlyOn=false; syncChips();
+  filter.onlyOn=true; filter.cat=''; filter.q=''; const qi=$('#q'); if(qi) qi.value=''; syncChips();
   setLocked(true);
   render(); updateTotals();
   cerrarPedidos();
