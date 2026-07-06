@@ -178,7 +178,7 @@
     padding:3px 8px;min-width:108px;line-height:1.1;white-space:nowrap;text-align:center
   }
   .bultopedbox .bplbl{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-3)}
-  .bultopedbox .bpval{font-size:15px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.1}
+  .bultopedbox .bpval{font-size:13px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.1}
   .prod.on .bultopedbox .bpval{color:var(--active)}
   .prod.on .bultopedbox{border-color:#BFE3D2}
   .invline{margin-top:6px;display:flex;align-items:center;gap:8px}
@@ -17206,6 +17206,26 @@ function wire(){
     const inp=e.target.closest('input[data-inp]'); if(!inp) return;
     const row=inp.closest('.prod'); setQty(row.dataset.code,inp.value);
     row.classList.toggle('on',(+state.qty[row.dataset.code]||0)>0); refreshRow(row); updateTotals();
+  });
+  // recuerda el valor previo del cuadro al empezar a editarlo
+  $('#list').addEventListener('focusin',e=>{
+    const inp=e.target.closest('input[data-inp]'); if(!inp) return;
+    inp.dataset.prev = +state.qty[inp.closest('.prod').dataset.code]||0;
+  });
+  // valida al terminar de escribir: la cantidad manual debe ser multiplo de la UMV
+  $('#list').addEventListener('change',e=>{
+    const inp=e.target.closest('input[data-inp]'); if(!inp) return;
+    const row=inp.closest('.prod'); const code=row.dataset.code;
+    const p=byCode[code]; const step=(p&&+p.umv>0)?+p.umv:1;
+    const val=Math.max(0,Math.floor(+inp.value||0));
+    if(step>1 && val>0 && val%step!==0){
+      toast('La Cantidad no es multiplo de la UMV');
+      const prev=+inp.dataset.prev||0;
+      setQty(code,prev); inp.value=prev||'';
+      row.classList.toggle('on',prev>0); refreshRow(row); updateTotals();
+      return;
+    }
+    inp.dataset.prev=val;
   });
   // buscar
   const q=$('#q');
