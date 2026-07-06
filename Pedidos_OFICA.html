@@ -17079,7 +17079,7 @@ function buildChips(){
     c.appendChild(b); return b;
   };
   mk('Todas','');
-  const onChip=mk('Con cantidad','__on__',true); onChip.dataset.on='1';
+  const onChip=mk('PEDIDO','__on__',true); onChip.dataset.on='1';
   CATS.forEach(cat=>mk(catDisplay(cat),cat));
   syncChips();
 }
