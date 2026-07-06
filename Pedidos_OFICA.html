@@ -16858,6 +16858,12 @@ function guardarPedido(){
   if(!nombre) faltan.push('Nombre del cliente');
   if(!condicion) faltan.push('Condición de pago');
   if(faltan.length){ toast('Falta completar en Detalle del pedido: '+faltan.join(', ')); return; }
+  // numero de pedido asignado: ddmmyy_hhmm + cliente (al crear el pedido)
+  if(!currentOrderId){
+    const d=new Date(), p=n=>String(n).padStart(2,'0');
+    state.meta.numped = p(d.getDate())+p(d.getMonth()+1)+String(d.getFullYear()).slice(-2)+'_'+p(d.getHours())+p(d.getMinutes())+' '+nombre;
+    const fn=document.getElementById('f_numped'); if(fn) fn.value=state.meta.numped;
+  }
   const list=loadOrders();
   const rec={
     id: currentOrderId || ('P'+Date.now()+'-'+Math.floor(Math.random()*1000)),
@@ -16880,6 +16886,7 @@ function openPedidos(){
     box.innerHTML=list.map(o=>`<div class="orow">
       <button class="oopen" data-open="${esc(o.id)}">
         <span class="oname">${esc(o.nombre||'(sin nombre)')}</span>
+        ${o.numped?`<span class="ometa">Nº ${esc(o.numped)}</span>`:''}
         <span class="ometa">${o.codcliente?esc(o.codcliente)+' · ':''}${o.fecha?esc(fechaFmt(o.fecha)):''} · ${fmt.format(o.total||0)}</span>
       </button>
       <button class="odel" data-del="${esc(o.id)}" aria-label="Eliminar pedido">
