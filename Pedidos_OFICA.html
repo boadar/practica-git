@@ -16851,7 +16851,9 @@ function guardarPedido(){
   if(locked){ toast('Pulsa EDITAR PEDIDO para modificar'); return; }
   if(totals().lineas===0){ toast('Agrega productos primero'); return; }
   const nombre=(state.meta.cliente||'').trim();
-  if(!nombre){ toast('Indica el nombre del cliente'); return; }
+  const vendedor=(state.meta.vendedor||'').trim();
+  const condicion=(state.meta.condicion||'').trim();
+  if(!vendedor || !nombre || !condicion){ toast('Debe agregar datos en el Detalle de Pedido'); return; }
   const list=loadOrders();
   const rec={
     id: currentOrderId || ('P'+Date.now()+'-'+Math.floor(Math.random()*1000)),
