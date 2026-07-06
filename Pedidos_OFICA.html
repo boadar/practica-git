@@ -153,7 +153,7 @@
   .prow .right{flex:0 0 auto;gap:8px;margin-left:auto}
   .linetot{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;min-width:52px}
   .linetot .lt-lbl{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-3);line-height:1}
-  .linetot .lt-val{font-size:11.5px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.25;min-height:15px;white-space:nowrap}
+  .linetot .lt-val{font-size:13px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.25;min-height:15px;white-space:nowrap}
   .linetot.off{opacity:.4}
   .prod::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:transparent}
   .prod.on::before{background:var(--active)}
@@ -169,19 +169,20 @@
   .tag{font-size:10.5px;font-weight:700;padding:2px 6px;border-radius:5px;letter-spacing:.2px;text-transform:uppercase}
   .tag.disc{background:var(--brand-tint);color:var(--brand-ink)}
   .tag.exento{background:var(--active-tint);color:var(--active)}
-  .right{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+  .right{display:flex;align-items:flex-start;gap:10px;flex:0 0 auto}
   .umvbox{border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:11.5px;font-weight:700;color:var(--ink-2);white-space:nowrap;background:var(--surface);text-align:center;line-height:1.15}
   .qtycol{display:flex;flex-direction:column;align-items:center;gap:5px;flex:0 0 auto}
   .bultopedbox{display:flex;flex-direction:column;align-items:center;gap:3px}
   .bultopedbox .bplbl{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-3)}
   .bstep .bpval{
-    display:grid;place-items:center;min-width:46px;height:34px;
-    border:1px solid var(--line);border-left:0;border-right:0;
-    font-size:13px;font-weight:700;color:var(--ink);background:var(--surface);
-    font-variant-numeric:tabular-nums;line-height:1
+    width:48px;height:34px;text-align:center;border:1px solid var(--line);border-left:0;border-right:0;
+    font-size:13px;font-weight:700;color:var(--ink);background:var(--surface);padding:0;
+    font-variant-numeric:tabular-nums;-moz-appearance:textfield
   }
+  .bstep .bpval::-webkit-outer-spin-button,.bstep .bpval::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   .prod.on .bstep .bpval{color:var(--active)}
   .prod.on .bstep button{border-color:#BFE3D2}
+  .totcol{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex:0 0 auto}
   .invline{margin-top:6px;display:flex;align-items:center;gap:8px}
   .inv{font-size:13px;font-weight:800;letter-spacing:.2px;display:inline-flex;align-items:baseline;gap:5px}
   .inv b{font-weight:800}
@@ -17049,13 +17050,15 @@ function render(){
               <span class="bplbl">BULTOS PEDIDO</span>
               <div class="stepper bstep">
                 <button class="minus" data-bact="dec" aria-label="Quitar un bulto (${fmtN.format(+p.bulto)} und)"${dis}>−</button>
-                <span class="bpval">${(qty/(+p.bulto)).toFixed(2)}</span>
+                <input type="text" inputmode="numeric" class="bpval" data-binp value="${(qty/(+p.bulto)).toFixed(2)}" aria-label="Bultos de ${esc(p.codigo)}"${dis}>
                 <button class="plus" data-bact="inc" aria-label="Agregar un bulto (${fmtN.format(+p.bulto)} und)"${dis}>+</button>
               </div>
             </div>`:''}
           </div>
-          <div class="linetot lt-sin"><span class="lt-lbl">Subtotal</span><span class="lt-val">${qty>0?fmt.format(net*qty):''}</span></div>
-          <div class="linetot lt-con${exento?' off':''}"><span class="lt-lbl">+ IVA</span><span class="lt-val">${(qty>0&&!exento)?fmt.format(netIva*qty):''}</span></div>
+          <div class="totcol">
+            <div class="linetot lt-sin"><span class="lt-lbl">Subtotal</span><span class="lt-val">${qty>0?fmt.format(net*qty):''}</span></div>
+            <div class="linetot lt-con${exento?' off':''}"><span class="lt-lbl">Subtotal + IVA</span><span class="lt-val">${(qty>0&&!exento)?fmt.format(netIva*qty):''}</span></div>
+          </div>
         </div>
       </div>
       </div>
@@ -17078,7 +17081,7 @@ function refreshRow(row){
   const p=byCode[code]; const net=(+p.precioUsd||0)*factorGlobal(); const exento=ivaRateOf(p)===0;
   const v1=row.querySelector('.lt-sin .lt-val'); if(v1) v1.textContent = qty>0 ? fmt.format(net*qty) : '';
   const v2=row.querySelector('.lt-con .lt-val'); if(v2) v2.textContent = (qty>0 && !exento) ? fmt.format(net*(1+ivaRateOf(p))*qty) : '';
-  const bp=row.querySelector('.bpval'); const bulto=+p.bulto||0; if(bp) bp.textContent = bulto>0 ? (qty/bulto).toFixed(2) : '0.00';
+  const bp=row.querySelector('.bpval'); const bulto=+p.bulto||0; if(bp && document.activeElement!==bp) bp.value = bulto>0 ? (qty/bulto).toFixed(2) : '0.00';
 }
 
 // ---- totales UI ----
@@ -17395,6 +17398,27 @@ function wire(){
       return;
     }
     inp.dataset.prev=val;
+  });
+  // campo BULTOS PEDIDO editable manual: solo enteros; N bultos = N * und por bulto
+  $('#list').addEventListener('focusin',e=>{
+    const bi=e.target.closest('input[data-binp]'); if(!bi) return;
+    const code=bi.closest('.prod').dataset.code; const p=byCode[code]; const bulto=(p&&+p.bulto>0)?+p.bulto:0;
+    const n = bulto>0 ? Math.floor((+state.qty[code]||0)/bulto) : 0;
+    bi.value=String(n); bi.dataset.bprev=String(n); bi.select();
+  });
+  $('#list').addEventListener('input',e=>{
+    const bi=e.target.closest('input[data-binp]'); if(!bi) return;
+    bi.value=bi.value.replace(/\D/g,'');
+  });
+  $('#list').addEventListener('change',e=>{
+    const bi=e.target.closest('input[data-binp]'); if(!bi) return;
+    const row=bi.closest('.prod'); const code=row.dataset.code;
+    const p=byCode[code]; const bulto=(p&&+p.bulto>0)?+p.bulto:0;
+    if(!bulto || bi.value===bi.dataset.bprev){ refreshRow(row); return; }
+    const n=Math.max(0,parseInt(bi.value,10)||0);
+    setQty(code,n*bulto); row.classList.toggle('on',n>0);
+    refreshRow(row); updateTotals();
+    if(filter.onlyOn && !(state.qty[code]>0)) render();
   });
   // buscar
   const q=$('#q');
