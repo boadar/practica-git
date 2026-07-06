@@ -284,6 +284,10 @@
   .orow .odel:active{background:var(--crit-tint)}
   .orow .odel svg{width:16px;height:16px}
   .ordersempty{padding:26px 16px;text-align:center;color:var(--ink-3);font-size:13px}
+  .cfbody{padding:18px 16px}
+  .cfbody p{margin:0 0 18px;font-size:14px;color:var(--ink);line-height:1.45}
+  .cfbtns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .cfbtns .btn{padding:12px;font-size:13px}
 
   /* toast */
   .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 96px);transform:translateX(-50%) translateY(20px);
@@ -467,6 +471,19 @@
   <div class="sheet">
     <header><h2>Pedidos guardados</h2><button class="closex" id="opClose">×</button></header>
     <div class="body" id="ordersList"></div>
+  </div>
+</div>
+
+<div class="modal" id="confirmModal">
+  <div class="sheet">
+    <header><h2 id="cfTitle">Confirmar</h2><button class="closex" id="cfNo">×</button></header>
+    <div class="cfbody">
+      <p id="cfMsg"></p>
+      <div class="cfbtns">
+        <button class="btn" id="cfCancel">Cancelar</button>
+        <button class="btn primary" id="cfOk">Aceptar</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -17076,7 +17093,7 @@ function updateTotals(){
   ['#aResumen','#aExcel','#aPrint'].forEach(s=>$(s).disabled=!has);
   const sub=$('#barSub'); const cli=state.meta.cliente, cod=state.meta.codcliente, fe=fechaFmt(state.meta.fecha);
   if(cli){
-    sub.textContent=`${cod?'('+cod+') ':''}${cli}${fe?' · '+fe:''}`;
+    sub.textContent=`${cli}${fe?' · '+fe:''}`;
   } else {
     sub.textContent = has?`${t.lineas} productos`:'Nuevo pedido';
   }
@@ -17127,6 +17144,18 @@ function initMeta(){
 // ---- toast ----
 let toastT=null;
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);}
+
+// confirmacion propia (confirm() nativo no funciona dentro del iframe del artifact)
+function askConfirm(msg,okLabel){
+  return new Promise(res=>{
+    const m=$('#confirmModal'); $('#cfMsg').textContent=msg; $('#cfOk').textContent=okLabel||'Aceptar';
+    const ok=$('#cfOk'), cancel=$('#cfCancel'), x=$('#cfNo');
+    function done(v){ m.classList.remove('open'); ok.removeEventListener('click',fOk); cancel.removeEventListener('click',fNo); x.removeEventListener('click',fNo); res(v); }
+    function fOk(){done(true);} function fNo(){done(false);}
+    ok.addEventListener('click',fOk); cancel.addEventListener('click',fNo); x.addEventListener('click',fNo);
+    m.classList.add('open');
+  });
+}
 
 // ---- resumen modal ----
 function openResumen(){
@@ -17297,8 +17326,8 @@ function doPrint(){
 }
 
 // ---- nuevo pedido ----
-function newOrder(){
-  if(totals().lineas>0 && !confirm('¿Borrar el pedido actual y empezar uno nuevo? Esta acción no se puede deshacer.')) return;
+async function newOrder(){
+  if(totals().lineas>0 && !(await askConfirm('¿Borrar el pedido actual y empezar uno nuevo? Esta acción no se puede deshacer.','Sí, borrar'))) return;
   const keep=state.meta.vendedor, kd1=state.meta.desc1, kd2=state.meta.desc2, kd3=state.meta.desc3;
   state.qty={}; state.meta={vendedor:keep||'',desc1:kd1||'0',desc2:kd2||'0',desc3:kd3||'0'};
   const d=new Date(); state.meta.fecha=d.toISOString().slice(0,10);
@@ -17413,16 +17442,17 @@ function wire(){
   $('#btnVerPedidos').addEventListener('click',openPedidos);
   $('#opClose').addEventListener('click',cerrarPedidos);
   $('#ordersModal').addEventListener('click',e=>{ if(e.target===$('#ordersModal')) cerrarPedidos(); });
-  $('#ordersList').addEventListener('click',e=>{
+  $('#ordersList').addEventListener('click',async e=>{
     const del=e.target.closest('[data-del]');
     if(del){ const list=loadOrders(); const o=list.find(x=>x.id===del.dataset.del);
-      if(o && confirm('¿Eliminar el pedido de '+(o.nombre||'')+'?')){ storeOrders(list.filter(x=>x.id!==del.dataset.del)); openPedidos(); } return; }
+      if(o && await askConfirm('¿Eliminar el pedido de '+(o.nombre||'')+'?','Sí, eliminar')){ storeOrders(list.filter(x=>x.id!==del.dataset.del)); openPedidos(); } return; }
     const open=e.target.closest('[data-open]');
     if(open) abrirPedido(open.dataset.open);
   });
   // cerrar ventanas con ESC (sin modificar nada)
   document.addEventListener('keydown',e=>{
     if(e.key!=='Escape') return;
+    if($('#confirmModal').classList.contains('open')){ $('#cfNo').click(); return; }
     if($('#ordersModal').classList.contains('open')){ cerrarPedidos(); return; }
     if($('#modal').classList.contains('open')){ $('#modal').classList.remove('open'); return; }
     if(!$('#metaPanel').hasAttribute('hidden')){ setMetaOpen(false); }
