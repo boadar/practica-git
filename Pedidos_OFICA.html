@@ -171,8 +171,16 @@
   .tag.exento{background:var(--active-tint);color:var(--active)}
   .right{display:flex;align-items:center;gap:10px;flex:0 0 auto}
   .umvbox{border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:11.5px;font-weight:700;color:var(--ink-2);white-space:nowrap;background:var(--surface);text-align:center;line-height:1.15}
-  .bultopedbox{background:var(--brand-tint);border-color:#B7E7F7;color:var(--brand-ink)}
-  .bultopedbox .bpval{font-weight:800}
+  .qtycol{display:flex;flex-direction:column;align-items:center;gap:5px;flex:0 0 auto}
+  .bultopedbox{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+    border:1px solid var(--line);border-radius:9px;background:var(--surface);
+    padding:3px 8px;min-width:108px;line-height:1.1;white-space:nowrap;text-align:center
+  }
+  .bultopedbox .bplbl{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-3)}
+  .bultopedbox .bpval{font-size:15px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.1}
+  .prod.on .bultopedbox .bpval{color:var(--active)}
+  .prod.on .bultopedbox{border-color:#BFE3D2}
   .invline{margin-top:6px;display:flex;align-items:center;gap:8px}
   .inv{font-size:13px;font-weight:800;letter-spacing:.2px;display:inline-flex;align-items:baseline;gap:5px}
   .inv b{font-weight:800}
@@ -190,7 +198,7 @@
   .stepper .plus{border-radius:0 9px 9px 0}
   .stepper input{
     width:40px;height:34px;text-align:center;border:1px solid var(--line);border-left:0;border-right:0;
-    font-size:15px;font-weight:700;color:var(--ink);background:var(--surface);padding:0;-moz-appearance:textfield
+    font-size:13px;font-weight:700;color:var(--ink);background:var(--surface);padding:0;-moz-appearance:textfield
   }
   .stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   .prod.on .stepper input{color:var(--active)}
@@ -16891,12 +16899,15 @@ function render(){
         ${!exento?`<span class="sep">·</span><span class="plabel">Precio + IVA</span><span class="price">${fmt.format(netIva)}</span>`:`<span class="tag exento">Exento IVA</span>`}
       </div>
       <div class="prow">
-        <div class="invline"><span class="inv ${sc}"><b>INV.</b> ${fmtN.format(inv)} <span class="u">und</span></span>${agotado?`<span class="nostock">Sin stock</span>`:''}${step>1?`<span class="umvbox">UMV ${fmtN.format(step)}</span>`:''}${(+p.bulto>0)?`<span class="umvbox">BULTO ${fmtN.format(+p.bulto)}</span>`:''}${(+p.bulto>0)?`<span class="umvbox bultopedbox">BULTOS PEDIDO <b class="bpval">${(qty/(+p.bulto)).toFixed(2)}</b></span>`:''}</div>
+        <div class="invline"><span class="inv ${sc}"><b>INV.</b> ${fmtN.format(inv)} <span class="u">und</span></span>${agotado?`<span class="nostock">Sin stock</span>`:''}${step>1?`<span class="umvbox">UMV ${fmtN.format(step)}</span>`:''}${(+p.bulto>0)?`<span class="umvbox">BULTO ${fmtN.format(+p.bulto)}</span>`:''}</div>
         <div class="right">
-          <div class="stepper">
-            <button class="minus" data-act="dec" aria-label="Quitar ${step}"${dis}>−</button>
-            <input type="number" inputmode="numeric" min="0" step="${step}" value="${qty||''}" placeholder="0" data-inp aria-label="Cantidad de ${esc(p.codigo)}"${dis}>
-            <button class="plus" data-act="inc" aria-label="Agregar ${step}"${dis}>+</button>
+          <div class="qtycol">
+            <div class="stepper">
+              <button class="minus" data-act="dec" aria-label="Quitar ${step}"${dis}>−</button>
+              <input type="number" inputmode="numeric" min="0" step="${step}" value="${qty||''}" placeholder="0" data-inp aria-label="Cantidad de ${esc(p.codigo)}"${dis}>
+              <button class="plus" data-act="inc" aria-label="Agregar ${step}"${dis}>+</button>
+            </div>
+            ${(+p.bulto>0)?`<div class="bultopedbox"><span class="bplbl">BULTOS PEDIDO</span><b class="bpval">${(qty/(+p.bulto)).toFixed(2)}</b></div>`:''}
           </div>
           <div class="linetot lt-sin"><span class="lt-lbl">Subtotal</span><span class="lt-val">${qty>0?fmt.format(net*qty):''}</span></div>
           <div class="linetot lt-con${exento?' off':''}"><span class="lt-lbl">+ IVA</span><span class="lt-val">${(qty>0&&!exento)?fmt.format(netIva*qty):''}</span></div>
