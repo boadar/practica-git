@@ -150,7 +150,7 @@
   .thumb.ph svg{width:38%;height:38%}
   .prow{display:flex;justify-content:space-between;align-items:center;gap:6px 8px;flex-wrap:wrap}
   .prow .invline{flex:0 1 auto;min-width:0}
-  .prow .right{flex:0 0 auto;gap:8px;margin-left:auto}
+  .prow .right{flex:0 0 auto;margin-left:auto}
   .linetot{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;min-width:52px}
   .linetot .lt-lbl{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-3);line-height:1}
   .linetot .lt-val{font-size:13px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.25;min-height:15px;white-space:nowrap}
@@ -169,11 +169,14 @@
   .tag{font-size:10.5px;font-weight:700;padding:2px 6px;border-radius:5px;letter-spacing:.2px;text-transform:uppercase}
   .tag.disc{background:var(--brand-tint);color:var(--brand-ink)}
   .tag.exento{background:var(--active-tint);color:var(--active)}
-  .right{display:flex;align-items:flex-start;gap:10px;flex:0 0 auto}
+  .right{display:grid;grid-template-columns:auto auto;column-gap:10px;row-gap:5px;align-items:center;flex:0 0 auto}
+  .right>.stepper,.right>.bultopedbox{justify-self:center}
+  .right>.linetot{justify-self:end}
   .umvbox{border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:11.5px;font-weight:700;color:var(--ink-2);white-space:nowrap;background:var(--surface);text-align:center;line-height:1.15}
   .qtycol{display:flex;flex-direction:column;align-items:center;gap:5px;flex:0 0 auto}
   .bultopedbox{display:flex;flex-direction:column;align-items:center;gap:3px}
-  .bultopedbox .bplbl{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-3)}
+  .bultopedbox::after{content:"";display:block;height:11px}
+  .bultopedbox .bplbl{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-3);height:11px;line-height:11px}
   .bstep .bpval{
     width:48px;height:34px;text-align:center;border:1px solid var(--line);border-left:0;border-right:0;
     font-size:13px;font-weight:700;color:var(--ink);background:var(--surface);padding:0;
@@ -17040,25 +17043,21 @@ function render(){
       <div class="prow">
         <div class="invline"><span class="inv ${sc}"><b>INV.</b> ${fmtN.format(inv)} <span class="u">und</span></span>${agotado?`<span class="nostock">Sin stock</span>`:''}${step>1?`<span class="umvbox">UMV ${fmtN.format(step)}</span>`:''}${(+p.bulto>0)?`<span class="umvbox">BULTO ${fmtN.format(+p.bulto)}</span>`:''}</div>
         <div class="right">
-          <div class="qtycol">
-            <div class="stepper">
-              <button class="minus" data-act="dec" aria-label="Quitar ${step}"${dis}>−</button>
-              <input type="number" inputmode="numeric" min="0" step="${step}" value="${qty||''}" placeholder="0" data-inp aria-label="Cantidad de ${esc(p.codigo)}"${dis}>
-              <button class="plus" data-act="inc" aria-label="Agregar ${step}"${dis}>+</button>
+          <div class="stepper">
+            <button class="minus" data-act="dec" aria-label="Quitar ${step}"${dis}>−</button>
+            <input type="number" inputmode="numeric" min="0" step="${step}" value="${qty||''}" placeholder="0" data-inp aria-label="Cantidad de ${esc(p.codigo)}"${dis}>
+            <button class="plus" data-act="inc" aria-label="Agregar ${step}"${dis}>+</button>
+          </div>
+          <div class="linetot lt-sin"><span class="lt-lbl">Subtotal</span><span class="lt-val">${qty>0?fmt.format(net*qty):''}</span></div>
+          ${(+p.bulto>0)?`<div class="bultopedbox">
+            <span class="bplbl">BULTOS PEDIDO</span>
+            <div class="stepper bstep">
+              <button class="minus" data-bact="dec" aria-label="Quitar un bulto (${fmtN.format(+p.bulto)} und)"${dis}>−</button>
+              <input type="text" inputmode="numeric" class="bpval" data-binp value="${(qty/(+p.bulto)).toFixed(2)}" aria-label="Bultos de ${esc(p.codigo)}"${dis}>
+              <button class="plus" data-bact="inc" aria-label="Agregar un bulto (${fmtN.format(+p.bulto)} und)"${dis}>+</button>
             </div>
-            ${(+p.bulto>0)?`<div class="bultopedbox">
-              <span class="bplbl">BULTOS PEDIDO</span>
-              <div class="stepper bstep">
-                <button class="minus" data-bact="dec" aria-label="Quitar un bulto (${fmtN.format(+p.bulto)} und)"${dis}>−</button>
-                <input type="text" inputmode="numeric" class="bpval" data-binp value="${(qty/(+p.bulto)).toFixed(2)}" aria-label="Bultos de ${esc(p.codigo)}"${dis}>
-                <button class="plus" data-bact="inc" aria-label="Agregar un bulto (${fmtN.format(+p.bulto)} und)"${dis}>+</button>
-              </div>
-            </div>`:''}
-          </div>
-          <div class="totcol">
-            <div class="linetot lt-sin"><span class="lt-lbl">Subtotal</span><span class="lt-val">${qty>0?fmt.format(net*qty):''}</span></div>
-            <div class="linetot lt-con${exento?' off':''}"><span class="lt-lbl">Subtotal + IVA</span><span class="lt-val">${(qty>0&&!exento)?fmt.format(netIva*qty):''}</span></div>
-          </div>
+          </div>`:'<div></div>'}
+          <div class="linetot lt-con${exento?' off':''}"><span class="lt-lbl">Subtotal + IVA</span><span class="lt-val">${(qty>0&&!exento)?fmt.format(netIva*qty):''}</span></div>
         </div>
       </div>
       </div>
