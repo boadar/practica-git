@@ -16853,7 +16853,11 @@ function guardarPedido(){
   const nombre=(state.meta.cliente||'').trim();
   const vendedor=(state.meta.vendedor||'').trim();
   const condicion=(state.meta.condicion||'').trim();
-  if(!vendedor || !nombre || !condicion){ toast('Debe agregar datos en el Detalle de Pedido'); return; }
+  const faltan=[];
+  if(!vendedor) faltan.push('Vendedor');
+  if(!nombre) faltan.push('Nombre del cliente');
+  if(!condicion) faltan.push('Condición de pago');
+  if(faltan.length){ toast('Falta completar en Detalle del pedido: '+faltan.join(', ')); return; }
   const list=loadOrders();
   const rec={
     id: currentOrderId || ('P'+Date.now()+'-'+Math.floor(Math.random()*1000)),
