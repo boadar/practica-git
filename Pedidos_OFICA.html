@@ -172,15 +172,16 @@
   .right{display:flex;align-items:center;gap:10px;flex:0 0 auto}
   .umvbox{border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:11.5px;font-weight:700;color:var(--ink-2);white-space:nowrap;background:var(--surface);text-align:center;line-height:1.15}
   .qtycol{display:flex;flex-direction:column;align-items:center;gap:5px;flex:0 0 auto}
-  .bultopedbox{
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
-    border:1px solid var(--line);border-radius:9px;background:var(--surface);
-    padding:3px 8px;min-width:108px;line-height:1.1;white-space:nowrap;text-align:center
-  }
+  .bultopedbox{display:flex;flex-direction:column;align-items:center;gap:3px}
   .bultopedbox .bplbl{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-3)}
-  .bultopedbox .bpval{font-size:13px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.1}
-  .prod.on .bultopedbox .bpval{color:var(--active)}
-  .prod.on .bultopedbox{border-color:#BFE3D2}
+  .bstep .bpval{
+    display:grid;place-items:center;min-width:46px;height:34px;
+    border:1px solid var(--line);border-left:0;border-right:0;
+    font-size:13px;font-weight:700;color:var(--ink);background:var(--surface);
+    font-variant-numeric:tabular-nums;line-height:1
+  }
+  .prod.on .bstep .bpval{color:var(--active)}
+  .prod.on .bstep button{border-color:#BFE3D2}
   .invline{margin-top:6px;display:flex;align-items:center;gap:8px}
   .inv{font-size:13px;font-weight:800;letter-spacing:.2px;display:inline-flex;align-items:baseline;gap:5px}
   .inv b{font-weight:800}
@@ -17044,7 +17045,14 @@ function render(){
               <input type="number" inputmode="numeric" min="0" step="${step}" value="${qty||''}" placeholder="0" data-inp aria-label="Cantidad de ${esc(p.codigo)}"${dis}>
               <button class="plus" data-act="inc" aria-label="Agregar ${step}"${dis}>+</button>
             </div>
-            ${(+p.bulto>0)?`<div class="bultopedbox"><span class="bplbl">BULTOS PEDIDO</span><b class="bpval">${(qty/(+p.bulto)).toFixed(2)}</b></div>`:''}
+            ${(+p.bulto>0)?`<div class="bultopedbox">
+              <span class="bplbl">BULTOS PEDIDO</span>
+              <div class="stepper bstep">
+                <button class="minus" data-bact="dec" aria-label="Quitar un bulto (${fmtN.format(+p.bulto)} und)"${dis}>−</button>
+                <span class="bpval">${(qty/(+p.bulto)).toFixed(2)}</span>
+                <button class="plus" data-bact="inc" aria-label="Agregar un bulto (${fmtN.format(+p.bulto)} und)"${dis}>+</button>
+              </div>
+            </div>`:''}
           </div>
           <div class="linetot lt-sin"><span class="lt-lbl">Subtotal</span><span class="lt-val">${qty>0?fmt.format(net*qty):''}</span></div>
           <div class="linetot lt-con${exento?' off':''}"><span class="lt-lbl">+ IVA</span><span class="lt-val">${(qty>0&&!exento)?fmt.format(netIva*qty):''}</span></div>
@@ -17348,6 +17356,17 @@ function wire(){
     const p=byCode[code]; const step=(p&&+p.umv>0)?+p.umv:1;
     let q=+state.qty[code]||0;
     q += btn.dataset.act==='inc'?step:-step;
+    if(q<0)q=0;
+    setQty(code,q); refreshRow(row); updateTotals();
+    if(filter.onlyOn && !(state.qty[code]>0)) render();
+  });
+  // stepper de bultos: cada bulto suma/resta p.bulto unidades
+  $('#list').addEventListener('click',e=>{
+    const bb=e.target.closest('button[data-bact]'); if(!bb) return;
+    const row=bb.closest('.prod'); const code=row.dataset.code;
+    const p=byCode[code]; const bulto=(p&&+p.bulto>0)?+p.bulto:0; if(!bulto) return;
+    let q=+state.qty[code]||0;
+    q += bb.dataset.bact==='inc'?bulto:-bulto;
     if(q<0)q=0;
     setQty(code,q); refreshRow(row); updateTotals();
     if(filter.onlyOn && !(state.qty[code]>0)) render();
