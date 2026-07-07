@@ -58,7 +58,7 @@
   .stocktoggle[aria-pressed="true"] svg line{stroke:var(--crit)}
   .logo{
     width:38px;height:38px;border-radius:9px;background:rgba(255,255,255,.16);
-    display:grid;place-items:center;font-weight:800;font-size:19px;letter-spacing:.5px;flex:0 0 auto;
+    display:grid;place-items:center;font-weight:800;font-size:13px;letter-spacing:.3px;flex:0 0 auto;
     border:1px solid rgba(255,255,255,.25);
   }
   .titlewrap{min-width:130px;flex:1 1 150px}
@@ -334,7 +334,7 @@
 <div class="app">
   <div class="appbar">
     <div class="row">
-      <button class="logo" id="btnAdmin" type="button" title="Administrador — editar precios" aria-pressed="false">O</button>
+      <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
         <h1>Pedido</h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
@@ -17058,7 +17058,7 @@ function render(){
     const inv=Math.round(+p.inv||0);
     let sc='ok'; if(inv<=0)sc='no'; else if(inv<(+p.bulto||0))sc='low';
     const agotado = inv<=0;
-    const dis = (agotado||locked)?' disabled':'';
+    const dis = ((agotado && !adminMode)||locked)?' disabled':'';
     const src = imgFor(p.codigo);
     const thumb = src
       ? `<div class="thumb"><img src="${src}" alt="" loading="lazy"></div>`
@@ -17212,11 +17212,17 @@ function askPassword(){
 }
 
 // activa/desactiva la edición de precios (requiere clave para activar)
+function updateHideBtn(){
+  const b=$('#btnHideNoStock'); if(!b) return;
+  b.setAttribute('aria-pressed',filter.hideNoStock?'true':'false');
+  b.querySelector('span').textContent = filter.hideNoStock ? 'Mostrar Ref. Sin Inventario' : 'Ocultar Ref. Sin Inventario';
+}
+
 async function toggleAdmin(){
-  if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); render(); updateTotals(); toast('Precios bloqueados'); return; }
+  if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
   const pass=await askPassword();
   if(pass==null) return;
-  if(pass===ADMIN_KEY){ adminMode=true; $('#btnAdmin').setAttribute('aria-pressed','true'); render(); updateTotals(); toast('Edición de precios activada'); }
+  if(pass===ADMIN_KEY){ adminMode=true; $('#btnAdmin').setAttribute('aria-pressed','true'); filter.hideNoStock=false; updateHideBtn(); render(); updateTotals(); toast('Modo administrador activado'); }
   else toast('Clave incorrecta');
 }
 
@@ -17517,11 +17523,6 @@ function wire(){
   $('#btnMeta').addEventListener('click',()=> setMetaOpen($('#metaPanel').hasAttribute('hidden')) );
   $('#metaBackdrop').addEventListener('click',()=> setMetaOpen(false) );
   // ocultar/mostrar referencias sin inventario (texto de accion)
-  const updateHideBtn=()=>{
-    const b=$('#btnHideNoStock');
-    b.setAttribute('aria-pressed',filter.hideNoStock?'true':'false');
-    b.querySelector('span').textContent = filter.hideNoStock ? 'Mostrar Ref. Sin Inventario' : 'Ocultar Ref. Sin Inventario';
-  };
   updateHideBtn();
   $('#btnHideNoStock').addEventListener('click',()=>{
     filter.hideNoStock=!filter.hideNoStock;
