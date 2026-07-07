@@ -249,6 +249,7 @@
   .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:7px}
   .btn.save{border-color:#BFE3D2;color:var(--active)}
   .btn.edit{border-color:#B7E7F7;color:var(--brand-ink)}
+  .btn.clean{border-color:#EBD3A6;color:var(--warn)}
   .btn{
     -webkit-appearance:none;appearance:none;border:1px solid var(--line);background:var(--surface);
     color:var(--ink);border-radius:9px;padding:6px 4px;font-size:11px;font-weight:700;cursor:pointer;
@@ -463,6 +464,9 @@
     <button class="btn save" id="aSave">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
       Guardar Pedido</button>
+    <button class="btn clean" id="aClean">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H8.5L3 14.5a2 2 0 0 1 0-3l8-8a2 2 0 0 1 3 0l6 6a2 2 0 0 1 0 3L11 20"/><path d="M18 13 8 3"/></svg>
+      Limpiar Pedido</button>
     <button class="btn edit" id="aEdit" style="display:none">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
       Editar Pedido</button>
@@ -17183,9 +17187,9 @@ let toastT=null;
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);}
 
 // confirmacion propia (confirm() nativo no funciona dentro del iframe del artifact)
-function askConfirm(msg,okLabel){
+function askConfirm(msg,okLabel,noLabel){
   return new Promise(res=>{
-    const m=$('#confirmModal'); $('#cfMsg').textContent=msg; $('#cfOk').textContent=okLabel||'Aceptar';
+    const m=$('#confirmModal'); $('#cfMsg').textContent=msg; $('#cfOk').textContent=okLabel||'Aceptar'; $('#cfCancel').textContent=noLabel||'Cancelar';
     const ok=$('#cfOk'), cancel=$('#cfCancel'), x=$('#cfNo');
     function done(v){ m.classList.remove('open'); ok.removeEventListener('click',fOk); cancel.removeEventListener('click',fNo); x.removeEventListener('click',fNo); res(v); }
     function fOk(){done(true);} function fNo(){done(false);}
@@ -17397,6 +17401,20 @@ async function newOrder(){
   render(); updateTotals(); toast('Nuevo pedido listo');
 }
 
+// ---- limpiar pedido (borra todos los datos: cliente y cantidades) ----
+async function limpiarPedido(){
+  if(!(await askConfirm('¿Desea Borrar Todos los Datos del Pedido?','Sí','No'))) return;
+  state.qty={}; state.meta={desc1:'0',desc2:'0',desc3:'0'};
+  const d=new Date(); state.meta.fecha=d.toISOString().slice(0,10);
+  save();
+  currentOrderId=null; setLocked(false);
+  ['f_vendedor','f_cliente','f_codcliente','f_condicion','f_numped','f_obs'].forEach(id=>document.getElementById(id).value='');
+  ['f_desc1','f_desc2','f_desc3'].forEach(id=>document.getElementById(id).value='0');
+  document.getElementById('f_fecha').value=state.meta.fecha;
+  filter.onlyOn=false; filter.cat=''; syncChips();
+  render(); updateTotals(); toast('Pedido limpiado');
+}
+
 // ================= eventos =================
 function wire(){
   // steppers (delegación)
@@ -17537,6 +17555,7 @@ function wire(){
   // guardar / editar pedido
   $('#aSave').addEventListener('click',guardarPedido);
   $('#aEdit').addEventListener('click',editarPedido);
+  $('#aClean').addEventListener('click',limpiarPedido);
   // ver pedidos guardados
   $('#btnVerPedidos').addEventListener('click',openPedidos);
   $('#opClose').addEventListener('click',cerrarPedidos);
