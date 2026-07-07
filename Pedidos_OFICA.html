@@ -351,7 +351,7 @@
       <button class="iconbtn" id="btnMeta" aria-expanded="false">
         <svg class="ic-list" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 6h11M8 12h11M8 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>
         <svg class="ic-save" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
-        <span class="btnlabel">Detalle del pedido</span>
+        <span class="btnlabel">CLIENTE</span>
       </button>
       </div>
     </div>
@@ -17511,7 +17511,7 @@ function wire(){
     const p=$('#metaPanel'), btn=$('#btnMeta'), lbl=btn.querySelector('.btnlabel'), bd=$('#metaBackdrop');
     syncHeaderVars();
     if(open){ p.removeAttribute('hidden'); bd.removeAttribute('hidden'); btn.classList.add('saving'); lbl.textContent='GUARDAR'; p.scrollTop=0; }
-    else { p.setAttribute('hidden',''); bd.setAttribute('hidden',''); btn.classList.remove('saving'); lbl.textContent='Detalle del pedido'; }
+    else { p.setAttribute('hidden',''); bd.setAttribute('hidden',''); btn.classList.remove('saving'); lbl.textContent='CLIENTE'; }
     btn.setAttribute('aria-expanded',open?'true':'false');
   }
   $('#btnMeta').addEventListener('click',()=> setMetaOpen($('#metaPanel').hasAttribute('hidden')) );
