@@ -96,6 +96,8 @@
   .field{display:flex;flex-direction:column;gap:4px}
   .field.full{grid-column:1 / -1}
   .rowcli{grid-column:1 / -1;display:grid;grid-template-columns:1fr 84px;gap:10px}
+  .rowfv{grid-column:1 / -1;display:grid;grid-template-columns:132px 1fr;gap:10px}
+  .rowfv #f_fecha{width:100%}
   .row3{grid-column:1 / -1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
   .row3 .field label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .field label{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--ink-3)}
@@ -363,9 +365,11 @@
   <div class="meta-backdrop" id="metaBackdrop" hidden></div>
   <div class="meta" id="metaPanel" hidden>
     <div class="grid">
-      <div class="field"><label>Fecha</label><input type="date" id="f_fecha"></div>
-      <div class="field"><label>Vendedor</label>
-        <select id="f_vendedor"><option value="">— Seleccionar —</option></select>
+      <div class="rowfv">
+        <div class="field"><label>Fecha</label><input type="date" id="f_fecha"></div>
+        <div class="field"><label>Vendedor</label>
+          <select id="f_vendedor"><option value="">— Seleccionar —</option></select>
+        </div>
       </div>
       <div class="rowcli">
         <div class="field"><label>Nombre del cliente</label>
