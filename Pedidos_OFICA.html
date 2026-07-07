@@ -12,22 +12,6 @@
 </head>
 <body>
 <!--INNER_START-->
-<script>
-/* Diagnóstico: muestra en pantalla cualquier error (sintaxis o ejecución).
-   Útil para depurar en iPhone/Safari. Se puede quitar cuando el problema esté resuelto. */
-window.addEventListener('error', function(e){
-  try{
-    if(e && e.target && e.target.tagName && !e.message) return; // ignora errores de carga de recursos (img, etc.)
-    var t = e && e.message ? e.message : String(e);
-    if(e && e.filename) t += '  @' + (e.lineno||'?') + ':' + (e.colno||'?');
-    var d = document.getElementById('__err') || document.createElement('div');
-    d.id='__err';
-    d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99999;background:#C0392B;color:#fff;font:12px/1.4 -apple-system,monospace;padding:10px 12px;white-space:pre-wrap;word-break:break-word';
-    d.textContent='⚠️ ' + t;
-    (document.body||document.documentElement).appendChild(d);
-  }catch(_){}
-}, true);
-</script>
 <style>
   *,*::before,*::after{box-sizing:border-box}
   :root{
