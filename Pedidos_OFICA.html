@@ -46,7 +46,7 @@
     box-shadow:0 2px 8px rgba(0,120,170,.28);
   }
   .appbar .row{display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap}
-  .appbtns{display:flex;align-items:center;gap:8px;flex:0 0 auto;margin-left:auto}
+  .appbtns{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:8px}
   .stocktoggle{
     -webkit-appearance:none;appearance:none;border:1px solid rgba(255,255,255,.28);
     background:rgba(255,255,255,.12);color:#fff;border-radius:9px;padding:5px 7px;
@@ -339,7 +339,8 @@
         <h1>Pedido</h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
-      <div class="appbtns">
+    </div>
+    <div class="appbtns">
       <button class="stocktoggle" id="btnHideNoStock" aria-pressed="true" title="Mostrar/ocultar referencias sin inventario">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
         <span>Mostrar Ref. Sin Inventario</span>
@@ -353,7 +354,6 @@
         <svg class="ic-save" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
         <span class="btnlabel">CLIENTE</span>
       </button>
-      </div>
     </div>
   </div>
 
