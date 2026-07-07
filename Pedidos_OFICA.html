@@ -12,6 +12,22 @@
 </head>
 <body>
 <!--INNER_START-->
+<script>
+/* Diagnóstico: muestra en pantalla cualquier error (sintaxis o ejecución).
+   Útil para depurar en iPhone/Safari. Se puede quitar cuando el problema esté resuelto. */
+window.addEventListener('error', function(e){
+  try{
+    if(e && e.target && e.target.tagName && !e.message) return; // ignora errores de carga de recursos (img, etc.)
+    var t = e && e.message ? e.message : String(e);
+    if(e && e.filename) t += '  @' + (e.lineno||'?') + ':' + (e.colno||'?');
+    var d = document.getElementById('__err') || document.createElement('div');
+    d.id='__err';
+    d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99999;background:#C0392B;color:#fff;font:12px/1.4 -apple-system,monospace;padding:10px 12px;white-space:pre-wrap;word-break:break-word';
+    d.textContent='⚠️ ' + t;
+    (document.body||document.documentElement).appendChild(d);
+  }catch(_){}
+}, true);
+</script>
 <style>
   *,*::before,*::after{box-sizing:border-box}
   :root{
@@ -82,6 +98,7 @@
   .meta{
     position:fixed;top:var(--catoffset,150px);left:0;right:0;max-width:720px;margin:0 auto;z-index:28;
     background:var(--surface);border-bottom:1px solid var(--line);
+    max-height:calc(100vh - var(--catoffset,150px) - 74px);
     max-height:calc(100dvh - var(--catoffset,150px) - 74px);overflow-y:auto;
     box-shadow:0 12px 26px rgba(20,32,43,.22)
   }
