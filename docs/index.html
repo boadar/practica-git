@@ -101,6 +101,7 @@
   .row3{grid-column:1 / -1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
   .row3 .field label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .field label{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--ink-3)}
+  .field.req-empty label{color:var(--crit)}
   .field input,.field select,.field textarea{
     border:1px solid var(--line);border-radius:9px;padding:9px 10px;font-size:14px;color:var(--ink);
     background:var(--surface-2);width:100%;min-width:0;
@@ -17188,8 +17189,9 @@ function initMeta(){
     e.addEventListener('input',()=>{
       state.meta[map[id]]=e.value; save();
       if(id==='f_desc1'||id==='f_desc2'||id==='f_desc3') render();
-      updateTotals();
+      updateTotals(); updateReqLabels();
     });
+    e.addEventListener('change',updateReqLabels);
   }
 }
 
@@ -17226,6 +17228,16 @@ function updateHideBtn(){
   const b=$('#btnHideNoStock'); if(!b) return;
   b.setAttribute('aria-pressed',filter.hideNoStock?'true':'false');
   b.querySelector('span').textContent = filter.hideNoStock ? 'Mostrar Ref. Sin Inventario' : 'Ocultar Ref. Sin Inventario';
+}
+
+// pone en rojo el titulo de los campos obligatorios del detalle que esten vacios
+const REQ_FIELDS=['f_vendedor','f_cliente','f_codcliente','f_condicion'];
+function updateReqLabels(){
+  REQ_FIELDS.forEach(id=>{
+    const e=document.getElementById(id); if(!e) return;
+    const field=e.closest('.field'); if(!field) return;
+    field.classList.toggle('req-empty', !String(e.value||'').trim());
+  });
 }
 
 async function toggleAdmin(){
@@ -17526,7 +17538,7 @@ function wire(){
   function setMetaOpen(open){
     const p=$('#metaPanel'), btn=$('#btnMeta'), lbl=btn.querySelector('.btnlabel'), bd=$('#metaBackdrop');
     syncHeaderVars();
-    if(open){ p.removeAttribute('hidden'); bd.removeAttribute('hidden'); btn.classList.add('saving'); lbl.textContent='GUARDAR'; p.scrollTop=0; }
+    if(open){ p.removeAttribute('hidden'); bd.removeAttribute('hidden'); btn.classList.add('saving'); lbl.textContent='GUARDAR'; p.scrollTop=0; updateReqLabels(); }
     else { p.setAttribute('hidden',''); bd.setAttribute('hidden',''); btn.classList.remove('saving'); lbl.textContent='CLIENTE'; }
     btn.setAttribute('aria-expanded',open?'true':'false');
   }
@@ -17552,10 +17564,12 @@ function wire(){
   fc.addEventListener('change',()=>{
     const x=cliByNombre[fc.value.trim()];
     if(x){ fcc.value=x.c; state.meta.cliente=x.n; state.meta.codcliente=x.c; save(); updateTotals(); }
+    updateReqLabels();
   });
   fcc.addEventListener('change',()=>{
     const x=cliByCod[fcc.value.trim()];
     if(x){ fc.value=x.n; state.meta.cliente=x.n; state.meta.codcliente=x.c; save(); updateTotals(); }
+    updateReqLabels();
   });
   // acciones
   $('#aResumen').addEventListener('click',openResumen);
