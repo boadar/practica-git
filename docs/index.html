@@ -103,8 +103,11 @@
   .field label{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--ink-3)}
   .field input,.field select,.field textarea{
     border:1px solid var(--line);border-radius:9px;padding:9px 10px;font-size:14px;color:var(--ink);
-    background:var(--surface-2);width:100%;
+    background:var(--surface-2);width:100%;min-width:0;
   }
+  .field{min-width:0}
+  /* input date en iOS: respeta el ancho de la celda y no se desborda */
+  .field input[type="date"]{-webkit-appearance:none;appearance:none;min-width:0;max-width:100%;box-sizing:border-box}
   .field textarea{resize:vertical;min-height:38px}
   .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--brand);background:#fff}
 
