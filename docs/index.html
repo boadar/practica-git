@@ -17084,7 +17084,7 @@ function visibleProducts(){
   return CATALOGO.filter(p=>{
     if(filter.cat && p.categoria!==filter.cat) return false;
     if(filter.onlyOn && !(state.qty[p.codigo]>0)) return false;
-    if(filter.hideNoStock && Math.round(+p.inv||0)<=0 && !(state.qty[p.codigo]>0)) return false;
+    if(filter.hideNoStock && Math.round(+p.inv||0)<=0 && !(state.qty[p.codigo]>0) && !p.nuevo) return false;
     if(q){
       const hay=(p.nombre+' '+p.codigo).toLowerCase();
       if(!hay.includes(q)) return false;
@@ -17812,7 +17812,7 @@ function parseProductosNuevos(buf){
     const prod={
       codigo:codigo, nombre:nombre||codigo, categoria:'', exento:exento,
       inv:num(cells['E'+r]), precioBs:0, precioUsd:num(cells['F'+r]),
-      desc1:0, desc2:0, desc3:0, umv:num(cells['G'+r]), bulto:num(cells['H'+r])
+      desc1:0, desc2:0, desc3:0, umv:num(cells['G'+r]), bulto:num(cells['H'+r]), nuevo:true
     };
     nuevos.push(prod);
   }
@@ -17839,6 +17839,8 @@ async function categorizarYAgregarNuevos(nuevos, dup){
   if(!agregados.length){ toast('No se agregó ningún producto'); return; }
   agregados.forEach(p=>{ CATALOGO.push(p); byCode[p.codigo]=p; if(!CATS.includes(p.categoria)) CATS.push(p.categoria); });
   saveNewProducts(agregados);
+  // resetea la vista para que los productos recién agregados se vean de inmediato
+  filter.onlyOn=false; filter.cat=''; filter.q=''; const qi=$('#q'); if(qi) qi.value='';
   buildChips(); render(); updateTotals();
   const omit=nuevos.length-agregados.length;
   toast(agregados.length+' producto'+(agregados.length===1?'':'s')+' agregado'+(agregados.length===1?'':'s')+(omit?' · '+omit+' sin cargar':'')+(dup.length?' · '+dup.length+' ya existían':'')+' ✓');
