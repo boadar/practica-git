@@ -557,7 +557,7 @@
   <div class="sheet">
     <header><h2>Categoría del producto</h2><button class="closex" id="catNo">×</button></header>
     <div class="cfbody">
-      <p>¿En qué categoría se colocarán los productos nuevos? Elige una existente o escribe una nueva.</p>
+      <p id="catMsg" style="white-space:pre-line">¿En qué categoría se colocará este producto? Elige una existente o escribe una nueva.</p>
       <input type="text" id="catInput" list="catInputList" placeholder="Ej: BLOCKS, LÁPICES DE COLORES" autocomplete="off" autocapitalize="characters" spellcheck="false">
       <datalist id="catInputList"></datalist>
       <div class="cfbtns">
@@ -17294,12 +17294,13 @@ function askPassword(){
   });
 }
 
-// pide la categoría para los productos nuevos; devuelve el texto o null si se cancela
-function askCategoria(){
+// pide la categoría de un producto; devuelve el texto o null si se cancela
+function askCategoria(msg,initial){
   return new Promise(res=>{
     const m=$('#catModal'), inp=$('#catInput'), dl=$('#catInputList'), ok=$('#catOk'), cancel=$('#catCancel'), x=$('#catNo');
+    if(msg!=null) $('#catMsg').textContent=msg;
     dl.innerHTML=[...new Set(CATS)].map(c=>'<option value="'+esc(c)+'"></option>').join('');
-    inp.value='';
+    inp.value=initial||'';
     function done(v){ m.classList.remove('open'); ok.removeEventListener('click',fOk); cancel.removeEventListener('click',fNo); x.removeEventListener('click',fNo); inp.removeEventListener('keydown',fKey); res(v); }
     function fOk(){ const val=String(inp.value||'').trim(); if(!val){ inp.focus(); return; } done(val); }
     function fNo(){ done(null); }
@@ -17766,8 +17767,8 @@ async function cargarInventarioDesdeXlsx(buf){
 
 // ===== Cargar Producto Nuevo desde .xlsx =====
 // Lee: código (B), nombre (C), exento (D: SI/NO), inventario (E), precio $ (F), UMV (G), BULTO (H).
-// Los productos se agregan a la categoría indicada y persisten en el navegador.
-function cargarProductosNuevosDesdeXlsx(buf, categoria){
+// La categoría se pregunta luego, producto por producto.
+function parseProductosNuevos(buf){
   const zip=xlsxOpenZip(buf);
   const shared=[]; const ssB=zip.get('xl/sharedStrings.xml');
   if(ssB){ const xml=xlText(ssB); const si=/<si>([\s\S]*?)<\/si>/g; let m; while(m=si.exec(xml)){ const tr=/<t[^>]*>([\s\S]*?)<\/t>/g; let t,s=''; while(t=tr.exec(m[1])) s+=t[1]; shared.push(xlUnesc(s)); } }
@@ -17809,22 +17810,38 @@ function cargarProductosNuevosDesdeXlsx(buf, categoria){
     const exRaw=cells['D'+r]!=null?String(cells['D'+r]).trim().toUpperCase():'';
     const exento=(exRaw.charAt(0)==='S')?'SI':'NO';
     const prod={
-      codigo:codigo, nombre:nombre||codigo, categoria:categoria, exento:exento,
+      codigo:codigo, nombre:nombre||codigo, categoria:'', exento:exento,
       inv:num(cells['E'+r]), precioBs:0, precioUsd:num(cells['F'+r]),
       desc1:0, desc2:0, desc3:0, umv:num(cells['G'+r]), bulto:num(cells['H'+r])
     };
     nuevos.push(prod);
   }
-  if(nuevos.length===0){
-    if(dup.length){ throw new Error('Los '+dup.length+' productos del archivo ya existen en el catálogo'); }
-    throw new Error('No se encontraron productos para agregar (revisa las columnas B a H)');
+  return {nuevos:nuevos, dup:dup};
+}
+
+// Pregunta la categoría de cada producto (uno a uno) y luego los agrega y persiste.
+async function categorizarYAgregarNuevos(nuevos, dup){
+  dup=dup||[];
+  if(!nuevos.length){
+    if(dup.length){ toast('Los '+dup.length+' producto'+(dup.length===1?'':'s')+' del archivo ya existen en el catálogo'); }
+    else { toast('No se encontraron productos para agregar (revisa las columnas B a H)'); }
+    return;
   }
-  // aplicar: agregar al catálogo, índice, categoría y persistir
-  nuevos.forEach(p=>{ CATALOGO.push(p); byCode[p.codigo]=p; });
-  if(!CATS.includes(categoria)) CATS.push(categoria);
-  saveNewProducts(nuevos);
+  const agregados=[]; let last='';
+  for(let i=0;i<nuevos.length;i++){
+    const p=nuevos[i];
+    const desc=(p.nombre && p.nombre!==p.codigo) ? (p.codigo+' — '+p.nombre) : p.codigo;
+    const cat=await askCategoria('Producto '+(i+1)+' de '+nuevos.length+':  '+desc+'\n¿A qué categoría pertenece?', last);
+    if(cat==null) break;   // cancelar: detiene el proceso y conserva lo ya categorizado
+    p.categoria=cat; last=cat;
+    agregados.push(p);
+  }
+  if(!agregados.length){ toast('No se agregó ningún producto'); return; }
+  agregados.forEach(p=>{ CATALOGO.push(p); byCode[p.codigo]=p; if(!CATS.includes(p.categoria)) CATS.push(p.categoria); });
+  saveNewProducts(agregados);
   buildChips(); render(); updateTotals();
-  toast(nuevos.length+' producto'+(nuevos.length===1?'':'s')+' agregado'+(nuevos.length===1?'':'s')+' en "'+catDisplay(categoria)+'"'+(dup.length?' · '+dup.length+' ya existían':'')+' ✓');
+  const omit=nuevos.length-agregados.length;
+  toast(agregados.length+' producto'+(agregados.length===1?'':'s')+' agregado'+(agregados.length===1?'':'s')+(omit?' · '+omit+' sin cargar':'')+(dup.length?' · '+dup.length+' ya existían':'')+' ✓');
 }
 
 // ---- imprimir ----
@@ -18054,23 +18071,19 @@ function wire(){
       e.target.value='';
     }).catch(err=>{ toast('No se pudo leer el archivo'); console.error(err); e.target.value=''; });
   });
-  // cargar productos nuevos desde xlsx (admin): primero pide la categoría
-  let nuevoProdCat=null;
-  $('#btnNuevoProd').addEventListener('click',async ()=>{
-    const cat=await askCategoria();
-    if(cat==null) return;
-    nuevoProdCat=cat;
-    $('#fileNuevoProd').click();
-  });
+  // cargar productos nuevos desde xlsx (admin): primero el archivo, luego categoría por línea
+  $('#btnNuevoProd').addEventListener('click',()=>{ $('#fileNuevoProd').click(); });
   $('#fileNuevoProd').addEventListener('change',e=>{
     const f=e.target.files&&e.target.files[0];
-    if(!f || !nuevoProdCat){ e.target.value=''; return; }
-    const cat=nuevoProdCat;
-    f.arrayBuffer().then(ab=>{
-      try{ cargarProductosNuevosDesdeXlsx(new Uint8Array(ab), cat); }
-      catch(err){ toast(err&&err.message?err.message:'No se pudo leer el archivo'); console.error(err); }
-      e.target.value=''; nuevoProdCat=null;
-    }).catch(err=>{ toast('No se pudo leer el archivo'); console.error(err); e.target.value=''; nuevoProdCat=null; });
+    if(!f){ e.target.value=''; return; }
+    f.arrayBuffer().then(async ab=>{
+      let parsed=null;
+      try{ parsed=parseProductosNuevos(new Uint8Array(ab)); }
+      catch(err){ toast(err&&err.message?err.message:'No se pudo leer el archivo'); console.error(err); e.target.value=''; return; }
+      e.target.value='';
+      try{ await categorizarYAgregarNuevos(parsed.nuevos, parsed.dup); }
+      catch(err){ toast('Error al agregar productos'); console.error(err); }
+    }).catch(err=>{ toast('No se pudo leer el archivo'); console.error(err); e.target.value=''; });
   });
   $('#btnVerPedidos').addEventListener('click',openPedidos);
   $('#opClose').addEventListener('click',cerrarPedidos);
