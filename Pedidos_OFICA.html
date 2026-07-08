@@ -17401,7 +17401,7 @@ function priceSheetXml(rows, hasDrawing, prodW){
     const ht = ri===0 ? '' : ' ht="36" customHeight="1"';
     body+=`<row r="${r}"${ht}>`+cells.map((v,ci)=>{
       if(v===''||v==null) return '';
-      const s=(ci===3||ci===4)?1:0; // UMV y Bulto centrados
+      const s=(ci===0||ci===2)?0:1; // centrar todo excepto Imagen (A) y Producto (C)
       return cellXmlS(r,ci,v,s);
     }).join('')+`</row>`;
   });
@@ -17413,7 +17413,7 @@ function priceSheetXml(rows, hasDrawing, prodW){
     `<col min="4" max="4" width="7" customWidth="1"/>`,
     `<col min="5" max="5" width="8" customWidth="1"/>`
   ];
-  for(let i=5;i<headers.length;i++){ const w=String(headers[i]||'').length+2; colsArr.push(`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`); }
+  for(let i=5;i<headers.length;i++){ const w=String(headers[i]||'').length+1; colsArr.push(`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`); }
   const cols=`<cols>${colsArr.join('')}</cols>`;
   const draw = hasDrawing ? `<drawing r:id="rId1"/>` : '';
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -17453,8 +17453,8 @@ function buildPriceXlsx(){
     const rowIdx=i+1; // fila 0 = encabezado; producto i -> fila i+1 (0-based del dibujo)
     anchors.push(
       `<oneCellAnchor>`+
-        `<from><col>0</col><colOff>0</colOff><row>${rowIdx}</row><rowOff>0</rowOff></from>`+
-        `<ext cx="438150" cy="438150"/>`+
+        `<from><col>0</col><colOff>66675</colOff><row>${rowIdx}</row><rowOff>57150</rowOff></from>`+
+        `<ext cx="342900" cy="342900"/>`+
         `<pic>`+
           `<nvPicPr><cNvPr id="${n}" name="Image ${n}" descr="Picture"/><cNvPicPr/></nvPicPr>`+
           `<blipFill><a:blip cstate="print" r:embed="rId${n}"/><a:stretch><a:fillRect/></a:stretch></blipFill>`+
