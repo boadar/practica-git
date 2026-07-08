@@ -17827,13 +17827,13 @@ async function categorizarYAgregarNuevos(nuevos, dup){
     else { toast('No se encontraron productos para agregar (revisa las columnas B a H)'); }
     return;
   }
-  const agregados=[]; let last='';
+  const agregados=[];
   for(let i=0;i<nuevos.length;i++){
     const p=nuevos[i];
     const desc=(p.nombre && p.nombre!==p.codigo) ? (p.codigo+' — '+p.nombre) : p.codigo;
-    const cat=await askCategoria('Producto '+(i+1)+' de '+nuevos.length+':  '+desc+'\n¿A qué categoría pertenece?', last);
+    const cat=await askCategoria('Producto '+(i+1)+' de '+nuevos.length+':  '+desc+'\n¿A qué categoría pertenece?', '');
     if(cat==null) break;   // cancelar: detiene el proceso y conserva lo ya categorizado
-    p.categoria=cat; last=cat;
+    p.categoria=cat;
     agregados.push(p);
   }
   if(!agregados.length){ toast('No se agregó ningún producto'); return; }
