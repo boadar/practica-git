@@ -17392,14 +17392,23 @@ function dataUriToImg(uri){
   for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
   return {ext: mime==='image/png'?'png':'jpeg', bytes:arr};
 }
-function priceSheetXml(rows, hasDrawing){
+function cellXmlS(r,ci,v,s){
+  const ref=colName(ci)+r; const st=s?` s="${s}"`:'';
+  if(typeof v==='number'&&isFinite(v)) return `<c r="${ref}"${st}><v>${v}</v></c>`;
+  return `<c r="${ref}"${st} t="inlineStr"><is><t xml:space="preserve">${esc(v)}</t></is></c>`;
+}
+function priceSheetXml(rows, hasDrawing, prodW){
   let body='';
   rows.forEach((cells,ri)=>{
     const r=ri+1;
     const ht = ri===0 ? '' : ' ht="36" customHeight="1"';
-    body+=`<row r="${r}"${ht}>`+cells.map((v,ci)=>v===''||v==null?'':cellXml(r,ci,v)).join('')+`</row>`;
+    body+=`<row r="${r}"${ht}>`+cells.map((v,ci)=>{
+      if(v===''||v==null) return '';
+      const s=(ci===3||ci===4)?1:0; // UMV y Bulto centrados
+      return cellXmlS(r,ci,v,s);
+    }).join('')+`</row>`;
   });
-  const cols=`<cols><col min="1" max="1" width="8"/><col min="2" max="2" width="14"/><col min="3" max="3" width="50"/><col min="4" max="8" width="14"/></cols>`;
+  const cols=`<cols><col min="1" max="1" width="9" customWidth="1"/><col min="2" max="2" width="14" customWidth="1"/><col min="3" max="3" width="${prodW}" customWidth="1"/><col min="4" max="4" width="7" customWidth="1"/><col min="5" max="5" width="8" customWidth="1"/><col min="6" max="8" width="15" customWidth="1"/></cols>`;
   const draw = hasDrawing ? `<drawing r:id="rId1"/>` : '';
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${cols}<sheetData>${body}</sheetData>${draw}</worksheet>`;
@@ -17414,13 +17423,17 @@ function buildPriceXlsx(){
   if(hasDesc) headers.push('Precio c/desc');
   headers.push('Precio + IVA');
   const rows=[headers];
+  let maxNameLen=String(headers[2]).length;
   prods.forEach(p=>{
     const net=(+p.precioUsd||0)*f; const iva=ivaRateOf(p);
-    const row=['', p.codigo, p.nombre, (+p.umv||0), (+p.bulto||0), round2(p.precioUsd)];
+    const nombre=String(p.nombre||'');
+    if(nombre.length>maxNameLen) maxNameLen=nombre.length;
+    const row=['', p.codigo, nombre, (+p.umv||0), (+p.bulto||0), round2(p.precioUsd)];
     if(hasDesc) row.push(round2(net));
     row.push(iva>0 ? round2(net*(1+iva)) : '');
     rows.push(row);
   });
+  const prodW = Math.min(maxNameLen + 2, 100); // ancho de columna Producto = descripcion mas larga
 
   // imágenes -> media + anclas del dibujo
   const media=[], anchors=[], drawRels=[];
@@ -17439,7 +17452,7 @@ function buildPriceXlsx(){
         `<xdr:pic>`+
           `<xdr:nvPicPr><xdr:cNvPr id="${n}" name="img${n}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>`+
           `<xdr:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="rId${n}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>`+
-          `<xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>`+
+          `<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="438150" cy="438150"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>`+
         `</xdr:pic>`+
         `<xdr:clientData/>`+
       `</xdr:oneCellAnchor>`
@@ -17448,13 +17461,15 @@ function buildPriceXlsx(){
   const hasDrawing = n>0;
 
   const ct=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/><Default Extension="png" ContentType="image/png"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>${hasDrawing?'<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>':''}</Types>`;
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/><Default Extension="png" ContentType="image/png"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${hasDrawing?'<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>':''}</Types>`;
+  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="1"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
   const rels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
   const wb=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Lista de Precios" sheetId="1" r:id="rId1"/></sheets></workbook>`;
   const wbr=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`;
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
   const sheetRels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>`;
   const drawing=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -17467,7 +17482,8 @@ function buildPriceXlsx(){
     {name:'_rels/.rels',data:enc.encode(rels)},
     {name:'xl/workbook.xml',data:enc.encode(wb)},
     {name:'xl/_rels/workbook.xml.rels',data:enc.encode(wbr)},
-    {name:'xl/worksheets/sheet1.xml',data:enc.encode(priceSheetXml(rows,hasDrawing))},
+    {name:'xl/styles.xml',data:enc.encode(styles)},
+    {name:'xl/worksheets/sheet1.xml',data:enc.encode(priceSheetXml(rows,hasDrawing,prodW))},
   ];
   if(hasDrawing){
     files.push({name:'xl/worksheets/_rels/sheet1.xml.rels',data:enc.encode(sheetRels)});
