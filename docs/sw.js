@@ -1,7 +1,7 @@
 /* Service worker de Pedidos OFICA — permite usar la app sin conexión.
    Estrategia: cache-first para los recursos propios; guarda en caché lo que se pide.
    Sube el número de versión (CACHE) cuando publiques una nueva versión de la app. */
-const CACHE = 'pedidos-ofica-v15';
+const CACHE = 'pedidos-ofica-v16';
 const ASSETS = [
   './',
   './index.html',
