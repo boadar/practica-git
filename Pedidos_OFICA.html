@@ -304,7 +304,7 @@
   .cfbody p{margin:0 0 18px;font-size:14px;color:var(--ink);line-height:1.45}
   .cfbtns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .cfbtns .btn{padding:12px;font-size:13px}
-  #admPass{width:100%;border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-size:15px;background:var(--surface-2);margin-bottom:16px}
+  #admPass,#catInput{width:100%;border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-size:15px;background:var(--surface-2);margin-bottom:16px}
   .logo{-webkit-appearance:none;appearance:none;cursor:pointer;padding:0}
   .logo[aria-pressed="true"]{background:#fff;color:var(--brand);border-color:#fff}
   .price.editing{display:inline-flex;align-items:center;gap:2px;font-weight:800;color:var(--brand-ink)}
@@ -356,6 +356,10 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7L9 18l-5-5"/><path d="M3 3h18v4H3z"/></svg>
         <span class="btnlabel">Cargar Inventario</span>
       </button>
+      <button class="iconbtn cargarinv" id="btnNuevoProd" type="button" style="display:none" title="Agregar productos nuevos desde Excel">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        <span class="btnlabel">Cargar Producto Nuevo</span>
+      </button>
     </div>
     <div class="appbtns">
       <button class="stocktoggle" id="btnHideNoStock" aria-pressed="true" title="Mostrar/ocultar referencias sin inventario">
@@ -379,6 +383,7 @@
   </div>
   <input type="file" id="fileCargar" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
   <input type="file" id="fileCargarInv" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
+  <input type="file" id="fileNuevoProd" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
 
   <div class="meta-backdrop" id="metaBackdrop" hidden></div>
   <div class="meta" id="metaPanel" hidden>
@@ -540,6 +545,21 @@
       <div class="cfbtns">
         <button class="btn" id="cfCancel">Cancelar</button>
         <button class="btn primary" id="cfOk">Aceptar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="catModal">
+  <div class="sheet">
+    <header><h2>Categoría del producto</h2><button class="closex" id="catNo">×</button></header>
+    <div class="cfbody">
+      <p>¿En qué categoría se colocarán los productos nuevos? Elige una existente o escribe una nueva.</p>
+      <input type="text" id="catInput" list="catInputList" placeholder="Ej: BLOCKS, LÁPICES DE COLORES" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <datalist id="catInputList"></datalist>
+      <div class="cfbtns">
+        <button class="btn" id="catCancel">Cancelar</button>
+        <button class="btn primary" id="catOk">Continuar</button>
       </div>
     </div>
   </div>
@@ -16992,6 +17012,23 @@ function editarPedido(){ setLocked(false); filter.onlyOn=false; filter.cat=''; s
 
 const byCode = {};
 CATALOGO.forEach(p=>byCode[p.codigo]=p);
+// ---- productos nuevos cargados desde Excel (persisten en el navegador) ----
+const NEWPROD_KEY='ofica_productos_nuevos_v1';
+function loadNewProducts(){
+  try{
+    const raw=localStorage.getItem(NEWPROD_KEY); if(!raw) return;
+    const arr=JSON.parse(raw)||[];
+    arr.forEach(p=>{ if(p && p.codigo && !byCode[p.codigo]){ CATALOGO.push(p); byCode[p.codigo]=p; } });
+  }catch(e){}
+}
+function saveNewProducts(list){
+  try{
+    const raw=localStorage.getItem(NEWPROD_KEY); const arr=raw?(JSON.parse(raw)||[]):[];
+    list.forEach(p=>arr.push(p));
+    localStorage.setItem(NEWPROD_KEY,JSON.stringify(arr));
+  }catch(e){}
+}
+loadNewProducts();
 // ---- inventario cargado desde Excel (persiste en el navegador) ----
 const INV_KEY='ofica_inventario_v1';
 function loadInvOverrides(){
@@ -17254,6 +17291,21 @@ function askPassword(){
   });
 }
 
+// pide la categoría para los productos nuevos; devuelve el texto o null si se cancela
+function askCategoria(){
+  return new Promise(res=>{
+    const m=$('#catModal'), inp=$('#catInput'), dl=$('#catInputList'), ok=$('#catOk'), cancel=$('#catCancel'), x=$('#catNo');
+    dl.innerHTML=[...new Set(CATS)].map(c=>'<option value="'+esc(c)+'"></option>').join('');
+    inp.value='';
+    function done(v){ m.classList.remove('open'); ok.removeEventListener('click',fOk); cancel.removeEventListener('click',fNo); x.removeEventListener('click',fNo); inp.removeEventListener('keydown',fKey); res(v); }
+    function fOk(){ const val=String(inp.value||'').trim(); if(!val){ inp.focus(); return; } done(val); }
+    function fNo(){ done(null); }
+    function fKey(ev){ if(ev.key==='Enter'){ev.preventDefault();fOk();} else if(ev.key==='Escape'){ev.preventDefault();fNo();} }
+    ok.addEventListener('click',fOk); cancel.addEventListener('click',fNo); x.addEventListener('click',fNo); inp.addEventListener('keydown',fKey);
+    m.classList.add('open'); setTimeout(()=>inp.focus(),50);
+  });
+}
+
 // activa/desactiva la edición de precios (requiere clave para activar)
 function updateHideBtn(){
   const b=$('#btnHideNoStock'); if(!b) return;
@@ -17272,10 +17324,10 @@ function updateReqLabels(){
 }
 
 async function toggleAdmin(){
-  if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); const bc=$('#btnCargar'); if(bc) bc.style.display='none'; const bi=$('#btnCargarInv'); if(bi) bi.style.display='none'; filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
+  if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); const bc=$('#btnCargar'); if(bc) bc.style.display='none'; const bi=$('#btnCargarInv'); if(bi) bi.style.display='none'; const bn=$('#btnNuevoProd'); if(bn) bn.style.display='none'; filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
   const pass=await askPassword();
   if(pass==null) return;
-  if(pass===ADMIN_KEY){ adminMode=true; $('#btnAdmin').setAttribute('aria-pressed','true'); const bc=$('#btnCargar'); if(bc) bc.style.display=''; const bi=$('#btnCargarInv'); if(bi) bi.style.display=''; filter.hideNoStock=false; updateHideBtn(); render(); updateTotals(); toast('Modo administrador activado'); }
+  if(pass===ADMIN_KEY){ adminMode=true; $('#btnAdmin').setAttribute('aria-pressed','true'); const bc=$('#btnCargar'); if(bc) bc.style.display=''; const bi=$('#btnCargarInv'); if(bi) bi.style.display=''; const bn=$('#btnNuevoProd'); if(bn) bn.style.display=''; filter.hideNoStock=false; updateHideBtn(); render(); updateTotals(); toast('Modo administrador activado'); }
   else toast('Clave incorrecta');
 }
 
@@ -17709,6 +17761,69 @@ async function cargarInventarioDesdeXlsx(buf){
   }
 }
 
+// ===== Cargar Producto Nuevo desde .xlsx =====
+// Lee: código (B), nombre (C), exento (D: SI/NO), inventario (E), precio $ (F), UMV (G), BULTO (H).
+// Los productos se agregan a la categoría indicada y persisten en el navegador.
+function cargarProductosNuevosDesdeXlsx(buf, categoria){
+  const zip=xlsxOpenZip(buf);
+  const shared=[]; const ssB=zip.get('xl/sharedStrings.xml');
+  if(ssB){ const xml=xlText(ssB); const si=/<si>([\s\S]*?)<\/si>/g; let m; while(m=si.exec(xml)){ const tr=/<t[^>]*>([\s\S]*?)<\/t>/g; let t,s=''; while(t=tr.exec(m[1])) s+=t[1]; shared.push(xlUnesc(s)); } }
+  const wbB=zip.get('xl/workbook.xml'); if(!wbB) throw new Error('Archivo no válido');
+  const wb=xlText(wbB); const relsB=zip.get('xl/_rels/workbook.xml.rels'); const rels=relsB?xlText(relsB):'';
+  const relMap={}; (rels.match(/<Relationship\b[^>]*\/?>/g)||[]).forEach(t=>{ const id=(t.match(/Id="([^"]+)"/)||[])[1]; const tg=(t.match(/Target="([^"]+)"/)||[])[1]; if(id&&tg) relMap[id]=tg; });
+  // usa la primera hoja del libro
+  let sheetFile=null; let firstRid=null;
+  const sm=wb.match(/<sheet\b[^>]*\/?>/g)||[];
+  if(sm.length){ firstRid=(sm[0].match(/r:id="([^"]+)"/)||[])[1]; }
+  if(firstRid && relMap[firstRid]){ let tg=relMap[firstRid]; if(tg.charAt(0)==='/') tg=tg.slice(1); else if(!/^xl\//.test(tg)) tg='xl/'+tg; sheetFile=tg; }
+  if(!sheetFile) sheetFile='xl/worksheets/sheet1.xml';
+  const shB=zip.get(sheetFile); if(!shB) throw new Error('No se pudo leer la hoja');
+  const sh=xlText(shB); const cells={}; let maxRow=0;
+  const cRe=/<c\s+([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g; let m;
+  while(m=cRe.exec(sh)){
+    const attrs=m[1], inner=m[2]||''; const ref=(attrs.match(/r="([A-Z]+\d+)"/)||[])[1]; if(!ref) continue;
+    const t=(attrs.match(/t="([^"]+)"/)||[])[1]; let val;
+    if(t==='s'){ const vi=(inner.match(/<v>([\s\S]*?)<\/v>/)||[])[1]; val=shared[parseInt(vi,10)]; }
+    else if(t==='inlineStr'){ const tt=inner.match(/<t[^>]*>([\s\S]*?)<\/t>/); val=tt?xlUnesc(tt[1]):''; }
+    else if(t==='str'){ const vv=(inner.match(/<v>([\s\S]*?)<\/v>/)||[])[1]; val=xlUnesc(vv||''); }
+    else { const vv=(inner.match(/<v>([\s\S]*?)<\/v>/)||[])[1]; val=(vv!=null&&vv!=='')?parseFloat(vv):undefined; }
+    if(val!==undefined){ cells[ref]=val; const rr=+ref.match(/\d+/)[0]; if(rr>maxRow) maxRow=rr; }
+  }
+  const norm=s=>String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9]/g,'').toUpperCase();
+  const num=v=>{ const n=parseFloat(v); return isFinite(n)?n:0; };
+  const HEAD={'CODIGO':1,'CODIGOARTICULO':1,'COD':1,'REFERENCIA':1,'REF':1,'ARTICULO':1};
+  const nuevos=[]; const dup=[]; const seen={};
+  for(let r=1;r<=maxRow;r++){
+    const rawB=cells['B'+r]; if(rawB==null) continue;
+    const codigo=String(rawB).trim(); if(!codigo) continue;
+    const nb=norm(codigo);
+    if(!nb) continue;
+    // salta encabezados
+    if(HEAD[nb]) continue;
+    if(byCode[codigo]){ dup.push(codigo); continue; }
+    if(seen[codigo]){ continue; } seen[codigo]=1;
+    const nombre=cells['C'+r]!=null?String(cells['C'+r]).trim():'';
+    const exRaw=cells['D'+r]!=null?String(cells['D'+r]).trim().toUpperCase():'';
+    const exento=(exRaw.charAt(0)==='S')?'SI':'NO';
+    const prod={
+      codigo:codigo, nombre:nombre||codigo, categoria:categoria, exento:exento,
+      inv:num(cells['E'+r]), precioBs:0, precioUsd:num(cells['F'+r]),
+      desc1:0, desc2:0, desc3:0, umv:num(cells['G'+r]), bulto:num(cells['H'+r])
+    };
+    nuevos.push(prod);
+  }
+  if(nuevos.length===0){
+    if(dup.length){ throw new Error('Los '+dup.length+' productos del archivo ya existen en el catálogo'); }
+    throw new Error('No se encontraron productos para agregar (revisa las columnas B a H)');
+  }
+  // aplicar: agregar al catálogo, índice, categoría y persistir
+  nuevos.forEach(p=>{ CATALOGO.push(p); byCode[p.codigo]=p; });
+  if(!CATS.includes(categoria)) CATS.push(categoria);
+  saveNewProducts(nuevos);
+  buildChips(); render(); updateTotals();
+  toast(nuevos.length+' producto'+(nuevos.length===1?'':'s')+' agregado'+(nuevos.length===1?'':'s')+' en "'+catDisplay(categoria)+'"'+(dup.length?' · '+dup.length+' ya existían':'')+' ✓');
+}
+
 // ---- imprimir ----
 function buildPrint(){
   const m=state.meta,t=totals(),f=factorGlobal();
@@ -17936,6 +18051,24 @@ function wire(){
       e.target.value='';
     }).catch(err=>{ toast('No se pudo leer el archivo'); console.error(err); e.target.value=''; });
   });
+  // cargar productos nuevos desde xlsx (admin): primero pide la categoría
+  let nuevoProdCat=null;
+  $('#btnNuevoProd').addEventListener('click',async ()=>{
+    const cat=await askCategoria();
+    if(cat==null) return;
+    nuevoProdCat=cat;
+    $('#fileNuevoProd').click();
+  });
+  $('#fileNuevoProd').addEventListener('change',e=>{
+    const f=e.target.files&&e.target.files[0];
+    if(!f || !nuevoProdCat){ e.target.value=''; return; }
+    const cat=nuevoProdCat;
+    f.arrayBuffer().then(ab=>{
+      try{ cargarProductosNuevosDesdeXlsx(new Uint8Array(ab), cat); }
+      catch(err){ toast(err&&err.message?err.message:'No se pudo leer el archivo'); console.error(err); }
+      e.target.value=''; nuevoProdCat=null;
+    }).catch(err=>{ toast('No se pudo leer el archivo'); console.error(err); e.target.value=''; nuevoProdCat=null; });
+  });
   $('#btnVerPedidos').addEventListener('click',openPedidos);
   $('#opClose').addEventListener('click',cerrarPedidos);
   $('#ordersModal').addEventListener('click',e=>{ if(e.target===$('#ordersModal')) cerrarPedidos(); });
@@ -17950,6 +18083,7 @@ function wire(){
   document.addEventListener('keydown',e=>{
     if(e.key!=='Escape') return;
     if($('#adminModal').classList.contains('open')){ $('#admNo').click(); return; }
+    if($('#catModal').classList.contains('open')){ $('#catNo').click(); return; }
     if($('#confirmModal').classList.contains('open')){ $('#cfNo').click(); return; }
     if($('#ordersModal').classList.contains('open')){ cerrarPedidos(); return; }
     if($('#modal').classList.contains('open')){ $('#modal').classList.remove('open'); return; }
