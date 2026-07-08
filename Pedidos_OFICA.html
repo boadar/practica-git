@@ -46,7 +46,8 @@
     box-shadow:0 2px 8px rgba(0,120,170,.28);
   }
   .appbar .row{display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap}
-  .appbtns{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .appbtns{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .appbtns > button{flex:1 1 40%;justify-content:center;max-width:none;text-align:center}
   .stocktoggle{
     -webkit-appearance:none;appearance:none;border:1px solid rgba(255,255,255,.28);
     background:rgba(255,255,255,.12);color:#fff;border-radius:9px;padding:5px 7px;
@@ -350,6 +351,10 @@
       <button class="stocktoggle" id="btnHideNoStock" aria-pressed="true" title="Mostrar/ocultar referencias sin inventario">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
         <span>Mostrar Ref. Sin Inventario</span>
+      </button>
+      <button class="iconbtn" id="btnPrecios">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h4"/></svg>
+        <span class="btnlabel">Lista de Precios</span>
       </button>
       <button class="iconbtn" id="btnVerPedidos">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5h9M9 12h9M9 19h9M4 5h.01M4 12h.01M4 19h.01"/></svg>
@@ -17377,6 +17382,106 @@ function exportExcel(){
   }catch(e){toast('Error al generar Excel');console.error(e);}
 }
 
+// ===== Lista de Precios (.xlsx con imágenes embebidas) =====
+function dataUriToImg(uri){
+  const m=/^data:([^;]+);base64,(.*)$/.exec(uri||''); if(!m) return null;
+  const mime=m[1]; const bin=atob(m[2]); const arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+  return {ext: mime==='image/png'?'png':'jpeg', bytes:arr};
+}
+function priceSheetXml(rows, hasDrawing){
+  let body='';
+  rows.forEach((cells,ri)=>{
+    const r=ri+1;
+    const ht = ri===0 ? '' : ' ht="36" customHeight="1"';
+    body+=`<row r="${r}"${ht}>`+cells.map((v,ci)=>v===''||v==null?'':cellXml(r,ci,v)).join('')+`</row>`;
+  });
+  const cols=`<cols><col min="1" max="1" width="8"/><col min="2" max="2" width="14"/><col min="3" max="3" width="50"/><col min="4" max="8" width="14"/></cols>`;
+  const draw = hasDrawing ? `<drawing r:id="rId1"/>` : '';
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${cols}<sheetData>${body}</sheetData>${draw}</worksheet>`;
+}
+function buildPriceXlsx(){
+  const enc=new TextEncoder();
+  const f=factorGlobal(); const hasDesc=f<1;
+  const prods=CATALOGO;
+
+  // encabezados dinámicos
+  const headers=['Imagen','Código','Producto','UMV','Bulto','Precio $'];
+  if(hasDesc) headers.push('Precio c/desc');
+  headers.push('Precio + IVA');
+  const rows=[headers];
+  prods.forEach(p=>{
+    const net=(+p.precioUsd||0)*f; const iva=ivaRateOf(p);
+    const row=['', p.codigo, p.nombre, (+p.umv||0), (+p.bulto||0), round2(p.precioUsd)];
+    if(hasDesc) row.push(round2(net));
+    row.push(iva>0 ? round2(net*(1+iva)) : '');
+    rows.push(row);
+  });
+
+  // imágenes -> media + anclas del dibujo
+  const media=[], anchors=[], drawRels=[];
+  let n=0;
+  prods.forEach((p,i)=>{
+    const img=dataUriToImg(imgFor(p.codigo)); if(!img) return;
+    n++;
+    const fname=`image${n}.${img.ext}`;
+    media.push({name:`xl/media/${fname}`, data:img.bytes});
+    drawRels.push(`<Relationship Id="rId${n}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${fname}"/>`);
+    const rowIdx=i+1; // fila 0 = encabezado; producto i -> fila i+1 (0-based del dibujo)
+    anchors.push(
+      `<xdr:oneCellAnchor>`+
+        `<xdr:from><xdr:col>0</xdr:col><xdr:colOff>19050</xdr:colOff><xdr:row>${rowIdx}</xdr:row><xdr:rowOff>19050</xdr:rowOff></xdr:from>`+
+        `<xdr:ext cx="438150" cy="438150"/>`+
+        `<xdr:pic>`+
+          `<xdr:nvPicPr><xdr:cNvPr id="${n}" name="img${n}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>`+
+          `<xdr:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="rId${n}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>`+
+          `<xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>`+
+        `</xdr:pic>`+
+        `<xdr:clientData/>`+
+      `</xdr:oneCellAnchor>`
+    );
+  });
+  const hasDrawing = n>0;
+
+  const ct=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/><Default Extension="png" ContentType="image/png"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>${hasDrawing?'<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>':''}</Types>`;
+  const rels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+  const wb=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Lista de Precios" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+  const wbr=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`;
+  const sheetRels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>`;
+  const drawing=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">${anchors.join('')}</xdr:wsDr>`;
+  const drawingRels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${drawRels.join('')}</Relationships>`;
+
+  const files=[
+    {name:'[Content_Types].xml',data:enc.encode(ct)},
+    {name:'_rels/.rels',data:enc.encode(rels)},
+    {name:'xl/workbook.xml',data:enc.encode(wb)},
+    {name:'xl/_rels/workbook.xml.rels',data:enc.encode(wbr)},
+    {name:'xl/worksheets/sheet1.xml',data:enc.encode(priceSheetXml(rows,hasDrawing))},
+  ];
+  if(hasDrawing){
+    files.push({name:'xl/worksheets/_rels/sheet1.xml.rels',data:enc.encode(sheetRels)});
+    files.push({name:'xl/drawings/drawing1.xml',data:enc.encode(drawing)});
+    files.push({name:'xl/drawings/_rels/drawing1.xml.rels',data:enc.encode(drawingRels)});
+    media.forEach(m=>files.push(m));
+  }
+  return zip(files);
+}
+function exportPriceList(){
+  try{
+    const bytes=buildPriceXlsx();
+    download(`Lista-de-Precios-${state.meta.fecha||''}.xlsx`, bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    toast('Lista de precios generada ✓');
+  }catch(e){ toast('Error al generar la lista'); console.error(e); }
+}
+
 // ---- imprimir ----
 function buildPrint(){
   const m=state.meta,t=totals(),f=factorGlobal();
@@ -17580,6 +17685,7 @@ function wire(){
   $('#aEdit').addEventListener('click',editarPedido);
   $('#aClean').addEventListener('click',limpiarPedido);
   // ver pedidos guardados
+  $('#btnPrecios').addEventListener('click',exportPriceList);
   $('#btnVerPedidos').addEventListener('click',openPedidos);
   $('#opClose').addEventListener('click',cerrarPedidos);
   $('#ordersModal').addEventListener('click',e=>{ if(e.target===$('#ordersModal')) cerrarPedidos(); });
