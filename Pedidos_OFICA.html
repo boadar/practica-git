@@ -62,7 +62,8 @@
     display:grid;place-items:center;font-weight:800;font-size:13px;letter-spacing:.3px;flex:0 0 auto;
     border:1px solid rgba(255,255,255,.25);
   }
-  .titlewrap{min-width:130px;flex:1 1 150px}
+  .titlewrap{min-width:90px;flex:1 1 90px}
+  .cargartop{margin-left:auto;flex:0 0 auto;padding:7px 9px;font-size:12px}
   .appbar h1{font-size:17px;font-weight:700;margin:0;letter-spacing:.2px}
   .appbar .sub{font-size:14px;color:#fff;opacity:1;margin-top:2px;font-weight:700;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .appbar .spacer{flex:1}
@@ -132,7 +133,7 @@
   /* ===== List ===== */
   .list{flex:1;padding:4px 0 150px}
   .cathead{
-    position:sticky;top:var(--catoffset,150px);z-index:10;background:#FFF200;
+    position:relative;z-index:1;background:#FFF200;
     padding:7px 16px;font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#14202B;
     border-top:1px solid #E6D600;border-bottom:1px solid #E6D600;
     display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px
@@ -346,6 +347,10 @@
         <h1>Pedido</h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
+      <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+        <span class="btnlabel">Cargar Pedido</span>
+      </button>
     </div>
     <div class="appbtns">
       <button class="stocktoggle" id="btnHideNoStock" aria-pressed="true" title="Mostrar/ocultar referencias sin inventario">
@@ -364,10 +369,6 @@
         <svg class="ic-list" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 6h11M8 12h11M8 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>
         <svg class="ic-save" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
         <span class="btnlabel">CLIENTE</span>
-      </button>
-      <button class="iconbtn" id="btnCargar" style="display:none">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
-        <span class="btnlabel">Cargar Pedido</span>
       </button>
     </div>
   </div>
