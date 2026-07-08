@@ -368,8 +368,13 @@
         <svg class="ic-save" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
         <span class="btnlabel">CLIENTE</span>
       </button>
+      <button class="iconbtn" id="btnCargar" style="display:none">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+        <span class="btnlabel">Cargar Pedido</span>
+      </button>
     </div>
   </div>
+  <input type="file" id="fileCargar" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
 
   <div class="meta-backdrop" id="metaBackdrop" hidden></div>
   <div class="meta" id="metaPanel" hidden>
@@ -17246,10 +17251,10 @@ function updateReqLabels(){
 }
 
 async function toggleAdmin(){
-  if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
+  if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); const bc=$('#btnCargar'); if(bc) bc.style.display='none'; filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
   const pass=await askPassword();
   if(pass==null) return;
-  if(pass===ADMIN_KEY){ adminMode=true; $('#btnAdmin').setAttribute('aria-pressed','true'); filter.hideNoStock=false; updateHideBtn(); render(); updateTotals(); toast('Modo administrador activado'); }
+  if(pass===ADMIN_KEY){ adminMode=true; $('#btnAdmin').setAttribute('aria-pressed','true'); const bc=$('#btnCargar'); if(bc) bc.style.display=''; filter.hideNoStock=false; updateHideBtn(); render(); updateTotals(); toast('Modo administrador activado'); }
   else toast('Clave incorrecta');
 }
 
@@ -17516,6 +17521,123 @@ function exportPriceList(){
   }catch(e){ toast('Error al generar la lista'); console.error(e); }
 }
 
+// ===== Cargar Pedido desde .xlsx (solo modo administrador) =====
+// Lector de xlsx sin librerías: inflate raw + unzip + parse XML.
+function inflateRaw(input){
+  const out=[]; let bp=0;
+  const bit=()=>{ const b=(input[bp>>3]>>(bp&7))&1; bp++; return b; };
+  const bits=n=>{ let v=0; for(let i=0;i<n;i++) v|=bit()<<i; return v>>>0; };
+  function makeTree(L){
+    const next=new Array(16).fill(0), bl=new Array(16).fill(0);
+    for(const l of L) if(l) bl[l]++;
+    let code=0; for(let b=1;b<=15;b++){ code=(code+bl[b-1])<<1; next[b]=code; }
+    const map={};
+    for(let i=0;i<L.length;i++){ const l=L[i]; if(l){ map[(l<<16)|(next[l]++)]=i; } }
+    return ()=>{ let c=0,len=0; for(;;){ c=(c<<1)|bit(); len++; const s=map[(len<<16)|c]; if(s!==undefined) return s; if(len>15) throw new Error('huffman'); } };
+  }
+  const LB=[3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258];
+  const LE=[0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0];
+  const DB=[1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577];
+  const DE=[0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13];
+  const CLO=[16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15];
+  const fLit=[]; for(let i=0;i<288;i++) fLit.push(i<144?8:i<256?9:i<280?7:8);
+  const fDist=new Array(30).fill(5);
+  for(;;){
+    const bf=bit(), bt=bits(2);
+    if(bt===0){ bp=(bp+7)&~7; let p=bp>>3; const len=input[p]|(input[p+1]<<8); p+=4; for(let i=0;i<len;i++) out.push(input[p++]); bp=p<<3; }
+    else {
+      let litT, distT;
+      if(bt===1){ litT=makeTree(fLit); distT=makeTree(fDist); }
+      else {
+        const hlit=bits(5)+257, hdist=bits(5)+1, hclen=bits(4)+4;
+        const cl=new Array(19).fill(0); for(let i=0;i<hclen;i++) cl[CLO[i]]=bits(3);
+        const clT=makeTree(cl); const all=[];
+        while(all.length<hlit+hdist){ const s=clT();
+          if(s<16) all.push(s);
+          else if(s===16){ const r=bits(2)+3, pv=all[all.length-1]; for(let i=0;i<r;i++) all.push(pv); }
+          else if(s===17){ const r=bits(3)+3; for(let i=0;i<r;i++) all.push(0); }
+          else { const r=bits(7)+11; for(let i=0;i<r;i++) all.push(0); } }
+        litT=makeTree(all.slice(0,hlit)); distT=makeTree(all.slice(hlit,hlit+hdist));
+      }
+      for(;;){ const sym=litT(); if(sym===256) break;
+        if(sym<256) out.push(sym);
+        else { const l=sym-257; const length=LB[l]+bits(LE[l]); const ds=distT(); const dist=DB[ds]+bits(DE[ds]); let st=out.length-dist; for(let i=0;i<length;i++) out.push(out[st+i]); } }
+    }
+    if(bf) break;
+  }
+  return new Uint8Array(out);
+}
+function xlsxOpenZip(buf){
+  let i=buf.length-22;
+  while(i>=0 && !(buf[i]===0x50&&buf[i+1]===0x4b&&buf[i+2]===0x05&&buf[i+3]===0x06)) i--;
+  if(i<0) throw new Error('Archivo no válido');
+  const cnt=buf[i+10]|(buf[i+11]<<8);
+  let p=(buf[i+16]|(buf[i+17]<<8)|(buf[i+18]<<16)|(buf[i+19]<<24))>>>0;
+  const dir={}, dec=new TextDecoder('utf-8');
+  for(let n=0;n<cnt;n++){
+    const method=buf[p+10]|(buf[p+11]<<8);
+    const cs=(buf[p+20]|(buf[p+21]<<8)|(buf[p+22]<<16)|(buf[p+23]<<24))>>>0;
+    const nl=buf[p+28]|(buf[p+29]<<8), el=buf[p+30]|(buf[p+31]<<8), cl=buf[p+32]|(buf[p+33]<<8);
+    const lho=(buf[p+42]|(buf[p+43]<<8)|(buf[p+44]<<16)|(buf[p+45]<<24))>>>0;
+    dir[dec.decode(buf.subarray(p+46,p+46+nl))]={method,cs,lho};
+    p+=46+nl+el+cl;
+  }
+  return { get(name){ const e=dir[name]; if(!e) return null; const q=e.lho; const nl=buf[q+26]|(buf[q+27]<<8), el=buf[q+28]|(buf[q+29]<<8); const ds=q+30+nl+el; const comp=buf.subarray(ds,ds+e.cs); return e.method===0?comp:inflateRaw(comp); } };
+}
+function xlUnesc(s){ return String(s).replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&#(\d+);/g,(m,d)=>String.fromCharCode(+d)).replace(/&amp;/g,'&'); }
+function xlText(b){ return new TextDecoder('utf-8').decode(b); }
+function cargarPedidoDesdeXlsx(buf){
+  const zip=xlsxOpenZip(buf);
+  const shared=[]; const ssB=zip.get('xl/sharedStrings.xml');
+  if(ssB){ const xml=xlText(ssB); const si=/<si>([\s\S]*?)<\/si>/g; let m; while(m=si.exec(xml)){ const tr=/<t[^>]*>([\s\S]*?)<\/t>/g; let t,s=''; while(t=tr.exec(m[1])) s+=t[1]; shared.push(xlUnesc(s)); } }
+  const wbB=zip.get('xl/workbook.xml'); if(!wbB) throw new Error('Archivo no válido');
+  const wb=xlText(wbB); const relsB=zip.get('xl/_rels/workbook.xml.rels'); const rels=relsB?xlText(relsB):'';
+  const relMap={}; (rels.match(/<Relationship\b[^>]*\/?>/g)||[]).forEach(t=>{ const id=(t.match(/Id="([^"]+)"/)||[])[1]; const tg=(t.match(/Target="([^"]+)"/)||[])[1]; if(id&&tg) relMap[id]=tg; });
+  let sheetFile=null;
+  (wb.match(/<sheet\b[^>]*\/?>/g)||[]).forEach(t=>{ const name=(t.match(/name="([^"]+)"/)||[])[1]; const rid=(t.match(/r:id="([^"]+)"/)||[])[1]; if(name&&rid&&name.trim().toUpperCase()==='PEDIDO VEND'){ let tg=relMap[rid]||''; if(tg.charAt(0)==='/') tg=tg.slice(1); else if(!/^xl\//.test(tg)) tg='xl/'+tg; sheetFile=tg; } });
+  if(!sheetFile) throw new Error('El archivo no tiene la hoja "PEDIDO VEND"');
+  const shB=zip.get(sheetFile); if(!shB) throw new Error('No se pudo leer la hoja');
+  const sh=xlText(shB); const cells={}; let maxRow=0;
+  const cRe=/<c\s+([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g; let m;
+  while(m=cRe.exec(sh)){
+    const attrs=m[1], inner=m[2]||''; const ref=(attrs.match(/r="([A-Z]+\d+)"/)||[])[1]; if(!ref) continue;
+    const t=(attrs.match(/t="([^"]+)"/)||[])[1]; let val;
+    if(t==='s'){ const vi=(inner.match(/<v>([\s\S]*?)<\/v>/)||[])[1]; val=shared[parseInt(vi,10)]; }
+    else if(t==='inlineStr'){ const tt=inner.match(/<t[^>]*>([\s\S]*?)<\/t>/); val=tt?xlUnesc(tt[1]):''; }
+    else if(t==='str'){ const vv=(inner.match(/<v>([\s\S]*?)<\/v>/)||[])[1]; val=xlUnesc(vv||''); }
+    else { const vv=(inner.match(/<v>([\s\S]*?)<\/v>/)||[])[1]; val=(vv!=null&&vv!=='')?parseFloat(vv):undefined; }
+    if(val!==undefined){ cells[ref]=val; const rr=+ref.match(/\d+/)[0]; if(rr>maxRow) maxRow=rr; }
+  }
+  const g=r=>cells[r];
+  const nombre=((g('B2')!=null?String(g('B2')):'').trim()) || ((g('B4')!=null?String(g('B4')):'').trim());
+  const cod=(g('B3')!=null?String(g('B3')).trim():'');
+  const vendedor=(g('B5')!=null?String(g('B5')).trim():'');
+  const condicion=(g('B6')!=null?String(g('B6')).trim():'');
+  let obs=(g('B7')!=null?String(g('B7')):'');
+  const d1=+g('E10')||0, d2=+g('F10')||0, d3=+g('G10')||0;
+  const qty={}; const missing=[];
+  for(let r=13;r<=maxRow;r++){
+    const code=cells['A'+r], ped=cells['M'+r];
+    if(code==null) continue; const c=String(code).trim(); if(!c) continue;
+    const pv=parseFloat(ped); if(!(pv>0)) continue;
+    const prod=byCode[c];
+    if(prod){ const u=+prod.umv||0; const q=u>0?Math.round(pv/u)*u:Math.round(pv); if(q>0) qty[c]=q; }
+    else missing.push(c+' x'+Math.round(pv));
+  }
+  if(missing.length){ obs=(obs.trim()?obs.trim()+'\n\n':'')+'No cargados (fuera de catálogo): '+missing.join('; '); }
+  if(Object.keys(qty).length===0 && !nombre){ throw new Error('El archivo no tiene datos de pedido'); }
+  // aplicar (reemplaza el pedido actual)
+  state.qty=qty;
+  state.meta={cliente:nombre,codcliente:cod,vendedor:vendedor,condicion:condicion,numped:'',obs:obs,desc1:String(d1),desc2:String(d2),desc3:String(d3)};
+  const dt=new Date(); state.meta.fecha=dt.toISOString().slice(0,10);
+  currentOrderId=null; setLocked(false); save();
+  syncMetaFields();
+  filter.onlyOn=true; filter.cat=''; filter.q=''; const qi=$('#q'); if(qi) qi.value='';
+  syncChips(); render(); updateTotals(); updateReqLabels();
+  const nref=Object.keys(qty).length;
+  toast('Pedido cargado: '+nref+' ref'+(nref===1?'':'s')+(missing.length?' · '+missing.length+' fuera de catálogo':''));
+}
+
 // ---- imprimir ----
 function buildPrint(){
   const m=state.meta,t=totals(),f=factorGlobal();
@@ -17720,6 +17842,19 @@ function wire(){
   $('#aClean').addEventListener('click',limpiarPedido);
   // ver pedidos guardados
   $('#btnPrecios').addEventListener('click',exportPriceList);
+  // cargar pedido desde xlsx (admin)
+  $('#btnCargar').addEventListener('click',async ()=>{
+    if(totals().lineas>0){ const ok=await askConfirm('¿Reemplazar el pedido actual con el del archivo?','Sí','No'); if(!ok) return; }
+    $('#fileCargar').click();
+  });
+  $('#fileCargar').addEventListener('change',e=>{
+    const f=e.target.files&&e.target.files[0]; if(!f) return;
+    f.arrayBuffer().then(ab=>{
+      try{ cargarPedidoDesdeXlsx(new Uint8Array(ab)); }
+      catch(err){ toast(err&&err.message?err.message:'No se pudo leer el archivo'); console.error(err); }
+      e.target.value='';
+    }).catch(err=>{ toast('No se pudo leer el archivo'); console.error(err); e.target.value=''; });
+  });
   $('#btnVerPedidos').addEventListener('click',openPedidos);
   $('#opClose').addEventListener('click',cerrarPedidos);
   $('#ordersModal').addEventListener('click',e=>{ if(e.target===$('#ordersModal')) cerrarPedidos(); });
