@@ -64,6 +64,7 @@
   }
   .titlewrap{min-width:90px;flex:1 1 90px}
   .cargartop{margin-left:auto;flex:0 0 auto;padding:7px 9px;font-size:12px}
+  .cargarinv{flex:0 0 auto;padding:7px 9px;font-size:12px}
   .appbar h1{font-size:17px;font-weight:700;margin:0;letter-spacing:.2px}
   .appbar .sub{font-size:14px;color:#fff;opacity:1;margin-top:2px;font-weight:700;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .appbar .spacer{flex:1}
@@ -351,6 +352,10 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
         <span class="btnlabel">Cargar Pedido</span>
       </button>
+      <button class="iconbtn cargarinv" id="btnCargarInv" type="button" style="display:none" title="Actualizar inventario desde Excel">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7L9 18l-5-5"/><path d="M3 3h18v4H3z"/></svg>
+        <span class="btnlabel">Cargar Inventario</span>
+      </button>
     </div>
     <div class="appbtns">
       <button class="stocktoggle" id="btnHideNoStock" aria-pressed="true" title="Mostrar/ocultar referencias sin inventario">
@@ -373,6 +378,7 @@
     </div>
   </div>
   <input type="file" id="fileCargar" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
+  <input type="file" id="fileCargarInv" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
 
   <div class="meta-backdrop" id="metaBackdrop" hidden></div>
   <div class="meta" id="metaPanel" hidden>
@@ -16986,6 +16992,23 @@ function editarPedido(){ setLocked(false); filter.onlyOn=false; filter.cat=''; s
 
 const byCode = {};
 CATALOGO.forEach(p=>byCode[p.codigo]=p);
+// ---- inventario cargado desde Excel (persiste en el navegador) ----
+const INV_KEY='ofica_inventario_v1';
+function loadInvOverrides(){
+  try{
+    const raw=localStorage.getItem(INV_KEY); if(!raw) return;
+    const ov=JSON.parse(raw)||{};
+    Object.keys(ov).forEach(c=>{ if(byCode[c]) byCode[c].inv=ov[c]; });
+  }catch(e){}
+}
+function saveInvOverrides(map){
+  try{
+    const raw=localStorage.getItem(INV_KEY); const ov=raw?(JSON.parse(raw)||{}):{};
+    Object.keys(map).forEach(c=>{ ov[c]=map[c]; });
+    localStorage.setItem(INV_KEY,JSON.stringify(ov));
+  }catch(e){}
+}
+loadInvOverrides();
 const CATS = [...new Set(CATALOGO.map(p=>p.categoria))];
 
 // mapas de clientes para autocompletado enlazado (nombre <-> código)
@@ -17249,10 +17272,10 @@ function updateReqLabels(){
 }
 
 async function toggleAdmin(){
-  if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); const bc=$('#btnCargar'); if(bc) bc.style.display='none'; filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
+  if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); const bc=$('#btnCargar'); if(bc) bc.style.display='none'; const bi=$('#btnCargarInv'); if(bi) bi.style.display='none'; filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
   const pass=await askPassword();
   if(pass==null) return;
-  if(pass===ADMIN_KEY){ adminMode=true; $('#btnAdmin').setAttribute('aria-pressed','true'); const bc=$('#btnCargar'); if(bc) bc.style.display=''; filter.hideNoStock=false; updateHideBtn(); render(); updateTotals(); toast('Modo administrador activado'); }
+  if(pass===ADMIN_KEY){ adminMode=true; $('#btnAdmin').setAttribute('aria-pressed','true'); const bc=$('#btnCargar'); if(bc) bc.style.display=''; const bi=$('#btnCargarInv'); if(bi) bi.style.display=''; filter.hideNoStock=false; updateHideBtn(); render(); updateTotals(); toast('Modo administrador activado'); }
   else toast('Clave incorrecta');
 }
 
@@ -17636,6 +17659,54 @@ function cargarPedidoDesdeXlsx(buf){
   toast('Pedido cargado: '+nref+' ref'+(nref===1?'':'s')+(missing.length?' · '+missing.length+' fuera de catálogo':''));
 }
 
+// ===== Cargar Inventario desde .xlsx (hoja "Data Detalle": código en col B, inventario en col E) =====
+async function cargarInventarioDesdeXlsx(buf){
+  const zip=xlsxOpenZip(buf);
+  const shared=[]; const ssB=zip.get('xl/sharedStrings.xml');
+  if(ssB){ const xml=xlText(ssB); const si=/<si>([\s\S]*?)<\/si>/g; let m; while(m=si.exec(xml)){ const tr=/<t[^>]*>([\s\S]*?)<\/t>/g; let t,s=''; while(t=tr.exec(m[1])) s+=t[1]; shared.push(xlUnesc(s)); } }
+  const wbB=zip.get('xl/workbook.xml'); if(!wbB) throw new Error('Archivo no válido');
+  const wb=xlText(wbB); const relsB=zip.get('xl/_rels/workbook.xml.rels'); const rels=relsB?xlText(relsB):'';
+  const relMap={}; (rels.match(/<Relationship\b[^>]*\/?>/g)||[]).forEach(t=>{ const id=(t.match(/Id="([^"]+)"/)||[])[1]; const tg=(t.match(/Target="([^"]+)"/)||[])[1]; if(id&&tg) relMap[id]=tg; });
+  let sheetFile=null;
+  (wb.match(/<sheet\b[^>]*\/?>/g)||[]).forEach(t=>{ const name=(t.match(/name="([^"]+)"/)||[])[1]; const rid=(t.match(/r:id="([^"]+)"/)||[])[1]; if(name&&rid&&name.trim().toUpperCase()==='DATA DETALLE'){ let tg=relMap[rid]||''; if(tg.charAt(0)==='/') tg=tg.slice(1); else if(!/^xl\//.test(tg)) tg='xl/'+tg; sheetFile=tg; } });
+  if(!sheetFile) throw new Error('El archivo no tiene la hoja "Data Detalle"');
+  const shB=zip.get(sheetFile); if(!shB) throw new Error('No se pudo leer la hoja');
+  const sh=xlText(shB); const cells={}; let maxRow=0;
+  const cRe=/<c\s+([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g; let m;
+  while(m=cRe.exec(sh)){
+    const attrs=m[1], inner=m[2]||''; const ref=(attrs.match(/r="([A-Z]+\d+)"/)||[])[1]; if(!ref) continue;
+    const t=(attrs.match(/t="([^"]+)"/)||[])[1]; let val;
+    if(t==='s'){ const vi=(inner.match(/<v>([\s\S]*?)<\/v>/)||[])[1]; val=shared[parseInt(vi,10)]; }
+    else if(t==='inlineStr'){ const tt=inner.match(/<t[^>]*>([\s\S]*?)<\/t>/); val=tt?xlUnesc(tt[1]):''; }
+    else if(t==='str'){ const vv=(inner.match(/<v>([\s\S]*?)<\/v>/)||[])[1]; val=xlUnesc(vv||''); }
+    else { const vv=(inner.match(/<v>([\s\S]*?)<\/v>/)||[])[1]; val=(vv!=null&&vv!=='')?parseFloat(vv):undefined; }
+    if(val!==undefined){ cells[ref]=val; const rr=+ref.match(/\d+/)[0]; if(rr>maxRow) maxRow=rr; }
+  }
+  const norm=s=>String(s).replace(/[^A-Za-z0-9]/g,'').toUpperCase();
+  const normMap={}; CATALOGO.forEach(p=>{ normMap[norm(p.codigo)]=p.codigo; });
+  const HEADERS={'CODIGO':1,'COD':1,'CODIGODEPRODUCTO':1,'CODIGOPRODUCTO':1,'REFERENCIA':1,'REF':1,'ITEM':1,'PRODUCTO':1,'DATADETALLE':1,'INVENTARIO':1,'EXISTENCIA':1};
+  const updated={}; const missing=[]; let count=0;
+  for(let r=1;r<=maxRow;r++){
+    const rawB=cells['B'+r]; if(rawB==null) continue;
+    const codeStr=String(rawB).trim(); if(!codeStr) continue;
+    const nb=norm(codeStr); if(!nb || HEADERS[nb]) continue;
+    const found = byCode[codeStr] ? codeStr : (normMap[nb] || null);
+    const eVal=cells['E'+r]; const invNum=parseFloat(eVal);
+    if(found){ const v=isFinite(invNum)?invNum:0; byCode[found].inv=v; updated[found]=v; count++; }
+    else { missing.push(codeStr); }
+  }
+  if(count===0 && missing.length===0){ throw new Error('La hoja "Data Detalle" no tiene datos de inventario (revisa columnas B y E)'); }
+  if(count>0){ saveInvOverrides(updated); render(); updateTotals(); }
+  if(missing.length){
+    // genera un Excel con las referencias que no se encontraron
+    const rows=[['REFERENCIAS NO ENCONTRADAS'],['Código'],...missing.map(c=>[c])];
+    try{ download('Referencias-no-encontradas.xlsx', buildXlsx(rows), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); }catch(e){ console.error(e); }
+    await askConfirm('Inventario actualizado: '+count+' referencia'+(count===1?'':'s')+'. No se encontraron '+missing.length+' referencia'+(missing.length===1?'':'s')+' en el catálogo; se descargó un Excel con el detalle.','Entendido','Cerrar');
+  } else {
+    toast('Inventario actualizado: '+count+' referencia'+(count===1?'':'s')+' ✓');
+  }
+}
+
 // ---- imprimir ----
 function buildPrint(){
   const m=state.meta,t=totals(),f=factorGlobal();
@@ -17850,6 +17921,16 @@ function wire(){
     f.arrayBuffer().then(ab=>{
       try{ cargarPedidoDesdeXlsx(new Uint8Array(ab)); }
       catch(err){ toast(err&&err.message?err.message:'No se pudo leer el archivo'); console.error(err); }
+      e.target.value='';
+    }).catch(err=>{ toast('No se pudo leer el archivo'); console.error(err); e.target.value=''; });
+  });
+  // cargar inventario desde xlsx (admin)
+  $('#btnCargarInv').addEventListener('click',()=>{ $('#fileCargarInv').click(); });
+  $('#fileCargarInv').addEventListener('change',e=>{
+    const f=e.target.files&&e.target.files[0]; if(!f) return;
+    f.arrayBuffer().then(ab=>{
+      cargarInventarioDesdeXlsx(new Uint8Array(ab))
+        .catch(err=>{ toast(err&&err.message?err.message:'No se pudo leer el archivo'); console.error(err); });
       e.target.value='';
     }).catch(err=>{ toast('No se pudo leer el archivo'); console.error(err); e.target.value=''; });
   });
