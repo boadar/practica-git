@@ -17688,23 +17688,25 @@ async function cargarInventarioDesdeXlsx(buf){
   const norm=s=>String(s).replace(/[^A-Za-z0-9]/g,'').toUpperCase();
   const normMap={}; CATALOGO.forEach(p=>{ normMap[norm(p.codigo)]=p.codigo; });
   const HEADERS={'CODIGO':1,'COD':1,'CODIGODEPRODUCTO':1,'CODIGOPRODUCTO':1,'REFERENCIA':1,'REF':1,'ITEM':1,'PRODUCTO':1,'DATADETALLE':1,'INVENTARIO':1,'EXISTENCIA':1};
-  const updated={}; const missing=[]; let count=0;
+  const updated={}; const missing=[]; let count=0, dataRows=0;
   for(let r=1;r<=maxRow;r++){
     const rawB=cells['B'+r]; if(rawB==null) continue;
     const codeStr=String(rawB).trim(); if(!codeStr) continue;
     const nb=norm(codeStr); if(!nb || HEADERS[nb]) continue;
+    dataRows++;
     const found = byCode[codeStr] ? codeStr : (normMap[nb] || null);
-    const eVal=cells['E'+r]; const invNum=parseFloat(eVal);
-    if(found){ const v=isFinite(invNum)?invNum:0; byCode[found].inv=v; updated[found]=v; count++; }
-    else { missing.push(codeStr); }
+    const invNum=parseFloat(cells['E'+r]); const cant=isFinite(invNum)?invNum:0;
+    if(found){ byCode[found].inv=cant; updated[found]=cant; count++; }
+    else if(cant>1){ const nombre=cells['C'+r]!=null?String(cells['C'+r]).trim():''; missing.push({code:codeStr,nombre:nombre,cant:cant}); }
   }
-  if(count===0 && missing.length===0){ throw new Error('La hoja "Data Detalle" no tiene datos de inventario (revisa columnas B y E)'); }
+  if(count===0 && dataRows===0){ throw new Error('La hoja "Data Detalle" no tiene datos de inventario (revisa columnas B y E)'); }
   if(count>0){ saveInvOverrides(updated); render(); updateTotals(); }
   if(missing.length){
-    // genera un Excel con las referencias que no se encontraron
-    const rows=[['REFERENCIAS NO ENCONTRADAS'],['Código'],...missing.map(c=>[c])];
+    // Excel de no encontradas: código (col origen B) | nombre (col origen C) | cantidad (col origen E)
+    // Solo se incluyen las que no están en el catálogo y tienen inventario > 1 unidad.
+    const rows=[['Código','Nombre','Cantidad'],...missing.map(x=>[x.code,x.nombre,x.cant])];
     try{ download('Referencias-no-encontradas.xlsx', buildXlsx(rows), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); }catch(e){ console.error(e); }
-    await askConfirm('Inventario actualizado: '+count+' referencia'+(count===1?'':'s')+'. No se encontraron '+missing.length+' referencia'+(missing.length===1?'':'s')+' en el catálogo; se descargó un Excel con el detalle.','Entendido','Cerrar');
+    await askConfirm('Inventario actualizado: '+count+' referencia'+(count===1?'':'s')+'. No se encontraron '+missing.length+' referencia'+(missing.length===1?'':'s')+' (con inventario > 1) en el catálogo; se descargó un Excel con el detalle.','Entendido','Cerrar');
   } else {
     toast('Inventario actualizado: '+count+' referencia'+(count===1?'':'s')+' ✓');
   }
