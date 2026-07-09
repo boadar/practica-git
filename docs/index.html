@@ -313,6 +313,7 @@
   .orow .odel svg{width:16px;height:16px}
   .ordersempty{padding:26px 16px;text-align:center;color:var(--ink-3);font-size:13px}
   .orow .osel{flex:0 0 auto;align-self:center;width:20px;height:20px;margin:0}
+  .orow .osel:disabled{opacity:.35;cursor:not-allowed}
   .obadge{display:inline-block;width:fit-content;font-size:10px;font-weight:800;letter-spacing:.3px;padding:2px 7px;border-radius:999px;margin-top:2px}
   .obadge.st-pend{background:#FFF1CC;color:#8a6d00}
   .obadge.st-env{background:#D6F0E3;color:#0a7d47}
@@ -370,7 +371,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v43</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v44</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -16848,7 +16849,7 @@ function openPedidos(){
     box.innerHTML='<div class="ordersempty">No hay pedidos guardados.</div>';
   } else {
     box.innerHTML=list.map(o=>`<div class="orow">
-      <input type="checkbox" class="osel" data-sel="${esc(o.id)}" aria-label="Seleccionar pedido">
+      <input type="checkbox" class="osel" data-sel="${esc(o.id)}" aria-label="Seleccionar pedido"${o.status==='ENVIADO'?' disabled title="Ya enviado"':''}>
       <button class="oopen" data-open="${esc(o.id)}">
         <span class="oname">${esc(o.nombre||'(sin nombre)')}</span>
         ${o.numped?`<span class="ometa">Nº ${esc(o.numped)}</span>`:''}
@@ -18259,8 +18260,8 @@ function wire(){
     enviarPedidos(ids);
   });
   $('#btnSelAll').addEventListener('click',()=>{
-    const boxes=[...document.querySelectorAll('#ordersList .osel')];
-    if(!boxes.length) return;
+    const boxes=[...document.querySelectorAll('#ordersList .osel:not(:disabled)')];
+    if(!boxes.length){ toast('No hay pedidos por enviar'); return; }
     const allOn=boxes.every(c=>c.checked);
     boxes.forEach(c=>{ c.checked=!allOn; });
     $('#btnSelAll').textContent = allOn ? 'Seleccionar todos' : 'Quitar selección';
