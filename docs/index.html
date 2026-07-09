@@ -338,6 +338,9 @@
   .rc-check{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink-2);margin-top:14px;cursor:pointer}
   .rc-check input{width:18px;height:18px}
   .rc-add{width:100%;margin-top:6px;border-style:dashed}
+  .rc-subh{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-3);margin:16px 0 8px}
+  .rc-contact{border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:10px;position:relative}
+  .rc-delcontact{position:absolute;top:6px;right:8px;border:none;background:none;color:var(--crit);font-size:18px;cursor:pointer;line-height:1}
   .rc-doclbl{font-size:12px;font-weight:800;color:var(--ink-2);margin-bottom:4px}
   .rc-doclist{font-size:12.5px;color:var(--ink-3);margin-bottom:12px;line-height:1.6}
   .rc-doclist .rc-docitem{display:flex;align-items:center;gap:6px;color:var(--active);font-weight:600}
@@ -401,7 +404,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v47</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v48</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -650,9 +653,22 @@
         <div class="rc-grid2">
           <div class="rc-field"><label>Razón Social</label><input id="rcNombre" class="rc-inp" placeholder="Nombre del cliente" autocomplete="off"></div>
           <div class="rc-field"><label>RIF</label><input id="rcRif" class="rc-inp" placeholder="J-12345678-9" autocomplete="off"></div>
-          <div class="rc-field"><label>Correo Electrónico</label><input id="rcCorreo" class="rc-inp" type="email" placeholder="contacto@cliente.com" autocomplete="off"></div>
-          <div class="rc-field"><label>Teléfono</label><input id="rcTel" class="rc-inp" placeholder="0412-1234567" autocomplete="off"></div>
         </div>
+        <div class="rc-subh">Datos de Contacto</div>
+        <div id="rcContactos"></div>
+        <button class="btn rc-add" id="rcAddContacto" type="button">＋ Añadir contacto</button>
+      </div>
+
+      <div class="rc-card">
+        <h3 class="rc-h2">Documentos</h3>
+        <p class="rc-sub">Cargue los documentos de soporte para la validación del cliente.</p>
+        <div class="rc-doclbl">Documentos Cargados</div>
+        <div id="rcDocList" class="rc-doclist">No hay documentos cargados.</div>
+        <button class="rc-doc" data-doc="rif" type="button"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg> Cargar copia de RIF</button>
+        <button class="rc-doc" data-doc="cedula" type="button"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg> Cargar cédula del representante legal</button>
+        <button class="rc-doc" data-doc="refban" type="button"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg> Cargar referencia bancaria</button>
+        <button class="rc-doc" data-doc="fotolocal" type="button"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg> Cargar foto del local</button>
+        <input type="file" id="rcDocFile" accept="application/pdf,.pdf,image/*" style="display:none">
       </div>
 
       <div class="rc-card rc-addr" data-addr="fiscal">
@@ -693,20 +709,9 @@
 
       <div class="rc-card">
         <h3 class="rc-h2">Direcciones de Envío</h3>
-        <div id="rcEnvios"></div>
+        <label class="rc-check"><input type="checkbox" id="rcMismaDir"> La dirección de envío es la misma que la dirección fiscal (RIF)</label>
+        <div id="rcEnvios" style="margin-top:12px"></div>
         <button class="btn rc-add" id="rcAddEnvio" type="button">＋ Añadir otra dirección</button>
-      </div>
-
-      <div class="rc-card">
-        <h3 class="rc-h2">Documentos</h3>
-        <p class="rc-sub">Cargue los documentos de soporte para la validación del cliente.</p>
-        <div class="rc-doclbl">Documentos Cargados</div>
-        <div id="rcDocList" class="rc-doclist">No hay documentos cargados.</div>
-        <button class="rc-doc" data-doc="rif" type="button"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg> Cargar copia de RIF</button>
-        <button class="rc-doc" data-doc="cedula" type="button"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg> Cargar cédula del representante legal</button>
-        <button class="rc-doc" data-doc="refban" type="button"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg> Cargar referencia bancaria</button>
-        <button class="rc-doc" data-doc="fotolocal" type="button"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg> Cargar foto del local</button>
-        <input type="file" id="rcDocFile" accept="application/pdf,.pdf,image/*" style="display:none">
       </div>
 
       <div class="cfbtns rc-btns">
@@ -17011,10 +17016,11 @@ function resumenPedido(o){
     const nc=m.nuevoCliente;
     s+='\n\n----- CLIENTE NUEVO -----'+
        '\nRazón social: '+(nc.razonSocial||o.nombre||'')+
-       '\nRIF: '+(nc.rif||'')+
-       (nc.correo?'\nCorreo: '+nc.correo:'')+
-       (nc.telefono?'\nTeléfono: '+nc.telefono:'')+
-       '\nDirección fiscal: '+((nc.fiscal&&nc.fiscal.completa)||nc.direccion||'')+
+       '\nRIF: '+(nc.rif||'');
+    if(nc.contactos && nc.contactos.length){
+      nc.contactos.forEach((c,i)=>{ s+='\nContacto '+(i+1)+': '+[c.nombre,c.area,c.telefono,c.correo].filter(Boolean).join(' · '); });
+    }
+    s+='\nDirección fiscal: '+((nc.fiscal&&nc.fiscal.completa)||nc.direccion||'')+
        (nc.tipoCliente?'\nTipo de cliente: '+nc.tipoCliente:'')+
        (nc.listaPrecios?'\nLista de precios: '+nc.listaPrecios:'')+
        (nc.condPago?'\nCondiciones de pago: '+nc.condPago:'')+
@@ -17335,13 +17341,44 @@ function rcRenderDocs(){
   const box=$('#rcDocList'); const keys=Object.keys(regCli.docs||{});
   box.innerHTML = keys.length ? keys.map(k=>'<div class="rc-docitem">✓ '+esc(RC_DOC_LABEL[k]||k)+': '+esc(regCli.docs[k].name||'')+'</div>').join('') : 'No hay documentos cargados.';
 }
+function rcContactBlockHtml(){
+  return '<div class="rc-contact">'+
+    '<button class="rc-delcontact" type="button" title="Quitar">×</button>'+
+    '<div class="rc-grid2">'+
+      '<div class="rc-field"><label>Nombre</label><input class="rc-inp" data-cf="nombre" placeholder="Nombre del contacto"></div>'+
+      '<div class="rc-field"><label>Teléfono</label><input class="rc-inp" data-cf="telefono" placeholder="0412-1234567"></div>'+
+      '<div class="rc-field"><label>Área</label><input class="rc-inp" data-cf="area" placeholder="Ej: Compras"></div>'+
+      '<div class="rc-field"><label>Correo</label><input class="rc-inp" data-cf="correo" placeholder="correo@cliente.com"></div>'+
+    '</div>'+
+  '</div>';
+}
+function rcLeerContactos(){
+  return [...document.querySelectorAll('#rcContactos .rc-contact')].map(c=>{
+    const o={}; c.querySelectorAll('[data-cf]').forEach(i=>o[i.dataset.cf]=i.value.trim()); return o;
+  }).filter(o=>o.nombre||o.telefono||o.area||o.correo);
+}
+// copia la dirección fiscal a la primera dirección de envío
+function rcCopiarFiscalAEnvio(){
+  const fis=$('[data-addr="fiscal"]'); const env=document.querySelector('#rcEnvios .rc-envio'); if(!fis||!env) return;
+  ['estado','municipio','ciudad','urb','avcalle','local','piso','adicional'].forEach(k=>{
+    const src=fis.querySelector('[data-af="'+k+'"]'); const dst=env.querySelector('[data-af="'+k+'"]');
+    if(src&&dst) dst.value=src.value;
+  });
+  rcRecalcAddr(env);
+}
+function rcSetEnvioDisabled(on){
+  const env=document.querySelector('#rcEnvios .rc-envio'); if(!env) return;
+  env.querySelectorAll('[data-af]').forEach(i=>{ i.disabled=on; });
+}
 function rcOverlay(on){ const o=$('#rcOverlay'); if(o) o.hidden=!on; }
 function abrirRegistroCliente(nombreInicial){
   regCli={docs:{}}; rcPendingDoc=null;
-  $('#rcNombre').value=nombreInicial||''; $('#rcRif').value=''; $('#rcCorreo').value=''; $('#rcTel').value='';
+  $('#rcNombre').value=nombreInicial||''; $('#rcRif').value='';
+  $('#rcContactos').innerHTML=rcContactBlockHtml();
   const fis=$('[data-addr="fiscal"]'); fis.querySelectorAll('[data-af]').forEach(i=>i.value=''); rcRecalcAddr(fis);
   $('#rcTipo').value=''; $('#rcLista').value=''; $('#rcCond').value='Contado'; $('#rcRet').checked=false;
-  $('#rcEnvios').innerHTML=rcAddrBlockHtml();
+  const mm=$('#rcMismaDir'); if(mm) mm.checked=false;
+  $('#rcEnvios').innerHTML=rcAddrBlockHtml(); rcSetEnvioDisabled(false);
   rcRenderDocs(); rcOverlay(false);
   const bd=$('#rcBody'); if(bd) bd.scrollTop=0;
   $('#regCliModal').classList.add('open'); setTimeout(()=>$('#rcNombre').focus(),60);
@@ -18454,12 +18491,21 @@ function wire(){
     updateReqLabels();
   });
   // ---- Registro de clientes nuevos ----
-  $('#rcBody').addEventListener('input',e=>{ const c=e.target.closest('.rc-addr'); if(c) rcRecalcAddr(c); });
+  $('#rcBody').addEventListener('input',e=>{
+    const c=e.target.closest('.rc-addr'); if(c) rcRecalcAddr(c);
+    if(c && c.getAttribute('data-addr')==='fiscal'){ const mm=$('#rcMismaDir'); if(mm && mm.checked) rcCopiarFiscalAEnvio(); }
+  });
   $('#rcBody').addEventListener('click',e=>{
     const db=e.target.closest('.rc-doc'); if(db){ rcPendingDoc=db.dataset.doc; const inp=$('#rcDocFile'); inp.value=''; inp.click(); return; }
     const del=e.target.closest('.rc-delenvio'); if(del){ const blk=del.closest('.rc-envio'); if(blk) blk.remove(); return; }
+    const dc=e.target.closest('.rc-delcontact'); if(dc){ const blk=dc.closest('.rc-contact'); if(blk) blk.remove(); return; }
   });
+  $('#rcAddContacto').addEventListener('click',()=>{ $('#rcContactos').insertAdjacentHTML('beforeend', rcContactBlockHtml()); });
   $('#rcAddEnvio').addEventListener('click',()=>{ $('#rcEnvios').insertAdjacentHTML('beforeend', rcAddrBlockHtml()); });
+  $('#rcMismaDir').addEventListener('change',()=>{
+    if($('#rcMismaDir').checked){ rcCopiarFiscalAEnvio(); rcSetEnvioDisabled(true); }
+    else { rcSetEnvioDisabled(false); }
+  });
   $('#rcDocFile').addEventListener('change',async e=>{
     const f=e.target.files&&e.target.files[0]; if(!f||!rcPendingDoc){ return; }
     const key=rcPendingDoc; rcPendingDoc=null;
@@ -18473,7 +18519,7 @@ function wire(){
         const d=parseRif(strings);
         if(d.nombre) $('#rcNombre').value=d.nombre;
         if(d.rif) $('#rcRif').value=d.rif;
-        if(d.direccion){ const fis=$('[data-addr="fiscal"]'); const av=fis.querySelector('[data-af="avcalle"]'); if(av){ av.value=d.direccion; rcRecalcAddr(fis); } }
+        if(d.direccion){ const fis=$('[data-addr="fiscal"]'); const av=fis.querySelector('[data-af="avcalle"]'); if(av){ av.value=d.direccion; rcRecalcAddr(fis); const mm=$('#rcMismaDir'); if(mm && mm.checked) rcCopiarFiscalAEnvio(); } }
         regCli.docs[key]={name:f.name||'RIF.pdf', dataUri:await fileToDataUri(f)};
         toast(d.rif?'Datos del RIF leídos ✓':'RIF adjuntado; escribe los datos');
       } else if(esPdf){
@@ -18495,9 +18541,11 @@ function wire(){
     if(!rif){ toast('Escribe el RIF'); return; }
     const fiscal=rcLeerAddr($('[data-addr="fiscal"]'));
     const envios=[...document.querySelectorAll('#rcEnvios .rc-addr')].map(rcLeerAddr).filter(a=>(a.completa&&a.completa.length)||(a.nombre&&a.nombre.length));
+    const contactos=rcLeerContactos();
     state.meta.nuevoCliente={
-      razonSocial:nombre, rif:rif, correo:$('#rcCorreo').value.trim(), telefono:$('#rcTel').value.trim(),
-      fiscal:fiscal, direccion:fiscal.completa,
+      razonSocial:nombre, rif:rif, contactos:contactos,
+      correo:(contactos[0]&&contactos[0].correo)||'', telefono:(contactos[0]&&contactos[0].telefono)||'',
+      fiscal:fiscal, direccion:fiscal.completa, envioMismaFiscal:!!($('#rcMismaDir')&&$('#rcMismaDir').checked),
       tipoCliente:$('#rcTipo').value, listaPrecios:$('#rcLista').value, condPago:$('#rcCond').value, agenteRetencion:$('#rcRet').checked,
       envios:envios, docs:regCli.docs||{}
     };
