@@ -66,7 +66,7 @@
     border:1px solid rgba(255,255,255,.25);
   }
   .titlewrap{min-width:90px;flex:1 1 90px}
-  .appver{font-size:10px;font-weight:700;color:var(--ink-3);opacity:.75;vertical-align:super;letter-spacing:.3px}
+  .appver{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:#009DDC;border-radius:999px;padding:2px 8px;margin-left:6px;vertical-align:middle;letter-spacing:.3px}
   .cargartop{margin-left:auto;flex:0 0 auto;padding:7px 9px;font-size:12px}
   .cargarinv{flex:0 0 auto;padding:7px 9px;font-size:12px}
   .appbar h1{font-size:17px;font-weight:700;margin:0;letter-spacing:.2px}
@@ -357,7 +357,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v35</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v36</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -18058,6 +18058,8 @@ function syncHeaderVars(){
 try{ localStorage.removeItem(STORE_KEY); }catch(e){}
 state = {qty:{}, meta:{}};
 buildLists(); buildChips(); initMeta(); render(); updateTotals(); wire();
+// aviso breve con la versión al abrir la app
+try{ const _v=(document.getElementById('appver')||{}).textContent||''; if(_v) setTimeout(()=>toast('Pedidos OFICA '+_v),400); }catch(e){}
 syncHeaderVars();
 window.addEventListener('resize', syncHeaderVars);
 if(window.ResizeObserver){ const ro=new ResizeObserver(syncHeaderVars); ro.observe(document.querySelector('.appbar')); ro.observe(document.querySelector('.toolbar')); }
