@@ -349,6 +349,11 @@
     #print td.n,#print th.n{text-align:right;font-variant-numeric:tabular-nums}
     #print tfoot td{font-weight:bold;background:#f4f4f4}
     #print .cat td{background:#e8eef3;font-weight:bold;text-transform:uppercase;font-size:11px}
+    #print table.pricelist{font-size:10px}
+    #print table.pricelist th,#print table.pricelist td{padding:3px 5px}
+    #print table.pricelist td.imgc{width:38px;text-align:center;padding:2px}
+    #print table.pricelist td.imgc img{width:32px;height:32px;object-fit:contain}
+    #print table.pricelist thead th{position:sticky;top:0}
   }
 </style>
 
@@ -357,7 +362,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v37</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v38</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -392,7 +397,7 @@
       </button>
       <button class="iconbtn" id="btnPrecios">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h4"/></svg>
-        <span class="btnlabel">Lista de Precios</span>
+        <span class="btnlabel">Generar Lista de Precios</span>
       </button>
       <button class="iconbtn" id="btnVerPedidos">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5h9M9 12h9M9 19h9M4 5h.01M4 12h.01M4 19h.01"/></svg>
@@ -17345,7 +17350,11 @@ function priceSheetXml(rows, hasDrawing, prodW){
     const ht = ri===0 ? '' : ' ht="36" customHeight="1"';
     body+=`<row r="${r}"${ht}>`+cells.map((v,ci)=>{
       if(v===''||v==null) return '';
-      const s=(ci===2)?2:1; // Producto: centrado vertical (texto a la izquierda); resto: centrado H y V
+      let s;
+      if(ri===0) s=3;          // encabezado: negrita + centrado
+      else if(ci===2) s=2;     // Producto: texto a la izquierda, centrado vertical
+      else if(ci>=5) s=4;      // columnas de precio (F, G, ...): formato dólares
+      else s=1;                // resto: centrado
       return cellXmlS(r,ci,v,s);
     }).join('')+`</row>`;
   });
@@ -17360,13 +17369,17 @@ function priceSheetXml(rows, hasDrawing, prodW){
   for(let i=5;i<headers.length;i++){ const w=String(headers[i]||'').length+1; colsArr.push(`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`); }
   const cols=`<cols>${colsArr.join('')}</cols>`;
   const draw = hasDrawing ? `<drawing r:id="rId1"/>` : '';
+  const views = `<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView></sheetViews>`;
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${cols}<sheetData>${body}</sheetData>${draw}</worksheet>`;
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${views}${cols}<sheetData>${body}</sheetData>${draw}</worksheet>`;
 }
 function buildPriceXlsx(){
   const enc=new TextEncoder();
   const f=factorGlobal(); const hasDesc=f<1;
-  const prods=CATALOGO;
+  // mismo orden que el catálogo de pedido (agrupado por categoría según CATS)
+  const catOrder={}; CATS.forEach((c,i)=>{ catOrder[c]=i; });
+  const ordC=c=>(catOrder[c]!==undefined?catOrder[c]:1e9);
+  const prods=CATALOGO.slice().sort((a,b)=>ordC(a.categoria)-ordC(b.categoria));
 
   // encabezados dinámicos
   const headers=['Imagen','Código','Producto','UMV','Bulto','Precio $'];
@@ -17419,7 +17432,7 @@ function buildPriceXlsx(){
   const ct=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/><Default Extension="png" ContentType="image/png"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${hasDrawing?'<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>':''}</Types>`;
   const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="1"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="[$$-409]#,##0.00"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
   const rels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
   const wb=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -17449,12 +17462,54 @@ function buildPriceXlsx(){
   }
   return zip(files);
 }
-function exportPriceList(){
-  try{
-    const bytes=buildPriceXlsx();
-    download(`Lista-de-Precios-${state.meta.fecha||''}.xlsx`, bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    toast('Lista de precios generada ✓');
-  }catch(e){ toast('Error al generar la lista'); console.error(e); }
+// pregunta el formato; devuelve 'pdf', 'excel' o null (cancelar)
+function askPdfOrExcel(){
+  return new Promise(res=>{
+    const m=$('#confirmModal'); $('#cfMsg').textContent='¿En qué formato quieres generar la Lista de Precios?';
+    $('#cfOk').textContent='PDF'; $('#cfCancel').textContent='Excel';
+    const ok=$('#cfOk'), cancel=$('#cfCancel'), x=$('#cfNo');
+    function done(v){ m.classList.remove('open'); ok.removeEventListener('click',fOk); cancel.removeEventListener('click',fEx); x.removeEventListener('click',fX); res(v); }
+    function fOk(){done('pdf');} function fEx(){done('excel');} function fX(){done(null);}
+    ok.addEventListener('click',fOk); cancel.addEventListener('click',fEx); x.addEventListener('click',fX);
+    m.classList.add('open');
+  });
+}
+// arma la Lista de Precios para imprimir/guardar como PDF (mismo orden que el catálogo)
+function buildPricePrint(){
+  const f=factorGlobal(); const hasDesc=f<1;
+  const catOrder={}; CATS.forEach((c,i)=>{ catOrder[c]=i; });
+  const ordC=c=>(catOrder[c]!==undefined?catOrder[c]:1e9);
+  const prods=CATALOGO.slice().sort((a,b)=>ordC(a.categoria)-ordC(b.categoria));
+  const ncols = 5 + (hasDesc?2:1);
+  let head='<tr><th>Imagen</th><th>Código</th><th>Producto</th><th class="n">UMV</th><th class="n">Bulto</th><th class="n">Precio $</th>'+(hasDesc?'<th class="n">Precio c/desc</th>':'')+'<th class="n">Precio + IVA</th></tr>';
+  let cat=null, rowsHtml='';
+  prods.forEach(p=>{
+    if(p.categoria!==cat){ cat=p.categoria; rowsHtml+=`<tr class="cat"><td colspan="${ncols}">${esc(catDisplay(cat))}</td></tr>`; }
+    const net=(+p.precioUsd||0)*f; const iva=ivaRateOf(p);
+    const src=imgFor(p.codigo);
+    const img=src?`<img src="${src}" alt="" style="width:32px;height:32px;object-fit:contain">`:'';
+    rowsHtml+=`<tr><td class="imgc">${img}</td><td>${esc(p.codigo)}</td><td>${esc(p.nombre)}</td><td class="n">${fmtN.format(+p.umv||0)}</td><td class="n">${fmtN.format(+p.bulto||0)}</td><td class="n">${fmt.format(p.precioUsd)}</td>`+(hasDesc?`<td class="n">${fmt.format(net)}</td>`:'')+`<td class="n">${iva>0?fmt.format(net*(1+iva)):''}</td></tr>`;
+  });
+  $('#print').innerHTML=`
+    <div class="ph"><div><h1>Lista de Precios — OFICA</h1><div>${prods.length} referencias</div></div>
+    <div style="text-align:right;font-size:12px"><b>Fecha:</b> ${esc(state.meta.fecha||'')}</div></div>
+    <table class="pricelist"><thead>${head}</thead><tbody>${rowsHtml}</tbody></table>`;
+}
+async function exportPriceList(){
+  const choice=await askPdfOrExcel();
+  if(choice==null) return;
+  if(choice==='excel'){
+    try{
+      const bytes=buildPriceXlsx();
+      download(`Lista-de-Precios-${state.meta.fecha||''}.xlsx`, bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      toast('Lista de precios (Excel) generada ✓');
+    }catch(e){ toast('Error al generar la lista'); console.error(e); }
+  } else {
+    try{
+      buildPricePrint();
+      setTimeout(()=>{ window.print(); }, 60);
+    }catch(e){ toast('Error al generar el PDF'); console.error(e); }
+  }
 }
 
 // ===== Cargar Pedido desde .xlsx (solo modo administrador) =====
