@@ -17029,7 +17029,7 @@ function loadNewProducts(){
   try{
     const raw=localStorage.getItem(NEWPROD_KEY); if(!raw) return;
     const arr=JSON.parse(raw)||[];
-    arr.forEach(p=>{ if(p && p.codigo && !byCode[p.codigo]){ CATALOGO.push(p); byCode[p.codigo]=p; } });
+    arr.forEach(p=>{ if(p && p.codigo && !byCode[p.codigo]){ p.nuevo=true; CATALOGO.push(p); byCode[p.codigo]=p; } });
   }catch(e){}
 }
 function saveNewProducts(list){
