@@ -368,7 +368,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v44</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v45</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -16825,8 +16825,15 @@ async function guardarPedido(){
   toast(idx>=0?'Pedido actualizado':'Pedido guardado');
   // preguntar si se envía de una vez
   const enviar=await askConfirm('Pedido guardado. ¿Deseas enviarlo ahora?','Sí, enviar','No');
-  if(enviar){ await enviarPedidos([rec.id]); }
-  else { limpiarPedidoTodo(); toast('Pedido guardado'); }
+  if(enviar){
+    // ¿hay otros pedidos pendientes por enviar (distintos a este)?
+    const pendientes=loadOrders().filter(o=>o.status!=='ENVIADO' && o.id!==rec.id);
+    if(pendientes.length){
+      const otros=await askConfirm('Hay '+pendientes.length+' pedido'+(pendientes.length===1?'':'s')+' más pendiente'+(pendientes.length===1?'':'s')+' por enviar. ¿Deseas enviarlos también?','Sí, ver pedidos','No, solo este');
+      if(otros){ limpiarPedidoTodo(); openPedidos(); return; }
+    }
+    await enviarPedidos([rec.id]);
+  } else { limpiarPedidoTodo(); toast('Pedido guardado'); }
 }
 // limpia por completo el pedido actual (deja el formulario en blanco)
 function limpiarPedidoTodo(){
