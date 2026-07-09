@@ -367,7 +367,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v42</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v43</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -16942,14 +16942,14 @@ async function enviarPedidos(ids){
   for(const o of sel){ try{ items.push({name:safeNameFor(o), bytes:buildOrderXlsxFor(o)}); }catch(e){ console.error(e); } }
   const mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
   const resumen=sel.map(o=>resumenPedido(o)).join('\n\n———\n\n');
-  // asunto: 1 pedido -> "Pedido {cliente} {fecha}"; varios -> "Pedido {fecha} {# control}"
+  // asunto: 1 pedido -> "Pedido {cliente} {fecha}"; varios -> "Pedidos {fecha} - {# control}"
   let subject;
   if(sel.length===1){
     const o=sel[0];
     subject='Pedido '+(o.nombre||'')+' '+fechaFmt(o.fecha||'');
   } else {
     const hoy=new Date().toISOString().slice(0,10);
-    subject='Pedido '+fechaFmt(hoy)+' '+nextControlCorreo();
+    subject='Pedidos '+fechaFmt(hoy)+' - '+nextControlCorreo();
   }
   let enviado=false, cancelado=false, modo='';
 
