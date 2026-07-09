@@ -312,6 +312,14 @@
   .orow .odel:active{background:var(--crit-tint)}
   .orow .odel svg{width:16px;height:16px}
   .ordersempty{padding:26px 16px;text-align:center;color:var(--ink-3);font-size:13px}
+  .orow .osel{flex:0 0 auto;align-self:center;width:20px;height:20px;margin:0}
+  .obadge{display:inline-block;width:fit-content;font-size:10px;font-weight:800;letter-spacing:.3px;padding:2px 7px;border-radius:999px;margin-top:2px}
+  .obadge.st-pend{background:#FFF1CC;color:#8a6d00}
+  .obadge.st-env{background:#D6F0E3;color:#0a7d47}
+  .obadge.st-edit{box-shadow:inset 0 0 0 1.5px currentColor}
+  #ordersModal .body{flex:1 1 auto;min-height:0}
+  .ofooter{flex:0 0 auto;display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line-2)}
+  .ofooter .btn{flex:1;padding:12px;font-size:13px}
   .cfbody{padding:18px 16px}
   .cfbody p{margin:0 0 18px;font-size:14px;color:var(--ink);line-height:1.45}
   .cfbtns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -362,7 +370,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v38</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v39</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -550,6 +558,10 @@
   <div class="sheet">
     <header><h2>Pedidos guardados</h2><button class="closex" id="opClose">×</button></header>
     <div class="body" id="ordersList"></div>
+    <div class="ofooter" id="ordersFooter" hidden>
+      <button class="btn" id="btnSelAll" type="button">Seleccionar todos</button>
+      <button class="btn primary" id="btnEnviarPedidos" type="button">ENVIAR PEDIDO</button>
+    </div>
   </div>
 </div>
 
@@ -16806,6 +16818,10 @@ function guardarPedido(){
     meta: JSON.parse(JSON.stringify(state.meta)), qty: JSON.parse(JSON.stringify(state.qty))
   };
   const idx=list.findIndex(o=>o.id===rec.id);
+  const prev = idx>=0 ? list[idx] : null;
+  // estatus: nuevo -> PENDIENTE; al actualizar uno existente -> marcar EDITADO conservando su estatus
+  rec.status = prev ? (prev.status||'PENDIENTE') : 'PENDIENTE';
+  rec.editado = prev ? true : false;
   if(idx>=0) list[idx]=rec; else list.push(rec);
   storeOrders(list); currentOrderId=rec.id;
   toast(idx>=0?'Pedido actualizado':'Pedido guardado');
@@ -16818,19 +16834,82 @@ function openPedidos(){
     box.innerHTML='<div class="ordersempty">No hay pedidos guardados.</div>';
   } else {
     box.innerHTML=list.map(o=>`<div class="orow">
+      <input type="checkbox" class="osel" data-sel="${esc(o.id)}" aria-label="Seleccionar pedido">
       <button class="oopen" data-open="${esc(o.id)}">
         <span class="oname">${esc(o.nombre||'(sin nombre)')}</span>
         ${o.numped?`<span class="ometa">Nº ${esc(o.numped)}</span>`:''}
         <span class="ometa">${o.codcliente?esc(o.codcliente)+' · ':''}${o.fecha?esc(fechaFmt(o.fecha)):''} · ${fmt.format(o.total||0)}</span>
+        <span class="obadge ${statusClass(o)}">${statusLabel(o)}</span>
       </button>
       <button class="odel" data-del="${esc(o.id)}" aria-label="Eliminar pedido">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
       </button>
     </div>`).join('');
   }
+  const ft=$('#ordersFooter'); if(ft) ft.hidden=!list.length;
+  const sa=$('#btnSelAll'); if(sa) sa.textContent='Seleccionar todos';
   $('#ordersModal').classList.add('open');
 }
+// etiqueta y clase de estatus del pedido
+function statusLabel(o){
+  const base=(o&&o.status==='ENVIADO')?'ENVIADO':'PENDIENTE';
+  return (o&&o.editado?'EDIT. ':'')+base;
+}
+function statusClass(o){
+  const c=(o&&o.status==='ENVIADO')?'st-env':'st-pend';
+  return c+(o&&o.editado?' st-edit':'');
+}
 function cerrarPedidos(){ $('#ordersModal').classList.remove('open'); }
+
+// ---- enviar pedidos por correo ----
+function safeNameFor(o){
+  const cli=(o.nombre||'pedido').replace(/[^\w\s-]/g,'').trim().replace(/\s+/g,'-');
+  return `Pedido-${cli}-${o.fecha||''}.xlsx`;
+}
+function buildOrderXlsxFor(o){
+  const sq=state.qty, sm=state.meta;
+  try{ state.qty=o.qty||{}; state.meta=o.meta||{}; return buildXlsx(orderRows()); }
+  finally{ state.qty=sq; state.meta=sm; }
+}
+function resumenPedido(o){
+  const m=o.meta||{}; const nref=Object.keys(o.qty||{}).length;
+  return 'Pedido: '+(o.numped||'')+'\nCliente: '+(o.nombre||'')+(o.codcliente?' ('+o.codcliente+')':'')+
+    '\nVendedor: '+(m.vendedor||'')+'\nCondición: '+(m.condicion||'')+'\nFecha: '+(o.fecha||'')+
+    '\nReferencias: '+nref+'\nTotal: '+fmt.format(o.total||0);
+}
+async function enviarPedidos(ids){
+  const list=loadOrders();
+  const sel=ids.map(id=>list.find(o=>o.id===id)).filter(Boolean);
+  if(!sel.length){ toast('Selecciona al menos un pedido'); return; }
+  // construye el Excel de cada pedido seleccionado
+  const items=[];
+  for(const o of sel){ try{ items.push({name:safeNameFor(o), bytes:buildOrderXlsxFor(o)}); }catch(e){ console.error(e); } }
+  const mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  const files=items.map(it=>{ try{ return new File([it.bytes], it.name, {type:mime}); }catch(e){ return null; } }).filter(Boolean);
+  const resumen=sel.map(o=>resumenPedido(o)).join('\n\n———\n\n');
+  let enviado=false, cancelado=false;
+  try{
+    if(navigator.share && files.length && (!navigator.canShare || navigator.canShare({files}))){
+      await navigator.share({ files, title:'Pedido'+(sel.length>1?'s':'')+' OFICA', text:resumen });
+      enviado=true;
+    }
+  }catch(e){ if(e && e.name==='AbortError'){ cancelado=true; } else { console.error(e); } }
+  if(cancelado) return; // el usuario canceló el envío: no cambia el estatus
+  if(!enviado){
+    // respaldo: descarga los Excel y abre el correo con el resumen
+    items.forEach((it,i)=> setTimeout(()=>{ try{ download(it.name, it.bytes, mime); }catch(e){} }, i*250));
+    const subject=encodeURIComponent('Pedido'+(sel.length>1?'s':'')+' OFICA — '+sel.map(o=>o.nombre||'').join(', '));
+    const body=encodeURIComponent(resumen+'\n\n(Se adjuntan los archivos Excel de cada pedido.)');
+    try{ location.href='mailto:?subject='+subject+'&body='+body; }catch(e){}
+    enviado=true;
+  }
+  // marca los pedidos como ENVIADO (y quita la marca de editado)
+  const l2=loadOrders();
+  ids.forEach(id=>{ const o=l2.find(x=>x.id===id); if(o){ o.status='ENVIADO'; o.editado=false; } });
+  storeOrders(l2);
+  openPedidos();
+  toast('Pedido'+(sel.length>1?'s':'')+' enviado'+(sel.length>1?'s':'')+' ✓');
+}
 
 function abrirPedido(id){
   const o=loadOrders().find(x=>x.id===id); if(!o) return;
@@ -18088,6 +18167,19 @@ function wire(){
       if(o && await askConfirm('¿Eliminar el pedido de '+(o.nombre||'')+'?','Sí, eliminar')){ storeOrders(list.filter(x=>x.id!==del.dataset.del)); openPedidos(); } return; }
     const open=e.target.closest('[data-open]');
     if(open) abrirPedido(open.dataset.open);
+  });
+  // enviar pedidos seleccionados por correo
+  $('#btnEnviarPedidos').addEventListener('click',()=>{
+    const ids=[...document.querySelectorAll('#ordersList .osel:checked')].map(c=>c.dataset.sel);
+    if(!ids.length){ toast('Selecciona al menos un pedido'); return; }
+    enviarPedidos(ids);
+  });
+  $('#btnSelAll').addEventListener('click',()=>{
+    const boxes=[...document.querySelectorAll('#ordersList .osel')];
+    if(!boxes.length) return;
+    const allOn=boxes.every(c=>c.checked);
+    boxes.forEach(c=>{ c.checked=!allOn; });
+    $('#btnSelAll').textContent = allOn ? 'Seleccionar todos' : 'Quitar selección';
   });
   // cerrar ventanas con ESC (sin modificar nada)
   document.addEventListener('keydown',e=>{
