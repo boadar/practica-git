@@ -318,6 +318,14 @@
   #ordersModal .body{flex:1 1 auto;min-height:0}
   .ofooter{flex:0 0 auto;display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line-2)}
   .ofooter .btn{flex:1;padding:12px;font-size:13px}
+  .rcbody{padding:14px 16px}
+  .rc-q{font-size:12.5px;color:var(--ink-2);line-height:1.5;margin-bottom:12px}
+  .rc-lbl{display:block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-3);margin:12px 0 4px}
+  .rc-inp{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:14px;background:var(--surface-2);font-family:inherit;box-sizing:border-box}
+  textarea.rc-inp{resize:vertical}
+  .rc-file{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .rc-fname{font-size:12px;color:var(--ink-3);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rc-btns{margin-top:16px}
   .cfbody{padding:18px 16px}
   .cfbody p{margin:0 0 18px;font-size:14px;color:var(--ink);line-height:1.45}
   .cfbtns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -368,7 +376,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v45</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v46</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -600,6 +608,36 @@
       <div class="cfbtns">
         <button class="btn" id="catCancel">Cancelar</button>
         <button class="btn primary" id="catOk">Continuar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="regCliModal">
+  <div class="sheet">
+    <header><h2>Registro de Clientes</h2><button class="closex" id="rcClose">×</button></header>
+    <div class="body rcbody">
+      <p class="rc-q">¿Tienes el RIF digitalizado? Cárgalo: si es <b>PDF</b> leo los datos automáticamente; si es <b>imagen</b>, la adjunto y escribes los datos.</p>
+      <div class="rc-file">
+        <button class="btn" id="rcRifBtn" type="button">📄 Cargar RIF (PDF o imagen)</button>
+        <span class="rc-fname" id="rcRifName">Ningún archivo</span>
+      </div>
+      <input type="file" id="rcRifFile" accept="application/pdf,.pdf,image/*" style="display:none">
+      <label class="rc-lbl">Nombre del cliente (Razón Social)</label>
+      <input type="text" id="rcNombre" class="rc-inp" autocomplete="off">
+      <label class="rc-lbl">RIF</label>
+      <input type="text" id="rcRif" class="rc-inp" placeholder="J/G/V + números" autocomplete="off">
+      <label class="rc-lbl">Dirección fiscal</label>
+      <textarea id="rcDir" class="rc-inp" rows="3"></textarea>
+      <label class="rc-lbl">Cédula del representante legal (imagen)</label>
+      <div class="rc-file">
+        <button class="btn" id="rcCedBtn" type="button">🪪 Cargar cédula (imagen)</button>
+        <span class="rc-fname" id="rcCedName">Ningún archivo</span>
+      </div>
+      <input type="file" id="rcCedFile" accept="image/*" style="display:none">
+      <div class="cfbtns rc-btns">
+        <button class="btn" id="rcCancel">Cancelar</button>
+        <button class="btn primary" id="rcOk">Aceptar</button>
       </div>
     </div>
   </div>
@@ -16892,9 +16930,16 @@ function buildOrderXlsxFor(o){
 }
 function resumenPedido(o){
   const m=o.meta||{}; const nref=Object.keys(o.qty||{}).length;
-  return 'Pedido: '+(o.numped||'')+'\nCliente: '+(o.nombre||'')+(o.codcliente?' ('+o.codcliente+')':'')+
+  let s='Pedido: '+(o.numped||'')+'\nCliente: '+(o.nombre||'')+(o.codcliente?' ('+o.codcliente+')':'')+
     '\nVendedor: '+(m.vendedor||'')+'\nCondición: '+(m.condicion||'')+'\nFecha: '+(o.fecha||'')+
     '\nReferencias: '+nref+'\nTotal: '+fmt.format(o.total||0);
+  if(m.nuevoCliente){
+    const nc=m.nuevoCliente;
+    s+='\n\n----- CLIENTE NUEVO -----\nRazón social: '+(nc.razonSocial||o.nombre||'')+
+       '\nRIF: '+(nc.rif||'')+'\nDirección fiscal: '+(nc.direccion||'')+
+       '\n(Se adjuntan RIF'+(nc.cedFile?' y cédula del representante legal':'')+'.)';
+  }
+  return s;
 }
 // destinatario fijo del correo
 const CORREO_DESTINO='pedidos@ofica.com';
@@ -16946,9 +16991,19 @@ async function enviarPedidos(ids){
   const list=loadOrders();
   const sel=ids.map(id=>list.find(o=>o.id===id)).filter(Boolean);
   if(!sel.length){ toast('Selecciona al menos un pedido'); return; }
-  const items=[];
-  for(const o of sel){ try{ items.push({name:safeNameFor(o), bytes:buildOrderXlsxFor(o)}); }catch(e){ console.error(e); } }
   const mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  const items=[];
+  for(const o of sel){
+    try{ items.push({name:safeNameFor(o), bytes:buildOrderXlsxFor(o), mime:mime}); }catch(e){ console.error(e); }
+    // adjuntos del cliente nuevo (RIF y cédula)
+    const nc=(o.meta||{}).nuevoCliente;
+    if(nc){
+      const base=(o.nombre||'cliente').replace(/[^\w\s-]/g,'').trim().replace(/\s+/g,'-');
+      [['RIF',nc.rifFile],['Cedula',nc.cedFile]].forEach(par=>{
+        const ff=par[1]; if(ff && ff.dataUri){ const dd=dataUriToBytes(ff.dataUri); if(dd){ const ext=dd.mime==='application/pdf'?'pdf':(dd.mime==='image/png'?'png':'jpg'); items.push({name:par[0]+'-'+base+'.'+ext, bytes:dd.bytes, mime:dd.mime}); } }
+      });
+    }
+  }
   const resumen=sel.map(o=>resumenPedido(o)).join('\n\n———\n\n');
   // asunto: 1 pedido -> "Pedido {cliente} {fecha}"; varios -> "Pedidos {fecha} - {# control}"
   let subject;
@@ -16964,7 +17019,7 @@ async function enviarPedidos(ids){
   // 1) MÓVIL (iOS/Android): menú de compartir nativo -> adjunta el Excel directo al correo
   if(esMovil()){
     let files=[];
-    try{ files=items.map(it=>new File([it.bytes], it.name, {type:mime})); }catch(e){ files=[]; }
+    try{ files=items.map(it=>new File([it.bytes], it.name, {type:it.mime||mime})); }catch(e){ files=[]; }
     if(files.length && navigator.canShare && navigator.canShare({files})){
       try{ await navigator.share({ files, title:subject, text:resumen }); enviado=true; modo='share'; }
       catch(e){ if(e && e.name==='AbortError'){ cancelado=true; } else { console.error(e); } }
@@ -16975,7 +17030,7 @@ async function enviarPedidos(ids){
   // 2) PC (o móvil sin compartir): genera un .eml con el Excel YA adjunto; al abrirlo, el correo se abre con el archivo
   if(!enviado){
     try{
-      const eml=buildEml(CORREO_DESTINO, subject, resumen, items.map(it=>({name:it.name, bytes:it.bytes, mime:mime})));
+      const eml=buildEml(CORREO_DESTINO, subject, resumen, items.map(it=>({name:it.name, bytes:it.bytes, mime:it.mime||mime})));
       const base=(sel.length===1 ? (sel[0].nombre||'pedido').replace(/[^\w\s-]/g,'').trim().replace(/\s+/g,'-') : 'Pedidos');
       download('Correo-'+base+'.eml', new TextEncoder().encode(eml), 'message/rfc822');
       enviado=true; modo='eml';
@@ -16984,7 +17039,7 @@ async function enviarPedidos(ids){
 
   // 3) último respaldo: descargar el Excel y abrir mailto con el resumen
   if(!enviado){
-    items.forEach((it,i)=> setTimeout(()=>{ try{ download(it.name, it.bytes, mime); }catch(e){} }, i*250));
+    items.forEach((it,i)=> setTimeout(()=>{ try{ download(it.name, it.bytes, it.mime||mime); }catch(e){} }, i*250));
     try{ location.href='mailto:'+(CORREO_DESTINO||'')+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(resumen+'\n\nAdjunta el Excel descargado.'); }catch(e){}
     enviado=true; modo='mailto';
   }
@@ -17095,6 +17150,72 @@ function filtrarClientes(query, campo, dl, withLabel){
   }
   dl.innerHTML=h;
 }
+
+// ===== Registro de clientes nuevos =====
+let regCli={nombre:'',rif:'',direccion:'',rifFile:null,cedFile:null};
+function dataUriToBytes(uri){
+  const m=/^data:([^;]+);base64,(.*)$/.exec(uri||''); if(!m) return null;
+  const bin=atob(m[2]); const arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+  return {mime:m[1], bytes:arr};
+}
+function fileToDataUri(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); }); }
+async function imagenReducida(file, max){
+  const uri=await fileToDataUri(file);
+  try{
+    const img=await new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=uri; });
+    let w=img.width,h=img.height; const mx=max||1400;
+    if(Math.max(w,h)>mx){ if(w>=h){ h=Math.round(h*mx/w); w=mx; } else { w=Math.round(w*mx/h); h=mx; } }
+    const c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h);
+    return c.toDataURL('image/jpeg',0.8);
+  }catch(e){ return uri; }
+}
+// --- extractor de texto de PDF (RIF del SENIAT) usando inflateRaw ---
+function pdfExtraerStrings(buf){
+  const strings=[];
+  const S=[0x73,0x74,0x72,0x65,0x61,0x6d], E=[0x65,0x6e,0x64,0x73,0x74,0x72,0x65,0x61,0x6d];
+  function idx(arr,from){ outer: for(let i=from;i<=buf.length-arr.length;i++){ for(let k=0;k<arr.length;k++) if(buf[i+k]!==arr[k]) continue outer; return i; } return -1; }
+  let p=0;
+  while(true){
+    const s=idx(S,p); if(s<0) break;
+    let d=s+6; if(buf[d]===0x0d) d++; if(buf[d]===0x0a) d++;
+    const e=idx(E,d); if(e<0) break;
+    const data=buf.subarray(d,e); p=e+9;
+    let out=null;
+    try{ out=inflateRaw(data[0]===0x78?data.subarray(2):data); }catch(err){ continue; }
+    let txt=''; for(let i=0;i<out.length;i++) txt+=String.fromCharCode(out[i]);
+    if(txt.indexOf('Tj')<0 && txt.indexOf('TJ')<0) continue;
+    const re=/\(((?:[^()\\]|\\.)*)\)/g; let m;
+    while(m=re.exec(txt)){ strings.push(m[1].replace(/\\([()\\])/g,'$1').replace(/\\n/g,'\n').replace(/\\r/g,'').replace(/\\t/g,' ')); }
+  }
+  return strings;
+}
+function parseRif(clean){
+  let rif='';
+  for(const s of clean){ const m=s.match(/\b([JGVEP])[-\s]?(\d{8,10})\b/); if(m){ rif=m[1]+m[2]; break; } }
+  let nombre='';
+  const ri=clean.findIndex(s=>rif && s.replace(/[-\s]/g,'').includes(rif));
+  if(ri>=0){
+    let after=clean[ri].replace(new RegExp('^.*?'+rif.split('').join('[-\\s]?')),'').trim();
+    if(!after){ for(let k=ri+1;k<clean.length;k++){ if(clean[k]){ after=clean[k]; break; } } }
+    nombre=after;
+  }
+  let dir='';
+  const di=clean.findIndex(s=>/DOMICILIO FISCAL/i.test(s));
+  if(di>=0){
+    const parts=[]; const first=clean[di].replace(/.*DOMICILIO FISCAL:?/i,'').trim(); if(first) parts.push(first);
+    for(let k=di+1;k<clean.length;k++){ const s=clean[k]; if(/FECHA|DIVISI|FIRMA|CONDICI|COMPROBANTE|REGISTRO/i.test(s)) break; if(s) parts.push(s); }
+    dir=parts.join(' ').replace(/\s+/g,' ').trim();
+  }
+  return {rif,nombre,direccion:dir};
+}
+function abrirRegistroCliente(nombreInicial){
+  regCli={nombre:nombreInicial||'',rif:'',direccion:'',rifFile:null,cedFile:null};
+  $('#rcNombre').value=regCli.nombre; $('#rcRif').value=''; $('#rcDir').value='';
+  $('#rcRifName').textContent='Ningún archivo'; $('#rcCedName').textContent='Ningún archivo';
+  $('#regCliModal').classList.add('open'); setTimeout(()=>$('#rcNombre').focus(),60);
+}
+function cerrarRegistroCliente(){ $('#regCliModal').classList.remove('open'); }
 
 // ---- filtros ----
 let filter = {q:'', cat:'', onlyOn:false, hideNoStock:true};
@@ -17351,10 +17472,13 @@ function updateHideBtn(){
 // pone en rojo el titulo de los campos obligatorios del detalle que esten vacios
 const REQ_FIELDS=['f_vendedor','f_cliente','f_codcliente','f_condicion'];
 function updateReqLabels(){
+  const esNuevo = !!(state.meta && state.meta.nuevoCliente);
   REQ_FIELDS.forEach(id=>{
     const e=document.getElementById(id); if(!e) return;
     const field=e.closest('.field'); if(!field) return;
-    field.classList.toggle('req-empty', !String(e.value||'').trim());
+    // el código de cliente no es obligatorio cuando es un cliente nuevo
+    const req = (id==='f_codcliente' && esNuevo) ? false : !String(e.value||'').trim();
+    field.classList.toggle('req-empty', req);
   });
 }
 
@@ -17457,7 +17581,11 @@ function orderRows(){
   const rows=[];
   rows.push(['PEDIDO OFICA']);
   rows.push(['Fecha',m.fecha||'']);
-  rows.push(['Cliente',m.cliente||'', '', 'Código', m.codcliente||'']);
+  rows.push(['Cliente',m.cliente||'', '', 'Código', m.codcliente||(m.nuevoCliente?'NUEVO':'')]);
+  if(m.nuevoCliente){
+    rows.push(['RIF', m.nuevoCliente.rif||'']);
+    rows.push(['Dirección fiscal', m.nuevoCliente.direccion||'']);
+  }
   rows.push(['Vendedor',m.vendedor||'', '', 'Condición', m.condicion||'']);
   rows.push(['Descuento 1',pct(d1),'Descuento 2',pct(d2),'Descuento 3',pct(d3)]);
   if(m.numped) rows.push(['# Pedido',m.numped]);
@@ -18178,15 +18306,65 @@ function wire(){
   const dlN=$('#dl_cli_nombre'), dlC=$('#dl_cli_cod');
   fc.addEventListener('input',()=>filtrarClientes(fc.value,'n',dlN,false));
   fcc.addEventListener('input',()=>filtrarClientes(fcc.value,'c',dlC,true));
-  fc.addEventListener('change',()=>{
-    const x=cliByNombre[fc.value.trim()];
-    if(x){ fcc.value=x.c; state.meta.cliente=x.n; state.meta.codcliente=x.c; save(); updateTotals(); }
-    updateReqLabels();
+  fc.addEventListener('change',async ()=>{
+    const val=fc.value.trim();
+    const x=cliByNombre[val];
+    if(x){ fcc.value=x.c; state.meta.cliente=x.n; state.meta.codcliente=x.c; state.meta.nuevoCliente=null; save(); updateTotals(); updateReqLabels(); return; }
+    if(!val){ updateReqLabels(); return; }
+    // ya es un cliente nuevo con ese mismo nombre: no volver a preguntar
+    if(state.meta.nuevoCliente && String(state.meta.cliente||'').trim()===val){ updateReqLabels(); return; }
+    const crear=await askConfirm('El cliente "'+val+'" no está registrado. ¿Deseas crear un nuevo cliente?','Sí, crear','No');
+    if(!crear){ toast('Corregir nombre del cliente'); fc.value=''; state.meta.cliente=''; state.meta.codcliente=''; state.meta.nuevoCliente=null; save(); updateReqLabels(); setTimeout(()=>fc.focus(),50); return; }
+    abrirRegistroCliente(val);
   });
   fcc.addEventListener('change',()=>{
     const x=cliByCod[fcc.value.trim()];
-    if(x){ fc.value=x.n; state.meta.cliente=x.n; state.meta.codcliente=x.c; save(); updateTotals(); }
+    if(x){ fc.value=x.n; state.meta.cliente=x.n; state.meta.codcliente=x.c; state.meta.nuevoCliente=null; save(); updateTotals(); }
     updateReqLabels();
+  });
+  // ---- Registro de clientes nuevos ----
+  $('#rcRifBtn').addEventListener('click',()=>$('#rcRifFile').click());
+  $('#rcRifFile').addEventListener('change',async e=>{
+    const f=e.target.files&&e.target.files[0]; if(!f){ return; }
+    $('#rcRifName').textContent=f.name;
+    const esPdf=/\.pdf$/i.test(f.name)||f.type==='application/pdf';
+    try{
+      if(esPdf){
+        const ab=await f.arrayBuffer();
+        const strings=pdfExtraerStrings(new Uint8Array(ab)).map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean);
+        const d=parseRif(strings);
+        if(d.nombre) $('#rcNombre').value=d.nombre;
+        if(d.rif) $('#rcRif').value=d.rif;
+        if(d.direccion) $('#rcDir').value=d.direccion;
+        regCli.rifFile={name:(f.name||'RIF.pdf'), dataUri:await fileToDataUri(f)};
+        toast(d.rif?'Datos del RIF leídos ✓':'No se pudieron leer los datos; escríbelos');
+      } else {
+        regCli.rifFile={name:(f.name||'RIF').replace(/\.[^.]+$/,'')+'.jpg', dataUri:await imagenReducida(f,1600)};
+        toast('Imagen del RIF adjuntada. Escribe los datos manualmente');
+      }
+    }catch(err){ console.error(err); toast('No se pudo procesar el archivo'); }
+    e.target.value='';
+  });
+  $('#rcCedBtn').addEventListener('click',()=>$('#rcCedFile').click());
+  $('#rcCedFile').addEventListener('change',async e=>{
+    const f=e.target.files&&e.target.files[0]; if(!f) return;
+    $('#rcCedName').textContent=f.name;
+    try{ regCli.cedFile={name:(f.name||'Cedula').replace(/\.[^.]+$/,'')+'.jpg', dataUri:await imagenReducida(f,1400)}; toast('Cédula adjuntada ✓'); }
+    catch(err){ console.error(err); }
+    e.target.value='';
+  });
+  $('#rcClose').addEventListener('click',cerrarRegistroCliente);
+  $('#rcCancel').addEventListener('click',()=>{ cerrarRegistroCliente(); const fcl=$('#f_cliente'); if(fcl){ fcl.value=''; } state.meta.cliente=''; state.meta.codcliente=''; state.meta.nuevoCliente=null; save(); updateReqLabels(); toast('Corregir nombre del cliente'); setTimeout(()=>{ const e=$('#f_cliente'); if(e) e.focus(); },50); });
+  $('#rcOk').addEventListener('click',()=>{
+    const nombre=$('#rcNombre').value.trim(), rif=$('#rcRif').value.trim(), dir=$('#rcDir').value.trim();
+    if(!nombre){ toast('Escribe el nombre del cliente'); return; }
+    if(!rif){ toast('Escribe el RIF'); return; }
+    state.meta.cliente=nombre; state.meta.codcliente='';
+    state.meta.nuevoCliente={ razonSocial:nombre, rif:rif, direccion:dir, rifFile:regCli.rifFile||null, cedFile:regCli.cedFile||null };
+    const fcl=$('#f_cliente'); if(fcl) fcl.value=nombre;
+    const fco=$('#f_codcliente'); if(fco) fco.value='';
+    save(); updateTotals(); updateReqLabels(); cerrarRegistroCliente();
+    toast('Cliente nuevo registrado ✓');
   });
   // acciones
   $('#aResumen').addEventListener('click',openResumen);
@@ -18274,6 +18452,7 @@ function wire(){
   document.addEventListener('keydown',e=>{
     if(e.key!=='Escape') return;
     if($('#adminModal').classList.contains('open')){ $('#admNo').click(); return; }
+    if($('#regCliModal').classList.contains('open')){ cerrarRegistroCliente(); return; }
     if($('#catModal').classList.contains('open')){ $('#catNo').click(); return; }
     if($('#confirmModal').classList.contains('open')){ $('#cfNo').click(); return; }
     if($('#ordersModal').classList.contains('open')){ cerrarPedidos(); return; }
