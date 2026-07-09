@@ -354,7 +354,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v36</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v37</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -376,6 +376,10 @@
       <button class="iconbtn cargarinv" id="btnRestaurar" type="button" style="display:none" title="Restaurar un respaldo guardado">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
         <span class="btnlabel">Restaurar</span>
+      </button>
+      <button class="iconbtn cargarinv" id="btnReset" type="button" style="display:none" title="Volver a mostrar referencias ocultadas o eliminadas localmente">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+        <span class="btnlabel">Restablecer</span>
       </button>
     </div>
     <div class="appbtns">
@@ -17179,7 +17183,7 @@ function updateReqLabels(){
 }
 
 async function toggleAdmin(){
-  const admBtns=['#btnCargar','#btnCargarInv','#btnNuevoProd','#btnRespaldo','#btnRestaurar'];
+  const admBtns=['#btnCargar','#btnCargarInv','#btnNuevoProd','#btnRespaldo','#btnRestaurar','#btnReset'];
   if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display='none'; }); filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
   const pass=await askPassword();
   if(pass==null) return;
@@ -17729,6 +17733,14 @@ async function restaurarRespaldo(text){
   buildChips(); render(); updateTotals();
   toast('Respaldo restaurado ✓');
 }
+// Limpia el estado local de productos ocultados/eliminados y recarga (recupera todas las referencias del catálogo).
+async function restablecerDatosLocales(){
+  const ok=await askConfirm('¿Restablecer? Se volverán a mostrar todas las referencias del catálogo que estuvieran ocultadas o eliminadas en este dispositivo. No borra tus productos ni el inventario cargados.','Sí, restablecer','Cancelar');
+  if(!ok) return;
+  try{ localStorage.removeItem(PSTATE_KEY); }catch(e){}
+  toast('Restableciendo…');
+  setTimeout(()=>{ try{ location.reload(); }catch(e){ prodDeleted={}; CATALOGO.forEach(p=>{ delete p.off; }); buildChips(); render(); updateTotals(); } }, 350);
+}
 
 // ---- imprimir ----
 function buildPrint(){
@@ -18003,6 +18015,7 @@ function wire(){
   // respaldo / restaurar (admin)
   $('#btnRespaldo').addEventListener('click',()=>{ try{ generarRespaldo(); }catch(err){ toast('No se pudo generar el respaldo'); console.error(err); } });
   $('#btnRestaurar').addEventListener('click',()=>{ $('#fileRestaurar').click(); });
+  $('#btnReset').addEventListener('click',()=>{ restablecerDatosLocales(); });
   $('#fileRestaurar').addEventListener('change',e=>{
     const f=e.target.files&&e.target.files[0]; if(!f){ e.target.value=''; return; }
     f.text().then(txt=>{ restaurarRespaldo(txt); e.target.value=''; })
@@ -18056,7 +18069,7 @@ try{ localStorage.removeItem(STORE_KEY); }catch(e){}
 state = {qty:{}, meta:{}};
 buildLists(); buildChips(); initMeta(); render(); updateTotals(); wire(); pwaSetup();
 // aviso breve con la versión al abrir la app
-try{ const _v=(document.getElementById('appver')||{}).textContent||''; if(_v) setTimeout(()=>toast('Pedidos OFICA '+_v),400); }catch(e){}
+try{ const _v=(document.getElementById('appver')||{}).textContent||''; setTimeout(()=>toast('Pedidos OFICA '+_v+' · '+CATALOGO.length+' referencias'),400); }catch(e){}
 syncHeaderVars();
 window.addEventListener('resize', syncHeaderVars);
 if(window.ResizeObserver){ const ro=new ResizeObserver(syncHeaderVars); ro.observe(document.querySelector('.appbar')); ro.observe(document.querySelector('.toolbar')); }
