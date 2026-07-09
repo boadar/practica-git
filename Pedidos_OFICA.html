@@ -168,6 +168,14 @@
   .prod::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:transparent}
   .prod.on::before{background:var(--active)}
   .prod.on{background:var(--active-tint)}
+  .prodadmin{position:absolute;top:6px;right:8px;display:flex;flex-direction:column;gap:6px;z-index:4}
+  .prodadmin .padm{width:29px;height:29px;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.14)}
+  .prodadmin .padm svg{width:16px;height:16px}
+  .padm-pow{color:#c0392b}
+  .padm-pow.on{color:var(--active)}
+  .padm-del{color:#c0392b}
+  .prod.isoff{opacity:.5}
+  .prod.isoff .prodadmin{opacity:1}
   .info{min-width:0}
   .name{font-size:14px;font-weight:600;color:var(--ink);margin:0;line-height:1.3}
   .name .pcode{font-weight:700;color:var(--ink);letter-spacing:.3px}
@@ -17029,6 +17037,24 @@ function saveNewProducts(list){
   }catch(e){}
 }
 loadNewProducts();
+// ---- estado de productos: apagados (ocultos fuera de admin) y eliminados ----
+const PSTATE_KEY='ofica_prod_estado_v1';
+let prodDeleted={};
+function loadProdState(){
+  try{
+    const raw=localStorage.getItem(PSTATE_KEY); if(!raw) return;
+    const st=JSON.parse(raw)||{}; prodDeleted=st.del||{}; const off=st.off||{};
+    for(let i=CATALOGO.length-1;i>=0;i--){ if(prodDeleted[CATALOGO[i].codigo]){ delete byCode[CATALOGO[i].codigo]; CATALOGO.splice(i,1); } }
+    Object.keys(off).forEach(c=>{ if(byCode[c]) byCode[c].off=true; });
+  }catch(e){}
+}
+function persistProdState(){
+  try{
+    const off={}; CATALOGO.forEach(p=>{ if(p.off) off[p.codigo]=1; });
+    localStorage.setItem(PSTATE_KEY, JSON.stringify({off:off, del:prodDeleted}));
+  }catch(e){}
+}
+loadProdState();
 // ---- inventario cargado desde Excel (persiste en el navegador) ----
 const INV_KEY='ofica_inventario_v1';
 function loadInvOverrides(){
@@ -17079,6 +17105,7 @@ let filter = {q:'', cat:'', onlyOn:false, hideNoStock:true};
 function visibleProducts(){
   const q = filter.q.trim().toLowerCase();
   return CATALOGO.filter(p=>{
+    if(p.off && !adminMode) return false;
     if(filter.cat && p.categoria!==filter.cat) return false;
     if(filter.onlyOn && !(state.qty[p.codigo]>0)) return false;
     if(filter.hideNoStock && Math.round(+p.inv||0)<=0 && !(state.qty[p.codigo]>0) && !p.nuevo) return false;
@@ -17142,8 +17169,12 @@ function render(){
     const thumb = src
       ? `<div class="thumb"><img src="${src}" alt="" loading="lazy"></div>`
       : `<div class="thumb ph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="m21 15-5-5L5 21"/></svg></div>`;
-    html+=`<div class="prod${on?' on':''}${agotado?' agotado':''}" data-code="${esc(p.codigo)}">
-      ${thumb}
+    const admBtns = adminMode ? `<div class="prodadmin">
+        <button class="padm padm-pow${p.off?'':' on'}" data-padm="toggle" title="${p.off?'Apagado: oculto fuera de administrador':'Encendido: visible en el catálogo'}" aria-label="Encender o apagar producto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9"/><path d="M6.4 6.4a8 8 0 1 0 11.2 0"/></svg></button>
+        <button class="padm padm-del" data-padm="del" title="Eliminar producto" aria-label="Eliminar producto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+      </div>` : '';
+    html+=`<div class="prod${on?' on':''}${agotado?' agotado':''}${p.off?' isoff':''}" data-code="${esc(p.codigo)}">
+      ${admBtns}${thumb}
       <div class="pbody">
       <p class="name"><span class="pcode">${esc(p.codigo)}</span> - ${esc(p.nombre)}</p>
       <div class="sub">
@@ -17919,6 +17950,35 @@ function wire(){
     if(q<0)q=0;
     setQty(code,q); refreshRow(row); updateTotals();
     if(filter.onlyOn && !(state.qty[code]>0)) render();
+  });
+  // botones de administración por producto: encender/apagar y eliminar
+  $('#list').addEventListener('click',async e=>{
+    const pb=e.target.closest('button[data-padm]'); if(!pb) return;
+    if(!adminMode) return;
+    const row=pb.closest('.prod'); const code=row.dataset.code; const p=byCode[code]; if(!p) return;
+    if(pb.dataset.padm==='toggle'){
+      p.off=!p.off; persistProdState(); render();
+      toast(p.off?'Producto apagado (oculto fuera de administrador)':'Producto encendido');
+      return;
+    }
+    if(pb.dataset.padm==='del'){
+      const ok=await askConfirm('¿Está seguro que quiere eliminar el producto '+code+(p.nombre&&p.nombre!==code?' — '+p.nombre:'')+'?','Sí, eliminar','Cancelar');
+      if(!ok) return;
+      const idx=CATALOGO.findIndex(x=>x.codigo===code);
+      if(idx>=0) CATALOGO.splice(idx,1);
+      delete byCode[code];
+      prodDeleted[code]=1;
+      // si era un producto nuevo, quítalo también de su almacén
+      try{ const raw=localStorage.getItem(NEWPROD_KEY); if(raw){ const arr=(JSON.parse(raw)||[]).filter(x=>x&&x.codigo!==code); localStorage.setItem(NEWPROD_KEY,JSON.stringify(arr)); } }catch(err){}
+      if(state.qty[code]!=null){ delete state.qty[code]; save(); }
+      persistProdState();
+      // recalcula categorías (elimina las que quedaron vacías) y refresca chips
+      CATS.length=0; [...new Set(CATALOGO.map(x=>x.categoria))].forEach(c=>CATS.push(c));
+      if(filter.cat && !CATS.includes(filter.cat)) filter.cat='';
+      buildChips(); render(); updateTotals();
+      toast('Producto eliminado');
+      return;
+    }
   });
   // stepper de bultos: cada bulto suma/resta p.bulto unidades
   $('#list').addEventListener('click',e=>{
