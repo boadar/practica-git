@@ -371,6 +371,14 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
         <span class="btnlabel">Cargar Producto Nuevo</span>
       </button>
+      <button class="iconbtn cargarinv" id="btnRespaldo" type="button" style="display:none" title="Guardar un respaldo de productos e inventario cargados">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        <span class="btnlabel">Respaldo</span>
+      </button>
+      <button class="iconbtn cargarinv" id="btnRestaurar" type="button" style="display:none" title="Restaurar un respaldo guardado">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+        <span class="btnlabel">Restaurar</span>
+      </button>
     </div>
     <div class="appbtns">
       <button class="stocktoggle" id="btnHideNoStock" aria-pressed="true" title="Mostrar/ocultar referencias sin inventario">
@@ -395,6 +403,7 @@
   <input type="file" id="fileCargar" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
   <input type="file" id="fileCargarInv" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
   <input type="file" id="fileNuevoProd" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
+  <input type="file" id="fileRestaurar" accept=".json,application/json,text/plain" style="display:none">
 
   <div class="meta-backdrop" id="metaBackdrop" hidden></div>
   <div class="meta" id="metaPanel" hidden>
@@ -17359,10 +17368,11 @@ function updateReqLabels(){
 }
 
 async function toggleAdmin(){
-  if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); const bc=$('#btnCargar'); if(bc) bc.style.display='none'; const bi=$('#btnCargarInv'); if(bi) bi.style.display='none'; const bn=$('#btnNuevoProd'); if(bn) bn.style.display='none'; filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
+  const admBtns=['#btnCargar','#btnCargarInv','#btnNuevoProd','#btnRespaldo','#btnRestaurar'];
+  if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display='none'; }); filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
   const pass=await askPassword();
   if(pass==null) return;
-  if(pass===ADMIN_KEY){ adminMode=true; $('#btnAdmin').setAttribute('aria-pressed','true'); const bc=$('#btnCargar'); if(bc) bc.style.display=''; const bi=$('#btnCargarInv'); if(bi) bi.style.display=''; const bn=$('#btnNuevoProd'); if(bn) bn.style.display=''; filter.hideNoStock=false; updateHideBtn(); render(); updateTotals(); toast('Modo administrador activado'); }
+  if(pass===ADMIN_KEY){ adminMode=true; $('#btnAdmin').setAttribute('aria-pressed','true'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display=''; }); filter.hideNoStock=false; updateHideBtn(); render(); updateTotals(); toast('Modo administrador activado'); }
   else toast('Clave incorrecta');
 }
 
@@ -17877,6 +17887,38 @@ async function categorizarYAgregarNuevos(nuevos, dup){
   toast(agregados.length+' producto'+(agregados.length===1?'':'s')+' agregado'+(agregados.length===1?'':'s')+(omit?' · '+omit+' sin cargar':'')+(dup.length?' · '+dup.length+' ya existían':'')+' ✓');
 }
 
+// ===== Respaldo / Restaurar (productos nuevos, inventario y estados cargados) =====
+function generarRespaldo(){
+  const rd=k=>{ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):null; }catch(e){ return null; } };
+  const data={ app:'PedidosOFICA', tipo:'respaldo', v:1, newprod:rd(NEWPROD_KEY), inv:rd(INV_KEY), pstate:rd(PSTATE_KEY) };
+  const np=Array.isArray(data.newprod)?data.newprod.length:0;
+  const ni=data.inv?Object.keys(data.inv).length:0;
+  const bytes=new TextEncoder().encode(JSON.stringify(data));
+  const stamp=new Date().toISOString().slice(0,10);
+  download('Respaldo-OFICA-'+stamp+'.json', bytes, 'application/json');
+  toast('Respaldo generado: '+np+' producto'+(np===1?'':'s')+' · '+ni+' inventario'+(ni===1?'':'s')+' ✓');
+}
+async function restaurarRespaldo(text){
+  let data;
+  try{ data=JSON.parse(text); }catch(e){ toast('El archivo de respaldo no es válido'); return; }
+  if(!data || data.app!=='PedidosOFICA'){ toast('El archivo no es un respaldo de Pedidos OFICA'); return; }
+  const np=Array.isArray(data.newprod)?data.newprod.length:0;
+  const ni=data.inv?Object.keys(data.inv).length:0;
+  const ok=await askConfirm('¿Restaurar el respaldo? Se aplicarán '+np+' producto'+(np===1?'':'s')+' y '+ni+' inventario'+(ni===1?'':'s')+' cargados.','Sí, restaurar','Cancelar');
+  if(!ok) return;
+  try{
+    if(data.newprod!=null) localStorage.setItem(NEWPROD_KEY, JSON.stringify(data.newprod));
+    if(data.inv!=null) localStorage.setItem(INV_KEY, JSON.stringify(data.inv));
+    if(data.pstate!=null) localStorage.setItem(PSTATE_KEY, JSON.stringify(data.pstate));
+  }catch(e){}
+  // aplica sin recargar la página
+  loadNewProducts(); loadProdState(); loadInvOverrides();
+  CATS.length=0; [...new Set(CATALOGO.map(p=>p.categoria))].forEach(c=>CATS.push(c));
+  filter.onlyOn=false; filter.cat=''; filter.q=''; const qi=$('#q'); if(qi) qi.value='';
+  buildChips(); render(); updateTotals();
+  toast('Respaldo restaurado ✓');
+}
+
 // ---- imprimir ----
 function buildPrint(){
   const m=state.meta,t=totals(),f=factorGlobal();
@@ -18146,6 +18188,14 @@ function wire(){
       try{ await categorizarYAgregarNuevos(parsed.nuevos, parsed.dup); }
       catch(err){ toast('Error al agregar productos'); console.error(err); }
     }).catch(err=>{ toast('No se pudo leer el archivo'); console.error(err); e.target.value=''; });
+  });
+  // respaldo / restaurar (admin)
+  $('#btnRespaldo').addEventListener('click',()=>{ try{ generarRespaldo(); }catch(err){ toast('No se pudo generar el respaldo'); console.error(err); } });
+  $('#btnRestaurar').addEventListener('click',()=>{ $('#fileRestaurar').click(); });
+  $('#fileRestaurar').addEventListener('change',e=>{
+    const f=e.target.files&&e.target.files[0]; if(!f){ e.target.value=''; return; }
+    f.text().then(txt=>{ restaurarRespaldo(txt); e.target.value=''; })
+      .catch(err=>{ toast('No se pudo leer el archivo'); console.error(err); e.target.value=''; });
   });
   $('#btnVerPedidos').addEventListener('click',openPedidos);
   $('#opClose').addEventListener('click',cerrarPedidos);
