@@ -404,7 +404,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v51</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v52</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -674,6 +674,20 @@
       <div class="rc-card rc-addr" data-addr="fiscal">
         <h3 class="rc-h2">Dirección Fiscal</h3>
         <div class="rc-field"><label>Dirección Completa</label><textarea class="rc-inp" data-af="completa" rows="3" placeholder="Dirección completa (se toma del RIF)"></textarea></div>
+        <div class="rc-grid3" style="margin-top:12px">
+          <div class="rc-field"><label>Estado</label><input class="rc-inp" data-af="estado" placeholder="Ej: Miranda"></div>
+          <div class="rc-field"><label>Municipio</label><input class="rc-inp" data-af="municipio" placeholder="Ej: Chacao"></div>
+          <div class="rc-field"><label>Ciudad</label><input class="rc-inp" data-af="ciudad" placeholder="Ej: Caracas"></div>
+        </div>
+        <div class="rc-grid2">
+          <div class="rc-field"><label>Urbanización/Zona/Sector</label><input class="rc-inp" data-af="urb" placeholder="Ej: La Candelaria"></div>
+          <div class="rc-field"><label>Avenida/Calle</label><input class="rc-inp" data-af="avcalle" placeholder="Ej: Av. Francisco de Miranda"></div>
+        </div>
+        <div class="rc-grid3">
+          <div class="rc-field"><label>Local/Casa/Edificio</label><input class="rc-inp" data-af="local" placeholder="Ej: Edif. Centro Plaza"></div>
+          <div class="rc-field"><label>Piso/Oficina</label><input class="rc-inp" data-af="piso" placeholder="Ej: Piso 10, Oficina 10A"></div>
+          <div class="rc-field"><label>Datos Adicionales</label><input class="rc-inp" data-af="adicional" placeholder="Punto de referencia, etc."></div>
+        </div>
       </div>
 
       <div class="rc-card">
@@ -17295,6 +17309,20 @@ function rcAddrBlockHtml(){
     '<button class="rc-delenvio" type="button" title="Quitar">×</button>'+
     '<div class="rc-field"><label>Nombre de la Dirección</label><input class="rc-inp" data-afname placeholder="Ej: Sucursal Principal"></div>'+
     '<div class="rc-field" style="margin-top:12px"><label>Dirección Completa</label><textarea class="rc-inp" data-af="completa" rows="3" placeholder="Dirección de envío"></textarea></div>'+
+    '<div class="rc-grid3" style="margin-top:12px">'+
+      '<div class="rc-field"><label>Estado</label><input class="rc-inp" data-af="estado" placeholder="Ej: Miranda"></div>'+
+      '<div class="rc-field"><label>Municipio</label><input class="rc-inp" data-af="municipio" placeholder="Ej: Chacao"></div>'+
+      '<div class="rc-field"><label>Ciudad</label><input class="rc-inp" data-af="ciudad" placeholder="Ej: Caracas"></div>'+
+    '</div>'+
+    '<div class="rc-grid2">'+
+      '<div class="rc-field"><label>Urbanización/Zona/Sector</label><input class="rc-inp" data-af="urb" placeholder="Ej: La Candelaria"></div>'+
+      '<div class="rc-field"><label>Avenida/Calle</label><input class="rc-inp" data-af="avcalle" placeholder="Ej: Av. Francisco de Miranda"></div>'+
+    '</div>'+
+    '<div class="rc-grid3">'+
+      '<div class="rc-field"><label>Local/Casa/Edificio</label><input class="rc-inp" data-af="local" placeholder="Ej: Edif. Centro Plaza"></div>'+
+      '<div class="rc-field"><label>Piso/Oficina</label><input class="rc-inp" data-af="piso" placeholder="Ej: Piso 10, Oficina 10A"></div>'+
+      '<div class="rc-field"><label>Datos Adicionales</label><input class="rc-inp" data-af="adicional" placeholder="Punto de referencia, etc."></div>'+
+    '</div>'+
   '</div>';
 }
 function rcLeerAddr(container){
