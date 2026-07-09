@@ -17149,6 +17149,12 @@ function totals(){
 function render(){
   const list=$('#list'); const items=visibleProducts();
   if(!items.length){list.innerHTML='<div class="empty">'+(filter.onlyOn?'No tiene productos seleccionados con cantidades':'No hay productos que coincidan.<br>Ajusta la búsqueda o el filtro.')+'</div>';return;}
+  // agrupa por categoría (según el orden de CATS) para que cada categoría sea un
+  // solo bloque; así los productos nuevos (agregados al final) se muestran junto
+  // a los de su categoría y el conteo del encabezado coincide con lo visible.
+  const catOrder={}; CATS.forEach((c,i)=>{ catOrder[c]=i; });
+  const ord=c=>(catOrder[c]!==undefined?catOrder[c]:1e9);
+  items.sort((a,b)=>ord(a.categoria)-ord(b.categoria));
   let html=''; let cat=null;
   for(const p of items){
     if(p.categoria!==cat){
