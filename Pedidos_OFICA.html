@@ -367,7 +367,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v41</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v42</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -16888,8 +16888,15 @@ function resumenPedido(o){
     '\nVendedor: '+(m.vendedor||'')+'\nCondición: '+(m.condicion||'')+'\nFecha: '+(o.fecha||'')+
     '\nReferencias: '+nref+'\nTotal: '+fmt.format(o.total||0);
 }
-// destinatario fijo del correo (vacío = el usuario lo escribe). Ej: 'pedidos@ofica.com'
-const CORREO_DESTINO='';
+// destinatario fijo del correo
+const CORREO_DESTINO='pedidos@ofica.com';
+// número de control para correos con varios pedidos (se incrementa en cada envío múltiple)
+const CTRL_KEY='ofica_control_correo_v1';
+function nextControlCorreo(){
+  let n=0; try{ n=parseInt(localStorage.getItem(CTRL_KEY)||'0',10)||0; }catch(e){}
+  n+=1; try{ localStorage.setItem(CTRL_KEY,String(n)); }catch(e){}
+  return n;
+}
 // --- utilidades para construir un correo .eml con el Excel ya adjunto (para PC) ---
 function bytesToBase64(bytes){
   let bin=''; const chunk=0x8000;
@@ -16935,7 +16942,15 @@ async function enviarPedidos(ids){
   for(const o of sel){ try{ items.push({name:safeNameFor(o), bytes:buildOrderXlsxFor(o)}); }catch(e){ console.error(e); } }
   const mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
   const resumen=sel.map(o=>resumenPedido(o)).join('\n\n———\n\n');
-  const subject='Pedido'+(sel.length>1?'s':'')+' OFICA — '+sel.map(o=>o.nombre||'').join(', ');
+  // asunto: 1 pedido -> "Pedido {cliente} {fecha}"; varios -> "Pedido {fecha} {# control}"
+  let subject;
+  if(sel.length===1){
+    const o=sel[0];
+    subject='Pedido '+(o.nombre||'')+' '+fechaFmt(o.fecha||'');
+  } else {
+    const hoy=new Date().toISOString().slice(0,10);
+    subject='Pedido '+fechaFmt(hoy)+' '+nextControlCorreo();
+  }
   let enviado=false, cancelado=false, modo='';
 
   // 1) MÓVIL (iOS/Android): menú de compartir nativo -> adjunta el Excel directo al correo
@@ -16962,7 +16977,7 @@ async function enviarPedidos(ids){
   // 3) último respaldo: descargar el Excel y abrir mailto con el resumen
   if(!enviado){
     items.forEach((it,i)=> setTimeout(()=>{ try{ download(it.name, it.bytes, mime); }catch(e){} }, i*250));
-    try{ location.href='mailto:'+encodeURIComponent(CORREO_DESTINO||'')+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(resumen+'\n\nAdjunta el Excel descargado.'); }catch(e){}
+    try{ location.href='mailto:'+(CORREO_DESTINO||'')+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(resumen+'\n\nAdjunta el Excel descargado.'); }catch(e){}
     enviado=true; modo='mailto';
   }
 
