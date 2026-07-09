@@ -63,6 +63,7 @@
     border:1px solid rgba(255,255,255,.25);
   }
   .titlewrap{min-width:90px;flex:1 1 90px}
+  .appver{font-size:10px;font-weight:700;color:var(--ink-3);opacity:.75;vertical-align:super;letter-spacing:.3px}
   .cargartop{margin-left:auto;flex:0 0 auto;padding:7px 9px;font-size:12px}
   .cargarinv{flex:0 0 auto;padding:7px 9px;font-size:12px}
   .appbar h1{font-size:17px;font-weight:700;margin:0;letter-spacing:.2px}
@@ -353,7 +354,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido</h1>
+        <h1>Pedido <span class="appver" id="appver">v35</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">

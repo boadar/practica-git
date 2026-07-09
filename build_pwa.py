@@ -22,7 +22,20 @@ OUT = ROOT / "docs" / "index.html"
 SW = ROOT / "docs" / "sw.js"
 
 def main():
+    # 0) calcula la nueva versión a partir del caché del service worker
+    sw = SW.read_text(encoding="utf-8")
+    m = re.search(r"pedidos-ofica-v(\d+)", sw)
+    if not m:
+        sys.exit("ERROR: no se encontró la versión del caché en docs/sw.js")
+    old = int(m.group(1))
+    new = old + 1
+
+    # 0b) sincroniza la etiqueta de versión visible en la app (fuente y build)
     src = SRC.read_text(encoding="utf-8")
+    ver_re = re.compile(r'(<span class="appver" id="appver">)[^<]*(</span>)')
+    if ver_re.search(src):
+        src = ver_re.sub(rf'\g<1>v{new}\g<2>', src, count=1)
+        SRC.write_text(src, encoding="utf-8")  # deja el número visible también en el archivo fuente
 
     # 1) manifest + iconos en <head>
     head_inject = (
@@ -59,17 +72,11 @@ def main():
     OUT.write_text(src, encoding="utf-8")
 
     # 4) subir versión del caché en sw.js
-    sw = SW.read_text(encoding="utf-8")
-    m = re.search(r"pedidos-ofica-v(\d+)", sw)
-    if not m:
-        sys.exit("ERROR: no se encontró la versión del caché en docs/sw.js")
-    old = int(m.group(1))
-    new = old + 1
     sw = sw.replace(f"pedidos-ofica-v{old}", f"pedidos-ofica-v{new}")
     SW.write_text(sw, encoding="utf-8")
 
     print(f"OK -> docs/index.html generado ({len(src)} bytes)")
-    print(f"OK -> caché del service worker: v{old} -> v{new}")
+    print(f"OK -> versión de la app y caché: v{old} -> v{new}")
 
 if __name__ == "__main__":
     main()
