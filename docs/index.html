@@ -370,7 +370,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v39</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v40</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -16793,7 +16793,7 @@ function setLocked(on){
   if(bEdit) bEdit.style.display = on?'':'none';
 }
 
-function guardarPedido(){
+async function guardarPedido(){
   if(locked){ toast('Pulsa EDITAR PEDIDO para modificar'); return; }
   if(totals().lineas===0){ toast('Agrega productos primero'); return; }
   const nombre=(state.meta.cliente||'').trim();
@@ -16819,12 +16819,26 @@ function guardarPedido(){
   };
   const idx=list.findIndex(o=>o.id===rec.id);
   const prev = idx>=0 ? list[idx] : null;
-  // estatus: nuevo -> PENDIENTE; al actualizar uno existente -> marcar EDITADO conservando su estatus
-  rec.status = prev ? (prev.status||'PENDIENTE') : 'PENDIENTE';
+  // estatus: al guardar (nuevo o editado) queda PENDIENTE; si se actualiza uno existente se marca EDITADO (permanece)
+  rec.status = 'PENDIENTE';
   rec.editado = prev ? true : false;
   if(idx>=0) list[idx]=rec; else list.push(rec);
   storeOrders(list); currentOrderId=rec.id;
   toast(idx>=0?'Pedido actualizado':'Pedido guardado');
+  // preguntar si se envía de una vez
+  const enviar=await askConfirm('Pedido guardado. ¿Deseas enviarlo ahora?','Sí, enviar','No');
+  if(enviar){ await enviarPedidos([rec.id]); }
+  else { limpiarPedidoTodo(); toast('Pedido guardado'); }
+}
+// limpia por completo el pedido actual (deja el formulario en blanco)
+function limpiarPedidoTodo(){
+  state.qty={}; state.meta={vendedor:'',desc1:'0',desc2:'0',desc3:'0'};
+  const d=new Date(); state.meta.fecha=d.toISOString().slice(0,10);
+  save(); currentOrderId=null; setLocked(false);
+  ['f_vendedor','f_cliente','f_codcliente','f_condicion','f_numped','f_obs'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
+  const ff=document.getElementById('f_fecha'); if(ff) ff.value=state.meta.fecha;
+  filter.onlyOn=false; filter.cat=''; filter.q=''; const qi=$('#q'); if(qi) qi.value='';
+  syncChips(); render(); updateTotals();
 }
 
 function openPedidos(){
@@ -16853,7 +16867,7 @@ function openPedidos(){
 // etiqueta y clase de estatus del pedido
 function statusLabel(o){
   const base=(o&&o.status==='ENVIADO')?'ENVIADO':'PENDIENTE';
-  return (o&&o.editado?'EDIT. ':'')+base;
+  return (o&&o.editado?'EDITADO ':'')+base;
 }
 function statusClass(o){
   const c=(o&&o.status==='ENVIADO')?'st-env':'st-pend';
@@ -16895,20 +16909,23 @@ async function enviarPedidos(ids){
     }
   }catch(e){ if(e && e.name==='AbortError'){ cancelado=true; } else { console.error(e); } }
   if(cancelado) return; // el usuario canceló el envío: no cambia el estatus
+  let soloResumen=false;
   if(!enviado){
-    // respaldo: descarga los Excel y abre el correo con el resumen
+    // respaldo: descarga los Excel (para adjuntar) y abre el correo con el resumen
     items.forEach((it,i)=> setTimeout(()=>{ try{ download(it.name, it.bytes, mime); }catch(e){} }, i*250));
     const subject=encodeURIComponent('Pedido'+(sel.length>1?'s':'')+' OFICA — '+sel.map(o=>o.nombre||'').join(', '));
-    const body=encodeURIComponent(resumen+'\n\n(Se adjuntan los archivos Excel de cada pedido.)');
+    const body=encodeURIComponent(resumen+'\n\nIMPORTANTE: adjunta a este correo el archivo Excel que se acaba de descargar.');
     try{ location.href='mailto:?subject='+subject+'&body='+body; }catch(e){}
-    enviado=true;
+    enviado=true; soloResumen=true;
   }
-  // marca los pedidos como ENVIADO (y quita la marca de editado)
+  // marca los pedidos como ENVIADO (conserva la marca EDITADO si la tenía)
   const l2=loadOrders();
-  ids.forEach(id=>{ const o=l2.find(x=>x.id===id); if(o){ o.status='ENVIADO'; o.editado=false; } });
+  ids.forEach(id=>{ const o=l2.find(x=>x.id===id); if(o){ o.status='ENVIADO'; } });
   storeOrders(l2);
-  openPedidos();
-  toast('Pedido'+(sel.length>1?'s':'')+' enviado'+(sel.length>1?'s':'')+' ✓');
+  if($('#ordersModal').classList.contains('open')) openPedidos();
+  toast(soloResumen
+    ? 'Excel descargado: adjúntalo al correo. Pedido marcado como ENVIADO'
+    : 'Pedido'+(sel.length>1?'s':'')+' enviado'+(sel.length>1?'s':'')+' ✓');
 }
 
 function abrirPedido(id){
