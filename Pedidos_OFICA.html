@@ -401,7 +401,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v48</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v49</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -670,21 +670,7 @@
 
       <div class="rc-card rc-addr" data-addr="fiscal">
         <h3 class="rc-h2">Dirección Fiscal</h3>
-        <div class="rc-grid3">
-          <div class="rc-field"><label>Estado</label><input class="rc-inp" data-af="estado" placeholder="Ej: Miranda"></div>
-          <div class="rc-field"><label>Municipio</label><input class="rc-inp" data-af="municipio" placeholder="Ej: Chacao"></div>
-          <div class="rc-field"><label>Ciudad</label><input class="rc-inp" data-af="ciudad" placeholder="Ej: Caracas"></div>
-        </div>
-        <div class="rc-grid2">
-          <div class="rc-field"><label>Urbanización/Zona/Sector</label><input class="rc-inp" data-af="urb" placeholder="Ej: La Candelaria"></div>
-          <div class="rc-field"><label>Avenida/Calle</label><input class="rc-inp" data-af="avcalle" placeholder="Ej: Av. Francisco de Miranda"></div>
-        </div>
-        <div class="rc-grid3">
-          <div class="rc-field"><label>Local/Casa/Edificio</label><input class="rc-inp" data-af="local" placeholder="Ej: Edif. Centro Plaza"></div>
-          <div class="rc-field"><label>Piso/Oficina</label><input class="rc-inp" data-af="piso" placeholder="Ej: Piso 10, Oficina 10A"></div>
-          <div class="rc-field"><label>Datos Adicionales</label><input class="rc-inp" data-af="adicional" placeholder="Punto de referencia, etc."></div>
-        </div>
-        <p class="rc-full"><b>Dirección Completa:</b> <span class="rc-fulltxt">Complete los campos para ver la dirección completa.</span></p>
+        <div class="rc-field"><label>Dirección</label><textarea class="rc-inp" data-af="direccion" rows="3" placeholder="Dirección fiscal (se toma del RIF)"></textarea></div>
       </div>
 
       <div class="rc-card">
@@ -17305,35 +17291,15 @@ function rcAddrBlockHtml(){
   return '<div class="rc-envio rc-addr">'+
     '<button class="rc-delenvio" type="button" title="Quitar">×</button>'+
     '<div class="rc-field"><label>Nombre de la Dirección</label><input class="rc-inp" data-afname placeholder="Ej: Sucursal Principal"></div>'+
-    '<div class="rc-grid3" style="margin-top:12px">'+
-      '<div class="rc-field"><label>Estado</label><input class="rc-inp" data-af="estado" placeholder="Ej: Miranda"></div>'+
-      '<div class="rc-field"><label>Municipio</label><input class="rc-inp" data-af="municipio" placeholder="Ej: Chacao"></div>'+
-      '<div class="rc-field"><label>Ciudad</label><input class="rc-inp" data-af="ciudad" placeholder="Ej: Caracas"></div>'+
-    '</div>'+
-    '<div class="rc-grid2">'+
-      '<div class="rc-field"><label>Urbanización/Zona/Sector</label><input class="rc-inp" data-af="urb" placeholder="Ej: La Candelaria"></div>'+
-      '<div class="rc-field"><label>Avenida/Calle</label><input class="rc-inp" data-af="avcalle" placeholder="Ej: Av. Francisco de Miranda"></div>'+
-    '</div>'+
-    '<div class="rc-grid3">'+
-      '<div class="rc-field"><label>Local/Casa/Edificio</label><input class="rc-inp" data-af="local" placeholder="Ej: Edif. Centro Plaza"></div>'+
-      '<div class="rc-field"><label>Piso/Oficina</label><input class="rc-inp" data-af="piso" placeholder="Ej: Piso 10, Oficina 10A"></div>'+
-      '<div class="rc-field"><label>Datos Adicionales</label><input class="rc-inp" data-af="adicional" placeholder="Punto de referencia, etc."></div>'+
-    '</div>'+
-    '<p class="rc-full"><b>Dirección Completa:</b> <span class="rc-fulltxt">Complete los campos para ver la dirección completa.</span></p>'+
+    '<div class="rc-field" style="margin-top:12px"><label>Dirección</label><textarea class="rc-inp" data-af="direccion" rows="3" placeholder="Dirección de envío"></textarea></div>'+
   '</div>';
-}
-function rcAddrStr(o){
-  return [o.avcalle,o.local,o.piso,o.urb,o.ciudad,o.municipio,o.estado,o.adicional].map(x=>(x||'').trim()).filter(Boolean).join(', ');
 }
 function rcLeerAddr(container){
   const o={}; container.querySelectorAll('[data-af]').forEach(i=>o[i.dataset.af]=i.value.trim());
   const nm=container.querySelector('[data-afname]'); if(nm) o.nombre=nm.value.trim();
-  o.completa=rcAddrStr(o); return o;
+  o.completa=(o.direccion||''); return o;
 }
-function rcRecalcAddr(container){
-  const o=rcLeerAddr(container); const span=container.querySelector('.rc-fulltxt');
-  if(span) span.textContent = o.completa || 'Complete los campos para ver la dirección completa.';
-}
+function rcRecalcAddr(container){ /* sin campo calculado: dirección única */ }
 function rcRenderDocs(){
   const box=$('#rcDocList'); const keys=Object.keys(regCli.docs||{});
   box.innerHTML = keys.length ? keys.map(k=>'<div class="rc-docitem">✓ '+esc(RC_DOC_LABEL[k]||k)+': '+esc(regCli.docs[k].name||'')+'</div>').join('') : 'No hay documentos cargados.';
@@ -17357,11 +17323,8 @@ function rcLeerContactos(){
 // copia la dirección fiscal a la primera dirección de envío
 function rcCopiarFiscalAEnvio(){
   const fis=$('[data-addr="fiscal"]'); const env=document.querySelector('#rcEnvios .rc-envio'); if(!fis||!env) return;
-  ['estado','municipio','ciudad','urb','avcalle','local','piso','adicional'].forEach(k=>{
-    const src=fis.querySelector('[data-af="'+k+'"]'); const dst=env.querySelector('[data-af="'+k+'"]');
-    if(src&&dst) dst.value=src.value;
-  });
-  rcRecalcAddr(env);
+  const src=fis.querySelector('[data-af="direccion"]'); const dst=env.querySelector('[data-af="direccion"]');
+  if(src&&dst) dst.value=src.value;
 }
 function rcSetEnvioDisabled(on){
   const env=document.querySelector('#rcEnvios .rc-envio'); if(!env) return;
@@ -18516,7 +18479,7 @@ function wire(){
         const d=parseRif(strings);
         if(d.nombre) $('#rcNombre').value=d.nombre;
         if(d.rif) $('#rcRif').value=d.rif;
-        if(d.direccion){ const fis=$('[data-addr="fiscal"]'); const av=fis.querySelector('[data-af="avcalle"]'); if(av){ av.value=d.direccion; rcRecalcAddr(fis); const mm=$('#rcMismaDir'); if(mm && mm.checked) rcCopiarFiscalAEnvio(); } }
+        if(d.direccion){ const fis=$('[data-addr="fiscal"]'); const dir=fis.querySelector('[data-af="direccion"]'); if(dir){ dir.value=d.direccion; const mm=$('#rcMismaDir'); if(mm && mm.checked) rcCopiarFiscalAEnvio(); } }
         regCli.docs[key]={name:f.name||'RIF.pdf', dataUri:await fileToDataUri(f)};
         toast(d.rif?'Datos del RIF leídos ✓':'RIF adjuntado; escribe los datos');
       } else if(esPdf){
