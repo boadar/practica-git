@@ -401,7 +401,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v53</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v54</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -17323,8 +17323,10 @@ function rcLeerContactos(){
 // copia la dirección fiscal a la primera dirección de envío
 function rcCopiarFiscalAEnvio(){
   const fis=$('[data-addr="fiscal"]'); const env=document.querySelector('#rcEnvios .rc-envio'); if(!fis||!env) return;
-  const src=fis.querySelector('[data-af="direccion"]'); const dst=env.querySelector('[data-af="direccion"]');
-  if(src&&dst) dst.value=src.value;
+  fis.querySelectorAll('[data-af]').forEach(src=>{
+    const dst=env.querySelector('[data-af="'+src.dataset.af+'"]');
+    if(dst) dst.value=src.value;
+  });
 }
 function rcSetEnvioDisabled(on){
   const env=document.querySelector('#rcEnvios .rc-envio'); if(!env) return;
