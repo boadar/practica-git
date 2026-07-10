@@ -401,7 +401,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v57</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v58</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -17558,6 +17558,22 @@ function setQty(code,val){
   if(val>0) state.qty[code]=val; else delete state.qty[code];
   save();
 }
+// La referencia tiene inventario (>0) y la cantidad pedida lo supera
+function inventarioExcedido(code,val){
+  const p=byCode[code]; const inv=Math.floor(+(p&&p.inv)||0);
+  return inv>0 && Math.floor(+val||0)>inv;
+}
+// Avisa y coloca la referencia en 0; devuelve true si hubo exceso (para cortar el handler)
+function validarInventario(code,val,row){
+  if(!inventarioExcedido(code,val)) return false;
+  const p=byCode[code]; const inv=Math.floor(+(p&&p.inv)||0);
+  toast('La cantidad del pedido ('+Math.floor(+val||0)+') es mayor al inventario ('+inv+'). Ajusta la cantidad; la referencia se colocó en 0.');
+  setQty(code,0);
+  if(row){ const inp=row.querySelector('[data-inp]'); if(inp) inp.value=''; row.classList.remove('on'); refreshRow(row); }
+  updateTotals();
+  if(filter.onlyOn) render();
+  return true;
+}
 
 // actualiza una fila sin re-render completo
 function refreshRow(row){
@@ -18393,6 +18409,7 @@ function wire(){
     let q=+state.qty[code]||0;
     q += btn.dataset.act==='inc'?step:-step;
     if(q<0)q=0;
+    if(validarInventario(code,q,row)) return;
     setQty(code,q); refreshRow(row); updateTotals();
     if(filter.onlyOn && !(state.qty[code]>0)) render();
   });
@@ -18433,6 +18450,7 @@ function wire(){
     let q=+state.qty[code]||0;
     q += bb.dataset.bact==='inc'?bulto:-bulto;
     if(q<0)q=0;
+    if(validarInventario(code,q,row)) return;
     setQty(code,q); refreshRow(row); updateTotals();
     if(filter.onlyOn && !(state.qty[code]>0)) render();
   });
@@ -18459,6 +18477,7 @@ function wire(){
       row.classList.toggle('on',prev>0); refreshRow(row); updateTotals();
       return;
     }
+    if(validarInventario(code,val,row)){ inp.dataset.prev=0; return; }
     inp.dataset.prev=val;
   });
   // edicion de precios (modo administrador)
@@ -18487,6 +18506,7 @@ function wire(){
     const p=byCode[code]; const bulto=(p&&+p.bulto>0)?+p.bulto:0;
     if(!bulto || bi.value===bi.dataset.bprev){ refreshRow(row); return; }
     const n=Math.max(0,parseInt(bi.value,10)||0);
+    if(validarInventario(code,n*bulto,row)){ bi.dataset.bprev='0'; return; }
     setQty(code,n*bulto); row.classList.toggle('on',n>0);
     refreshRow(row); updateTotals();
     if(filter.onlyOn && !(state.qty[code]>0)) render();
