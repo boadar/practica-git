@@ -401,7 +401,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v60</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v62</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -16854,6 +16854,13 @@ const esc = s=>String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt
 
 // descuentos globales (celdas G10 y H10 del formato), aplicados en cascada
 function factorGlobal(){const d1=+state.meta.desc1||0,d2=+state.meta.desc2||0,d3=+state.meta.desc3||0;return (1-d1)*(1-d2)*(1-d3);}
+// Precio unitario con los descuentos del cliente.
+// Se aplican todos los descuentos SIN redondeo intermedio y se redondea SOLO el resultado final a 2 decimales.
+function precioNeto(p){
+  const d1=+state.meta.desc1||0,d2=+state.meta.desc2||0,d3=+state.meta.desc3||0;
+  const price=(+(p&&p.precioUsd)||0)*(1-d1)*(1-d2)*(1-d3);
+  return round2(price);   // redondeo a 2 decimales solo al final
+}
 function descLabel(){const ds=[+state.meta.desc1||0,+state.meta.desc2||0,+state.meta.desc3||0];const p=ds.filter(d=>d>0).map(d=>Math.round(d*100)+'%');return p.length?p.join(' + '):'—';}
 function ivaRateOf(p){return String(p.exento).toUpperCase()==='SI'?0:IVA_RATE;}
 
@@ -17008,7 +17015,7 @@ function buildOrderXlsxStyled(o){
     const ordenados=sel.filter(p=>ivaRateOf(p)===0).concat(sel.filter(p=>ivaRateOf(p)!==0));
     ordenados.forEach(p=>{
       const qty=state.qty[p.codigo];
-      const net=round2((+p.precioUsd||0)*f);   // precio final (con descuento)
+      const net=round2(precioNeto(p));   // precio final (con descuento)
       prods.push({codigo:p.codigo, nombre:String(p.nombre||''), inv:(+p.inv||0), precio:net, umv:(+p.umv||0), bulto:(+p.bulto||0), pedido:qty, total:round2(net*qty)});
     });
     data={ m, t,
@@ -17461,17 +17468,17 @@ function visibleProducts(){
 
 // ---- totales ----
 function totals(){
-  let baseEx=0, baseImp=0, lineas=0, unidades=0;
+  let baseEx=0, baseImp=0, baseExD=0, baseImpD=0, lineas=0, unidades=0;
   for(const code in state.qty){
     const qty=+state.qty[code]||0; if(qty<=0) continue;
     const p=byCode[code]; if(!p) continue;
-    const importe=(+p.precioUsd||0)*qty;
-    if(ivaRateOf(p)===0) baseEx+=importe; else baseImp+=importe;
+    const importe=(+p.precioUsd||0)*qty;      // sin descuento
+    const importeD=precioNeto(p)*qty;          // con descuento (redondeo tras el 1er desc.)
+    if(ivaRateOf(p)===0){ baseEx+=importe; baseExD+=importeD; }
+    else { baseImp+=importe; baseImpD+=importeD; }
     lineas++; unidades+=qty;
   }
-  const f=factorGlobal();
   const subtotal=baseEx+baseImp;
-  const baseExD=baseEx*f, baseImpD=baseImp*f;
   const descuento=subtotal-(baseExD+baseImpD);
   const iva=baseImpD*IVA_RATE;
   const total=baseExD+baseImpD+iva;
@@ -17500,7 +17507,7 @@ function render(){
     const qty=+state.qty[p.codigo]||0;
     const on=qty>0;
     const f=factorGlobal();
-    const net=(+p.precioUsd||0)*f;
+    const net=precioNeto(p);
     const netIva=net*(1+ivaRateOf(p));
     const exento=ivaRateOf(p)===0;
     const step=(+p.umv>0)?+p.umv:1;
@@ -17584,7 +17591,7 @@ function refreshRow(row){
   const code=row.dataset.code; const qty=+state.qty[code]||0;
   row.classList.toggle('on',qty>0);
   const inp=row.querySelector('[data-inp]'); if(document.activeElement!==inp) inp.value=qty||'';
-  const p=byCode[code]; const net=(+p.precioUsd||0)*factorGlobal(); const exento=ivaRateOf(p)===0;
+  const p=byCode[code]; const net=precioNeto(p); const exento=ivaRateOf(p)===0;
   const v1=row.querySelector('.lt-sin .lt-val'); if(v1) v1.textContent = qty>0 ? fmt.format(net*qty) : '';
   const v2=row.querySelector('.lt-con .lt-val'); if(v2) v2.textContent = (qty>0 && !exento) ? fmt.format(net*(1+ivaRateOf(p))*qty) : '';
   const bp=row.querySelector('.bpval'); const bulto=+p.bulto||0; if(bp && document.activeElement!==bp) bp.value = bulto>0 ? (qty/bulto).toFixed(2) : '0.00';
@@ -17743,7 +17750,7 @@ function openResumen(){
   else{
     let h='';
     lines.forEach(p=>{
-      const qty=state.qty[p.codigo]; const net=(+p.precioUsd||0)*factorGlobal(); const exento=ivaRateOf(p)===0;
+      const qty=state.qty[p.codigo]; const net=precioNeto(p); const exento=ivaRateOf(p)===0;
       h+=`<div class="sumrow">
         <div class="sinfo"><div class="name">${esc(p.nombre)}</div><small>${esc(p.codigo)} · ×${fmtN.format(qty)} · ${fmt.format(net)} c/u</small></div>
         <div class="linetot lt-sin"><span class="lt-lbl">Subtotal</span><span class="lt-val">${fmt.format(net*qty)}</span></div>
@@ -17834,7 +17841,7 @@ function orderRows(){
   rows.push([]);
   rows.push(['Código','Producto','Exento','UMV','Cantidad','Precio Unit $','Precio c/desc','Importe c/desc']);
   CATALOGO.filter(p=>state.qty[p.codigo]>0).forEach(p=>{
-    const qty=state.qty[p.codigo], net=(+p.precioUsd||0)*f, importe=net*qty;
+    const qty=state.qty[p.codigo], net=precioNeto(p), importe=net*qty;
     rows.push([p.codigo,p.nombre,ivaRateOf(p)?'NO':'SI',(+p.umv||0),qty,round2(p.precioUsd),round2(net),round2(importe)]);
   });
   rows.push([]);
@@ -17926,7 +17933,7 @@ function buildPriceXlsx(){
   headers.push('Precio + IVA');
   const rows=[headers];
   prods.forEach(p=>{
-    const net=(+p.precioUsd||0)*f; const iva=ivaRateOf(p);
+    const net=precioNeto(p); const iva=ivaRateOf(p);
     const row=['', p.codigo, String(p.nombre||''), (+p.umv||0), (+p.bulto||0), round2(p.precioUsd)];
     if(hasDesc) row.push(round2(net));
     row.push(iva>0 ? round2(net*(1+iva)) : '');
@@ -18024,7 +18031,7 @@ function buildPricePrint(){
   let cat=null, rowsHtml='';
   prods.forEach(p=>{
     if(p.categoria!==cat){ cat=p.categoria; rowsHtml+=`<tr class="cat"><td colspan="${ncols}">${esc(catDisplay(cat))}</td></tr>`; }
-    const net=(+p.precioUsd||0)*f; const iva=ivaRateOf(p);
+    const net=precioNeto(p); const iva=ivaRateOf(p);
     const src=imgFor(p.codigo);
     const img=src?`<img src="${src}" alt="" style="width:32px;height:32px;object-fit:contain">`:'';
     rowsHtml+=`<tr><td class="imgc">${img}</td><td>${esc(p.codigo)}</td><td>${esc(p.nombre)}</td><td class="n">${fmtN.format(+p.umv||0)}</td><td class="n">${fmtN.format(+p.bulto||0)}</td><td class="n">${fmt.format(p.precioUsd)}</td>`+(hasDesc?`<td class="n">${fmt.format(net)}</td>`:'')+`<td class="n">${iva>0?fmt.format(net*(1+iva)):''}</td></tr>`;
@@ -18346,7 +18353,7 @@ function buildPrint(){
   let cat=null,rowsHtml='';
   lines.forEach(p=>{
     if(p.categoria!==cat){cat=p.categoria;rowsHtml+=`<tr class="cat"><td colspan="6">${esc(catDisplay(cat))}</td></tr>`;}
-    const qty=state.qty[p.codigo],net=(+p.precioUsd||0)*f,importe=net*qty;
+    const qty=state.qty[p.codigo],net=precioNeto(p),importe=net*qty;
     rowsHtml+=`<tr><td>${esc(p.codigo)}</td><td>${esc(p.nombre)}</td><td class="n">${fmtN.format(qty)}</td><td class="n">${fmt.format(p.precioUsd)}</td><td class="n">${fmt.format(net)}</td><td class="n">${fmt.format(importe)}</td></tr>`;
   });
   const dl=descLabel();
