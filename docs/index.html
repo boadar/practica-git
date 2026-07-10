@@ -404,7 +404,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v59</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v60</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -17569,15 +17569,16 @@ function inventarioExcedido(code,val){
   const p=byCode[code]; const inv=Math.floor(+(p&&p.inv)||0);
   return inv>0 && Math.floor(+val||0)>inv;
 }
-// Avisa y coloca la referencia en 0; devuelve true si hubo exceso (para cortar el handler)
-function validarInventario(code,val,row){
+// Avisa y restaura la cantidad anterior (múltiplo de la UMV); devuelve true si hubo exceso (para cortar el handler)
+function validarInventario(code,val,row,prev){
   if(!inventarioExcedido(code,val)) return false;
   const p=byCode[code]; const inv=Math.floor(+(p&&p.inv)||0);
-  toast('La cantidad del pedido ('+Math.floor(+val||0)+') es mayor al inventario ('+inv+'). Ajusta la cantidad; la referencia se colocó en 0.');
-  setQty(code,0);
-  if(row){ const inp=row.querySelector('[data-inp]'); if(inp) inp.value=''; row.classList.remove('on'); refreshRow(row); }
+  prev=Math.max(0,Math.floor(+prev||0));
+  toast('La cantidad del pedido ('+Math.floor(+val||0)+') es mayor al inventario ('+inv+'). Ajusta la cantidad; se restauró la cantidad anterior ('+prev+').');
+  setQty(code,prev);
+  if(row){ const inp=row.querySelector('[data-inp]'); if(inp && document.activeElement!==inp) inp.value=prev||''; row.classList.toggle('on',prev>0); refreshRow(row); }
   updateTotals();
-  if(filter.onlyOn) render();
+  if(filter.onlyOn && !(state.qty[code]>0)) render();
   return true;
 }
 
@@ -18412,10 +18413,11 @@ function wire(){
     const btn=e.target.closest('button[data-act]'); if(!btn) return;
     const row=btn.closest('.prod'); const code=row.dataset.code;
     const p=byCode[code]; const step=(p&&+p.umv>0)?+p.umv:1;
-    let q=+state.qty[code]||0;
+    const prev=+state.qty[code]||0;
+    let q=prev;
     q += btn.dataset.act==='inc'?step:-step;
     if(q<0)q=0;
-    if(validarInventario(code,q,row)) return;
+    if(validarInventario(code,q,row,prev)) return;
     setQty(code,q); refreshRow(row); updateTotals();
     if(filter.onlyOn && !(state.qty[code]>0)) render();
   });
@@ -18453,10 +18455,11 @@ function wire(){
     const bb=e.target.closest('button[data-bact]'); if(!bb) return;
     const row=bb.closest('.prod'); const code=row.dataset.code;
     const p=byCode[code]; const bulto=(p&&+p.bulto>0)?+p.bulto:0; if(!bulto) return;
-    let q=+state.qty[code]||0;
+    const prev=+state.qty[code]||0;
+    let q=prev;
     q += bb.dataset.bact==='inc'?bulto:-bulto;
     if(q<0)q=0;
-    if(validarInventario(code,q,row)) return;
+    if(validarInventario(code,q,row,prev)) return;
     setQty(code,q); refreshRow(row); updateTotals();
     if(filter.onlyOn && !(state.qty[code]>0)) render();
   });
@@ -18483,7 +18486,8 @@ function wire(){
       row.classList.toggle('on',prev>0); refreshRow(row); updateTotals();
       return;
     }
-    if(validarInventario(code,val,row)){ inp.dataset.prev=0; return; }
+    const prev=+inp.dataset.prev||0;
+    if(validarInventario(code,val,row,prev)){ inp.value=prev||''; inp.dataset.prev=prev; return; }
     inp.dataset.prev=val;
   });
   // edicion de precios (modo administrador)
@@ -18512,7 +18516,8 @@ function wire(){
     const p=byCode[code]; const bulto=(p&&+p.bulto>0)?+p.bulto:0;
     if(!bulto || bi.value===bi.dataset.bprev){ refreshRow(row); return; }
     const n=Math.max(0,parseInt(bi.value,10)||0);
-    if(validarInventario(code,n*bulto,row)){ bi.dataset.bprev='0'; return; }
+    const nprev=Math.max(0,parseInt(bi.dataset.bprev,10)||0);
+    if(validarInventario(code,n*bulto,row,nprev*bulto)){ bi.value=String(nprev); bi.dataset.bprev=String(nprev); return; }
     setQty(code,n*bulto); row.classList.toggle('on',n>0);
     refreshRow(row); updateTotals();
     if(filter.onlyOn && !(state.qty[code]>0)) render();
