@@ -404,7 +404,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v55</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v56</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -16989,9 +16989,99 @@ function safeNameFor(o){
   return `Pedido-${cli}-${o.fecha||''}.xlsx`;
 }
 function buildOrderXlsxFor(o){
+  return buildOrderXlsxStyled(o);
+}
+function fechaDMY(iso){
+  if(!iso) return '';
+  const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso));
+  if(!m) return String(iso);
+  return (+m[3])+'/'+(+m[2])+'/'+m[1];
+}
+// Genera el Excel del pedido con el formato de OFICA (bloque cliente + caja de totales + tabla)
+function buildOrderXlsxStyled(o){
+  const enc=new TextEncoder();
   const sq=state.qty, sm=state.meta;
-  try{ state.qty=o.qty||{}; state.meta=o.meta||{}; return buildXlsx(orderRows()); }
-  finally{ state.qty=sq; state.meta=sm; }
+  let data;
+  try{
+    state.qty=(o&&o.qty)||{}; state.meta=(o&&o.meta)||{};
+    const m=state.meta, t=totals(), f=factorGlobal();
+    const prods=[];
+    CATALOGO.filter(p=>state.qty[p.codigo]>0).forEach(p=>{
+      const qty=state.qty[p.codigo];
+      const net=round2((+p.precioUsd||0)*f);   // precio final (con descuento)
+      prods.push({codigo:p.codigo, nombre:String(p.nombre||''), inv:(+p.inv||0), precio:net, umv:(+p.umv||0), bulto:(+p.bulto||0), pedido:qty, total:round2(net*qty)});
+    });
+    data={ m, t,
+      fecha: fechaDMY((o&&o.fecha)||m.fecha||''),
+      nombre: (o&&o.nombre)||m.cliente||'',
+      cod: (o&&o.codcliente)||m.codcliente||'',
+      prods };
+  } finally { state.qty=sq; state.meta=sm; }
+
+  const {m,t,prods}=data;
+  const subtotal2=round2(t.subtotal-t.descuento);
+  // --- filas superiores: etiquetas cliente (izq) + caja de totales (der) ---
+  const leftLbl=['NOMBRE CLIENTE','CÓDIGO CLIENTE','VENDEDOR','CONDICIÓN DE PAGO','OBSERVACIONES'];
+  const leftVal=[data.nombre, data.cod, m.vendedor||'', m.condicion||'', m.obs||''];
+  const sumLbl=['SUB TOTAL 1','DESCUENTOS','SUBTOTAL 2','I.V.A.','TOTAL'];
+  const sumVal=[round2(t.subtotal), round2(t.descuento), subtotal2, round2(t.iva), round2(t.total)];
+  const sumSty=[3,4,3,4,6];
+  let body='';
+  const rowXml=(r,cells,ht)=>{
+    const h = ht ? ` ht="${ht}" customHeight="1"` : '';
+    return `<row r="${r}"${h}>`+cells.map(c=> c==null ? '' : cellXmlS(r,c.ci,c.v,c.s)).join('')+`</row>`;
+  };
+  for(let i=0;i<5;i++){
+    const r=i+1;
+    const cells=[
+      {ci:0,v:leftLbl[i],s:1},
+      {ci:1,v:leftVal[i],s:2},{ci:2,v:'',s:2},{ci:3,v:'',s:2},{ci:4,v:'',s:2},{ci:5,v:'',s:2},
+      {ci:6,v:sumLbl[i],s:(i===4?5:1)},
+      {ci:7,v:sumVal[i],s:sumSty[i]}
+    ];
+    body+=rowXml(r,cells, i===4?42:18);
+  }
+  // --- fila de fecha (cian) ---
+  body+=rowXml(6,[{ci:0,v:data.fecha,s:7},{ci:1,v:'',s:7}],18);
+  // --- encabezado de tabla ---
+  const heads=['CÓDIGO ARTÍCULO','NOMBRE DEL PRODUCTO','INV','PRECIO FINAL $','UMV','BULTO','PEDIDO','TOTAL CON DESCUENTO'];
+  body+=rowXml(7, heads.map((h,ci)=>({ci,v:h,s:8})), 32);
+  // --- filas de producto ---
+  prods.forEach((p,i)=>{
+    const r=8+i;
+    body+=rowXml(r,[
+      {ci:0,v:p.codigo,s:9},{ci:1,v:p.nombre,s:10},{ci:2,v:p.inv,s:9},
+      {ci:3,v:p.precio,s:11},{ci:4,v:p.umv,s:9},{ci:5,v:p.bulto,s:9},
+      {ci:6,v:p.pedido,s:9},{ci:7,v:p.total,s:11}
+    ]);
+  });
+
+  const merges=['B1:F1','B2:F2','B3:F3','B4:F4','B5:F5','A6:B6'];
+  const mergeXml=`<mergeCells count="${merges.length}">`+merges.map(x=>`<mergeCell ref="${x}"/>`).join('')+`</mergeCells>`;
+  const cols=`<cols><col min="1" max="1" width="22" customWidth="1"/><col min="2" max="2" width="46" customWidth="1"/><col min="3" max="3" width="8" customWidth="1"/><col min="4" max="4" width="13" customWidth="1"/><col min="5" max="5" width="7" customWidth="1"/><col min="6" max="6" width="8" customWidth="1"/><col min="7" max="7" width="14" customWidth="1"/><col min="8" max="8" width="18" customWidth="1"/></cols>`;
+  const views=`<sheetViews><sheetView workbookViewId="0"><pane ySplit="7" topLeftCell="A8" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A8" sqref="A8"/></sheetView></sheetViews>`;
+  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${views}${cols}<sheetData>${body}</sheetData>${mergeXml}</worksheet>`;
+
+  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="[$$-409]#,##0.00"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9D9D9"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF00FFFF"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF8EA9DB"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color indexed="64"/></left><right style="thin"><color indexed="64"/></right><top style="thin"><color indexed="64"/></top><bottom style="thin"><color indexed="64"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="12"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="1" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="1" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const ct=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`;
+  const rels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+  const wb=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Pedido" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+  const wbr=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+  const files=[
+    {name:'[Content_Types].xml',data:enc.encode(ct)},
+    {name:'_rels/.rels',data:enc.encode(rels)},
+    {name:'xl/workbook.xml',data:enc.encode(wb)},
+    {name:'xl/_rels/workbook.xml.rels',data:enc.encode(wbr)},
+    {name:'xl/styles.xml',data:enc.encode(styles)},
+    {name:'xl/worksheets/sheet1.xml',data:enc.encode(sheet)},
+  ];
+  return zip(files);
 }
 function resumenPedido(o){
   const m=o.meta||{}; const nref=Object.keys(o.qty||{}).length;
@@ -17755,7 +17845,9 @@ function safeName(){
 }
 function exportExcel(){
   if(totals().lineas===0){toast('Agrega productos primero');return;}
-  try{ download(safeName(), buildXlsx(orderRows()), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  const m=state.meta;
+  const o={ meta:m, qty:state.qty, fecha:m.fecha, nombre:m.cliente, codcliente:m.codcliente };
+  try{ download(safeName(), buildOrderXlsxStyled(o), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     toast('Excel generado ✓');
   }catch(e){toast('Error al generar Excel');console.error(e);}
 }
