@@ -404,7 +404,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v58</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v59</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -17006,7 +17006,10 @@ function buildOrderXlsxStyled(o){
     state.qty=(o&&o.qty)||{}; state.meta=(o&&o.meta)||{};
     const m=state.meta, t=totals(), f=factorGlobal();
     const prods=[];
-    CATALOGO.filter(p=>state.qty[p.codigo]>0).forEach(p=>{
+    // Exentas de IVA primero (en orden de catálogo), luego el resto (en orden de catálogo)
+    const sel=CATALOGO.filter(p=>state.qty[p.codigo]>0);
+    const ordenados=sel.filter(p=>ivaRateOf(p)===0).concat(sel.filter(p=>ivaRateOf(p)!==0));
+    ordenados.forEach(p=>{
       const qty=state.qty[p.codigo];
       const net=round2((+p.precioUsd||0)*f);   // precio final (con descuento)
       prods.push({codigo:p.codigo, nombre:String(p.nombre||''), inv:(+p.inv||0), precio:net, umv:(+p.umv||0), bulto:(+p.bulto||0), pedido:qty, total:round2(net*qty)});
