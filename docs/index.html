@@ -404,7 +404,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v62</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v63</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -16907,11 +16907,14 @@ async function guardarPedido(){
   const nombre=(state.meta.cliente||'').trim();
   const vendedor=(state.meta.vendedor||'').trim();
   const condicion=(state.meta.condicion||'').trim();
+  const codcli=(state.meta.codcliente||'').trim();
+  const esNuevo=!!(state.meta && state.meta.nuevoCliente);
   const faltan=[];
   if(!vendedor) faltan.push('Vendedor');
   if(!nombre) faltan.push('Nombre del cliente');
+  if(!codcli && !esNuevo) faltan.push('Código del cliente');  // no obligatorio para cliente nuevo
   if(!condicion) faltan.push('Condición de pago');
-  if(faltan.length){ toast('Falta completar en Detalle del pedido: '+faltan.join(', ')); return; }
+  if(faltan.length){ updateReqLabels(); toast('Falta completar en Detalle del pedido: '+faltan.join(', ')); return; }
   // numero de pedido asignado: ddmmyy_hhmm + cliente (al crear el pedido)
   if(!currentOrderId){
     const d=new Date(), p=n=>String(n).padStart(2,'0');
@@ -17731,6 +17734,14 @@ function updateReqLabels(){
     const req = (id==='f_codcliente' && esNuevo) ? false : !String(e.value||'').trim();
     field.classList.toggle('req-empty', req);
   });
+}
+// Cierra el desplegable (datalist) del campo tras seleccionar un cliente
+function cerrarListaCliente(input){
+  if(!input) return;
+  const lid=input.getAttribute('list');
+  if(lid) input.removeAttribute('list');   // fuerza el cierre del desplegable nativo
+  input.blur();
+  if(lid) setTimeout(()=>{ input.setAttribute('list',lid); }, 0);  // restaura para la próxima búsqueda
 }
 
 async function toggleAdmin(){
@@ -18570,7 +18581,7 @@ function wire(){
   fc.addEventListener('change',async ()=>{
     const val=fc.value.trim();
     const x=cliByNombre[val];
-    if(x){ fcc.value=x.c; state.meta.cliente=x.n; state.meta.codcliente=x.c; state.meta.nuevoCliente=null; save(); updateTotals(); updateReqLabels(); return; }
+    if(x){ fcc.value=x.c; state.meta.cliente=x.n; state.meta.codcliente=x.c; state.meta.nuevoCliente=null; save(); updateTotals(); updateReqLabels(); cerrarListaCliente(fc); return; }
     if(!val){ updateReqLabels(); return; }
     // ya es un cliente nuevo con ese mismo nombre: no volver a preguntar
     if(state.meta.nuevoCliente && String(state.meta.cliente||'').trim()===val){ updateReqLabels(); return; }
@@ -18580,7 +18591,7 @@ function wire(){
   });
   fcc.addEventListener('change',()=>{
     const x=cliByCod[fcc.value.trim()];
-    if(x){ fc.value=x.n; state.meta.cliente=x.n; state.meta.codcliente=x.c; state.meta.nuevoCliente=null; save(); updateTotals(); }
+    if(x){ fc.value=x.n; state.meta.cliente=x.n; state.meta.codcliente=x.c; state.meta.nuevoCliente=null; save(); updateTotals(); cerrarListaCliente(fcc); }
     updateReqLabels();
   });
   // ---- Registro de clientes nuevos ----
