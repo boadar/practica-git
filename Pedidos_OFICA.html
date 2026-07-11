@@ -401,7 +401,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v65</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v66</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -17908,8 +17908,7 @@ function cellXmlS(r,ci,v,s){
   if(typeof v==='number'&&isFinite(v)) return `<c r="${ref}"${st}><v>${v}</v></c>`;
   return `<c r="${ref}"${st} t="inlineStr"><is><t xml:space="preserve">${esc(v)}</t></is></c>`;
 }
-function priceSheetXml(rows, hasDrawing, prodW){
-  const headers=rows[0]||[];
+function priceSheetXml(rows, hasDrawing, prodW, headers, freezeRows){
   const ncol=headers.length;
   const merges=[];
   let body='';
@@ -17924,12 +17923,20 @@ function priceSheetXml(rows, hasDrawing, prodW){
       if(ncol>1) merges.push(`A${r}:${colName(ncol-1)}${r}`);
       return;
     }
-    const ht = ri===0 ? '' : ' ht="36" customHeight="1"';
-    body+=`<row r="${r}"${ht}>`+cells.map((v,ci)=>{
+    // fila genérica con celdas/estilos explícitos (banda de título y encabezado)
+    if(cells && cells.__cells){
+      const htA = cells.ht ? ` ht="${cells.ht}" customHeight="1"` : '';
+      let cs='';
+      cells.__cells.forEach(c=>{ cs+=cellXmlS(r,c.ci,c.v,c.s); });
+      body+=`<row r="${r}"${htA}>`+cs+`</row>`;
+      if(cells.merges) cells.merges.forEach(m=>merges.push(m));
+      return;
+    }
+    // fila de producto (arreglo)
+    body+=`<row r="${r}" ht="36" customHeight="1">`+cells.map((v,ci)=>{
       if(v===''||v==null) return '';
       let s;
-      if(ri===0) s=3;          // encabezado: negrita + centrado
-      else if(ci===2) s=2;     // Producto: texto a la izquierda, centrado vertical
+      if(ci===2) s=2;          // Producto: texto a la izquierda, centrado vertical
       else if(ci>=5) s=4;      // columnas de precio (F, G, ...): formato dólares
       else s=1;                // resto: centrado
       return cellXmlS(r,ci,v,s);
@@ -17946,7 +17953,8 @@ function priceSheetXml(rows, hasDrawing, prodW){
   for(let i=5;i<headers.length;i++){ const w=String(headers[i]||'').length+1; colsArr.push(`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`); }
   const cols=`<cols>${colsArr.join('')}</cols>`;
   const draw = hasDrawing ? `<drawing r:id="rId1"/>` : '';
-  const views = `<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView></sheetViews>`;
+  const fr=freezeRows||1;
+  const views = `<sheetViews><sheetView workbookViewId="0"><pane ySplit="${fr}" topLeftCell="A${fr+1}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${fr+1}" sqref="A${fr+1}"/></sheetView></sheetViews>`;
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${views}${cols}<sheetData>${body}</sheetData>${mergeXml}${draw}</worksheet>`;
 }
@@ -17958,11 +17966,18 @@ function buildPriceXlsx(){
   const ordC=c=>(catOrder[c]!==undefined?catOrder[c]:1e9);
   const prods=CATALOGO.slice().sort((a,b)=>ordC(a.categoria)-ordC(b.categoria));
 
-  // encabezados dinámicos
-  const headers=['Imagen','Código','Producto','UMV','Bulto','Precio $'];
-  if(hasDesc) headers.push('Precio c/desc');
-  headers.push('Precio + IVA');
-  const rows=[headers];
+  // encabezados dinámicos (etiquetas como en la imagen)
+  const headers=['IMAGEN','CÓDIGO ARTÍCULO','NOMBRE DEL PRODUCTO','UMV','BULTO','PRECIO UNIT $'];
+  if(hasDesc) headers.push('PRECIO C/DESC');
+  headers.push('PRECIO + IVA');
+  const lastColL=colName(headers.length-1);
+  // Banda de título: logo OFICA (izq) + LISTA DE PRECIOS (der), y fila de encabezado azul
+  const rows=[
+    {__cells:[{ci:0,v:'OFICA',s:10},{ci:2,v:'LISTA DE PRECIOS',s:9}], ht:24, merges:['A1:B2', `C1:${lastColL}3`]},
+    {__cells:[], ht:24},
+    {__cells:[{ci:0,v:'Ofica Representaciones, S.A.',s:11}], ht:14, merges:['A3:B3']},
+    {__cells:headers.map((h,ci)=>({ci,v:h,s:8})), ht:22}   // fila de encabezado (azul claro)
+  ];
   const prodRowIdx=[];   // índice 0-based de la fila de cada producto (para anclar su imagen)
   let curCat=null;
   prods.forEach((p,i)=>{
@@ -18013,7 +18028,7 @@ function buildPriceXlsx(){
   const ct=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/><Default Extension="png" ContentType="image/png"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${hasDrawing?'<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>':''}</Types>`;
   const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="[$$-409]#,##0.00"/></numFmts><fonts count="5"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FF009DDC"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FF8B57A5"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF200"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF282828"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE9F5C6"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="8"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="4" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="[$$-409]#,##0.00"/></numFmts><fonts count="8"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FF009DDC"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FF8B57A5"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="28"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="24"/><name val="Times New Roman"/><family val="1"/></font><font><i/><sz val="9"/><name val="Times New Roman"/><family val="1"/></font></fonts><fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF200"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF282828"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE9F5C6"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFBDD7EE"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="12"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="4" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="5" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="6" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="7" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
   const rels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
   const wb=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -18033,7 +18048,7 @@ function buildPriceXlsx(){
     {name:'xl/workbook.xml',data:enc.encode(wb)},
     {name:'xl/_rels/workbook.xml.rels',data:enc.encode(wbr)},
     {name:'xl/styles.xml',data:enc.encode(styles)},
-    {name:'xl/worksheets/sheet1.xml',data:enc.encode(priceSheetXml(rows,hasDrawing,prodW))},
+    {name:'xl/worksheets/sheet1.xml',data:enc.encode(priceSheetXml(rows,hasDrawing,prodW,headers,4))},
   ];
   if(hasDrawing){
     files.push({name:'xl/worksheets/_rels/sheet1.xml.rels',data:enc.encode(sheetRels)});
@@ -18062,7 +18077,8 @@ function buildPricePrint(){
   const ordC=c=>(catOrder[c]!==undefined?catOrder[c]:1e9);
   const prods=CATALOGO.slice().sort((a,b)=>ordC(a.categoria)-ordC(b.categoria));
   const ncols = 5 + (hasDesc?2:1);
-  let head='<tr><th>Imagen</th><th>Código</th><th>Producto</th><th class="n">UMV</th><th class="n">Bulto</th><th class="n">Precio $</th>'+(hasDesc?'<th class="n">Precio c/desc</th>':'')+'<th class="n">Precio + IVA</th></tr>';
+  const thBlue='background:#BDD7EE;color:#14202B';
+  let head=`<tr><th style="${thBlue}">IMAGEN</th><th style="${thBlue}">CÓDIGO ARTÍCULO</th><th style="${thBlue}">NOMBRE DEL PRODUCTO</th><th class="n" style="${thBlue}">UMV</th><th class="n" style="${thBlue}">BULTO</th><th class="n" style="${thBlue}">PRECIO UNIT $</th>`+(hasDesc?`<th class="n" style="${thBlue}">PRECIO C/DESC</th>`:'')+`<th class="n" style="${thBlue}">PRECIO + IVA</th></tr>`;
   let cat=null, rowsHtml='';
   prods.forEach(p=>{
     if(p.categoria!==cat){ cat=p.categoria; const bc=brandHex(brandOf(cat)); rowsHtml+=`<tr class="cat"><td colspan="${ncols}" style="background:${bc.bg};color:${bc.fg};font-weight:800;text-align:center">${esc(catDisplay(cat))}</td></tr>`; }
@@ -18072,8 +18088,12 @@ function buildPricePrint(){
     rowsHtml+=`<tr><td class="imgc">${img}</td><td>${esc(p.codigo)}</td><td>${esc(p.nombre)}</td><td class="n">${fmtN.format(+p.umv||0)}</td><td class="n">${fmtN.format(+p.bulto||0)}</td><td class="n">${fmt.format(p.precioUsd)}</td>`+(hasDesc?`<td class="n">${fmt.format(net)}</td>`:'')+`<td class="n">${iva>0?fmt.format(net*(1+iva)):''}</td></tr>`;
   });
   $('#print').innerHTML=`
-    <div class="ph"><div><h1>Lista de Precios — OFICA</h1><div>${prods.length} referencias</div></div>
-    <div style="text-align:right;font-size:12px"><b>Fecha:</b> ${esc(state.meta.fecha||'')}</div></div>
+    <div class="ph" style="align-items:center">
+      <div style="display:flex;align-items:center;gap:18px">
+        <div style="line-height:1"><div style="font-family:'Times New Roman',serif;font-weight:800;font-size:34px;letter-spacing:2px;color:#111">OFICA</div><div style="font-family:'Times New Roman',serif;font-size:11px;color:#333">Ofica Representaciones, S.A.</div></div>
+        <h1 style="font-size:34px;margin:0">LISTA DE PRECIOS</h1>
+      </div>
+      <div style="text-align:right;font-size:12px"><b>Fecha:</b> ${esc(state.meta.fecha||'')}<br>${prods.length} referencias</div></div>
     <table class="pricelist"><thead>${head}</thead><tbody>${rowsHtml}</tbody></table>`;
 }
 async function exportPriceList(){
