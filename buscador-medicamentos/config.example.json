@@ -1,7 +1,8 @@
 {
   "//": "Copia este archivo a config.json y ajusta los valores.",
+  "//tasa": "Cuantos Bs. equivale 1 USD. Cambia a diario; ajustalo al valor real. En Locatel el 'REF' del sitio es el USD exacto.",
   "moneda_comun": "USD",
-  "tasa_bs_por_usd": 6.96,
-  "timeout_segundos": 15,
+  "tasa_bs_por_usd": 720.0,
+  "timeout_segundos": 20,
   "max_resultados_por_sitio": 20
 }

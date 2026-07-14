@@ -28,8 +28,9 @@ _CATALOGO = [
 class DemoScraper(BaseScraper):
     nombre = "Farmacia Demo"
     moneda_por_defecto = "BOB"
-    # Cambiar a False cuando existan scrapers reales.
-    habilitado = True
+    # Deshabilitado: ya tenemos un sitio real (Locatel). Pon True para volver
+    # a probar la app con datos ficticios de ejemplo.
+    habilitado = False
 
     async def buscar(
         self, consulta: str, cliente: httpx.AsyncClient, limite: int

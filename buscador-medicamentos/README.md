@@ -76,7 +76,26 @@ de tu máquina, ej. `http://192.168.x.x:8000`.
 
 Cuando me pases las páginas, implemento el scraper de cada una siguiendo este patrón.
 
+## Probar solo Locatel
+
+Antes de levantar toda la app, puedes verificar que Locatel responde en tu red:
+
+```bash
+python probar_locatel.py paracetamol
+```
+
+Debería listar los productos con su precio en Bs. Si sale un error o no
+encuentra nada, cópialo y lo ajustamos (probablemente el sitio use otra ruta
+de API).
+
 ## Estado actual
 
-Incluye un scraper **demo** con datos ficticios para probar la app de punta a
-punta. Sitios reales: pendientes de que indiques las páginas.
+- **Locatel Venezuela** (`app/scrapers/locatel.py`): activo. Lee los productos
+  desde la API interna del sitio (formato VTEX). Precio principal en **Bs.**;
+  el USD se estima con la tasa de `config.json` (en la web, el valor **REF** es
+  el USD exacto).
+- **Farmacia Demo**: deshabilitado (datos ficticios de ejemplo).
+- **Farmatodo**: pendiente.
+
+> ⚠️ Nota: estos sitios se prueban corriendo la app en **tu máquina**. El
+> entorno de desarrollo remoto bloquea el acceso a esos dominios.
