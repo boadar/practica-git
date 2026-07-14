@@ -404,7 +404,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v70</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v86</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -710,12 +710,100 @@
 
 <div class="toast" id="toast"></div>
 
+<style>
+  /* ===== Lista de precios (pantalla de seleccion) ===== */
+  .lpmodal{z-index:60}
+  #confirmModal{z-index:90}
+  .lp-sheet{max-width:880px}
+  .lp-hint{padding:10px 16px;font-size:12px;color:var(--ink-2);background:var(--surface-2);border-bottom:1px solid var(--line)}
+  .lp-toolbar{display:flex;gap:8px;padding:8px 16px;border-bottom:1px solid var(--line)}
+  .lp-mini{-webkit-appearance:none;appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer}
+  .lp-mini:active{background:var(--surface-2)}
+  .lp-toolbar{flex-wrap:wrap;align-items:flex-end}
+  .lp-global{margin-left:auto;display:flex;flex-direction:column;gap:3px;align-items:flex-end}
+  .lp-glabel{font-size:9px;font-weight:800;color:var(--brand-ink);text-transform:uppercase;letter-spacing:.03em}
+  .lp-global .lp-discs{margin-left:0}
+  .lp-exp{-webkit-appearance:none;appearance:none;cursor:pointer;flex:0 0 auto;width:24px;height:24px;border-radius:7px;border:1px solid var(--line);background:var(--surface);color:var(--brand-ink);font-size:16px;font-weight:800;line-height:1;display:grid;place-items:center;padding:0}
+  .lp-exp:active{background:var(--surface-2)}
+  .lp-sub{flex-basis:100%;width:100%;margin:6px 0 2px;border:1px solid var(--line-2);border-radius:8px;background:var(--surface-2);max-height:240px;overflow:auto}
+  .lp-prow{display:flex;align-items:baseline;gap:8px;padding:5px 10px;border-top:1px solid var(--line-2);font-size:11.5px}
+  .lp-prow:first-child{border-top:none}
+  .lp-pcode{font-weight:800;color:var(--ink);flex:0 0 auto;min-width:66px}
+  .lp-pname{color:var(--ink-2);flex:1 1 auto;min-width:0}
+  .lp-pprice{font-weight:800;color:var(--brand-ink);flex:0 0 auto;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .lp-pprice del{color:var(--ink-3);font-weight:600;text-decoration:line-through;margin-right:5px;opacity:.85}
+  .lp-pinv{flex:0 0 auto;font-size:10.5px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums;margin-right:30px}
+  .lp-pinv.ok{color:var(--active)}
+  .lp-pinv.low{color:var(--warn)}
+  .lp-pinv.no{color:var(--crit)}
+  .lp-genov{position:fixed;inset:0;z-index:110;background:rgba(20,32,43,.55);display:none;align-items:center;justify-content:center;padding:20px}
+  .lp-genov.show{display:flex}
+  .lp-genbox{background:var(--surface);border-radius:14px;padding:24px 30px;display:flex;flex-direction:column;align-items:center;gap:14px;box-shadow:var(--shadow);max-width:90%}
+  .lp-spinner{width:42px;height:42px;border-radius:50%;border:4px solid var(--line);border-top-color:var(--brand);animation:lpspin .8s linear infinite}
+  @keyframes lpspin{to{transform:rotate(360deg)}}
+  .lp-gentext{font-size:14px;font-weight:800;letter-spacing:.4px;color:var(--brand-ink);text-align:center}
+  .lp-ptog{-webkit-appearance:none;appearance:none;cursor:pointer;flex:0 0 auto;width:34px;height:20px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);position:relative;transition:background .12s,border-color .12s;padding:0}
+  .lp-ptog .dot{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .12s}
+  .lp-ptog.on{background:var(--active);border-color:var(--active)}
+  .lp-ptog.on .dot{transform:translateX(14px)}
+  .lp-prow.off .lp-pcode,.lp-prow.off .lp-pname,.lp-prow.off .lp-pprice{color:var(--ink-3);opacity:.6}
+  .lp-body{overflow:auto;padding:6px 12px 12px;flex:1 1 auto}
+  .lp-brand{margin-top:12px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .lp-brand:first-child{margin-top:4px}
+  .lp-bhead{display:flex;align-items:center;gap:10px;padding:10px 12px;flex-wrap:wrap;background:var(--surface-2);border-bottom:1px solid var(--line)}
+  .lp-brand.solita .lp-bhead{background:#E1F5FC}
+  .lp-brand.ofica .lp-bhead{background:#282828}
+  .lp-brand.ofica .lp-bname{color:#fff}
+  .lp-brand.alher .lp-bhead{background:#E9F5C6}
+  .lp-brand.alher .lp-bname{color:#8B57A5}
+  .lp-bname{font-size:14px;font-weight:800;color:var(--brand-ink)}
+  .lp-lines{padding:2px 0;background:var(--surface)}
+  .lp-line{display:flex;align-items:center;gap:10px;padding:9px 12px;flex-wrap:wrap;border-top:1px solid var(--line-2)}
+  .lp-line:first-child{border-top:none}
+  .lp-cname{flex:1 1 150px;min-width:0;font-size:13px;font-weight:600;color:var(--ink)}
+  .lp-line:not(.on) .lp-cname{color:var(--ink-3)}
+  .lp-cn{font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);border-radius:999px;padding:1px 8px}
+  .lp-tog{-webkit-appearance:none;appearance:none;cursor:pointer;flex:0 0 auto;width:44px;height:26px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);position:relative;transition:background .15s,border-color .15s;padding:0}
+  .lp-tog .dot{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+  .lp-tog.on{background:var(--active);border-color:var(--active)}
+  .lp-tog.on .dot{transform:translateX(18px)}
+  .lp-tog.part{background:var(--warn);border-color:var(--warn)}
+  .lp-tog.part .dot{transform:translateX(9px)}
+  .lp-brand.ofica .lp-bhead .lp-tog:not(.on){background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.4)}
+  .lp-discs{display:flex;gap:6px;margin-left:auto;flex:0 0 auto}
+  .lp-disc{display:flex;flex-direction:column;gap:2px}
+  .lp-disc>span{font-size:9px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.02em}
+  .lp-brand.ofica .lp-bhead .lp-disc>span{color:#AEB7C0}
+  .lp-inwrap{display:flex;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .lp-inwrap input{width:40px;border:none;outline:none;padding:5px 2px 5px 7px;font-size:13px;font-weight:700;color:var(--ink);text-align:right;background:transparent;-moz-appearance:textfield}
+  .lp-inwrap input::-webkit-outer-spin-button,.lp-inwrap input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .lp-inwrap i{font-style:normal;font-size:12px;color:var(--ink-3);padding:0 7px 0 1px}
+  .lp-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-top:1px solid var(--line);background:var(--surface)}
+  .lp-summary{font-size:12.5px;font-weight:700;color:var(--ink-2)}
+  .lp-foot-btns{display:flex;gap:8px}
+  .lp-foot .btn{padding:9px 14px;font-size:13px}
+  @media (max-width:560px){
+    .lp-discs{margin-left:0;width:100%;justify-content:flex-start}
+    .lp-cname{flex-basis:100%}
+  }
+</style>
+<div class="modal lpmodal" id="lpModal">
+  <div class="sheet lp-sheet">
+    <header><h2>Generar lista de precios</h2><button class="closex" id="lpClose">&times;</button></header>
+    <div class="lp-hint">Elige las marcas y l&iacute;neas a incluir. Escribe los descuentos por marca (se copian a sus l&iacute;neas) y aj&uacute;stalos por l&iacute;nea si hace falta. El precio con descuento aplica esos porcentajes en cascada. Al generar podr&aacute;s elegir PDF o Excel.</div>
+    <div class="lp-toolbar"><button class="lp-mini" id="lpAll">Seleccionar todo</button><button class="lp-mini" id="lpNone">Quitar todo</button><div class="lp-global" id="lpGlobalWrap"></div></div>
+    <div class="lp-body" id="lpBody"></div>
+    <div class="lp-foot"><span class="lp-summary" id="lpSummary"></span><div class="lp-foot-btns"><button class="btn ghost" id="lpCancel">Cancelar</button><button class="btn primary" id="lpGen">Generar</button></div></div>
+  </div>
+</div>
+<div class="lp-genov" id="lpGenOverlay"><div class="lp-genbox"><div class="lp-spinner"></div><div class="lp-gentext">GENERANDO LISTA DE PRECIOS&hellip;</div></div></div>
 <div id="print"></div>
 
 <script>
 const CATALOGO = [
  {
   "codigo": "SLC020",
+  "codigoBarra": "7591147023180",
   "nombre": "SOLITA - Lápices de Colores de Madera Redondos 4mm - 12 piezas   -E-",
   "categoria": "LÁPICES DE COLORES",
   "exento": "SI",
@@ -729,6 +817,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLC015",
+  "codigoBarra": "7591147023166",
   "nombre": "SOLITA - Lápices de Colores de Madera Redondos 4mm - 24 piezas",
   "categoria": "LÁPICES DE COLORES",
   "exento": "NO",
@@ -742,6 +831,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLC019",
+  "codigoBarra": "7591147023173",
   "nombre": "SOLITA - Lápices de Colores de Madera Redondos 4mm - 36 piezas",
   "categoria": "LÁPICES DE COLORES",
   "exento": "NO",
@@ -755,6 +845,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLC013",
+  "codigoBarra": "7591147020486",
   "nombre": "SOLITA - Lápices de Colores de Resina Hexagonales - 12 piezas   -E-",
   "categoria": "LÁPICES DE COLORES",
   "exento": "SI",
@@ -768,6 +859,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLC001",
+  "codigoBarra": "7591147205241",
   "nombre": "SOLITA - Lápices de Colores de Resina Hexagonales - 24 piezas",
   "categoria": "LÁPICES DE COLORES",
   "exento": "NO",
@@ -781,6 +873,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLC002",
+  "codigoBarra": "7591147205364",
   "nombre": "SOLITA - Lápices de Colores de Resina Hexagonales - 36 piezas",
   "categoria": "LÁPICES DE COLORES",
   "exento": "NO",
@@ -794,6 +887,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLC014",
+  "codigoBarra": "7591147020707",
   "nombre": "SOLITA - Lápices de Colores Jumbo Triangulares de resina - 12 piezas - E -",
   "categoria": "LÁPICES DE COLORES",
   "exento": "SI",
@@ -807,6 +901,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLC017",
+  "codigoBarra": "7591147023128",
   "nombre": "SOLITA - Lápices de Colores Jumbo borrables de resina - 12 piezas - E -",
   "categoria": "LÁPICES DE COLORES",
   "exento": "SI",
@@ -820,6 +915,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLC016",
+  "codigoBarra": "7591147022831",
   "nombre": "SOLITA - Lápices de Colores con goma de borrar 12 piezas - E -",
   "categoria": "LÁPICES DE COLORES",
   "exento": "SI",
@@ -833,6 +929,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLC021AMAR",
+  "codigoBarra": "7591147022909",
   "nombre": "SOLITA - Blíster Lápices de Colores Amarillo 6 und",
   "categoria": "LÁPICES DE COLORES",
   "exento": "NO",
@@ -846,6 +943,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLC021AZUL",
+  "codigoBarra": "7591147023234",
   "nombre": "SOLITA - Blíster Lápices de Colores Azul 6 und",
   "categoria": "LÁPICES DE COLORES",
   "exento": "NO",
@@ -859,6 +957,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLC021ROJO",
+  "codigoBarra": "7591147023258",
   "nombre": "SOLITA - Blíster Lápices de Colores Rojo 6 und",
   "categoria": "LÁPICES DE COLORES",
   "exento": "NO",
@@ -872,6 +971,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLC021NEGR",
+  "codigoBarra": "7591147023265",
   "nombre": "SOLITA - Blíster Lápices de Colores Negro 6 und",
   "categoria": "LÁPICES DE COLORES",
   "exento": "NO",
@@ -885,6 +985,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLC021CARN",
+  "codigoBarra": "7591147023272",
   "nombre": "SOLITA - Blíster Lápices de Colores Carne 6 und",
   "categoria": "LÁPICES DE COLORES",
   "exento": "NO",
@@ -898,6 +999,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLC021VERD",
+  "codigoBarra": "7591147023289",
   "nombre": "SOLITA - Blíster Lápices de Colores Verde 6 und",
   "categoria": "LÁPICES DE COLORES",
   "exento": "NO",
@@ -911,6 +1013,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLC021MARR",
+  "codigoBarra": "7591147023296",
   "nombre": "SOLITA - Blíster Lápices de Colores Marrón 6 und",
   "categoria": "LÁPICES DE COLORES",
   "exento": "NO",
@@ -924,6 +1027,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLB001",
+  "codigoBarra": "7591147022848",
   "nombre": "SOLITA - Lápices bicolores - 12 piezas",
   "categoria": "LÁPICES DE COLORES",
   "exento": "NO",
@@ -936,7 +1040,92 @@ const CATALOGO = [
   "bulto": 72
  },
  {
+  "codigo": "SLC023AMAR",
+  "codigoBarra": "",
+  "nombre": "SOLITA - Blíster Lápices de Color Amarillo Premium 4mm 6 und",
+  "categoria": "LÁPICES DE COLORES",
+  "exento": "NO",
+  "inv": 0,
+  "precioUsd": 1.6,
+  "desc1": 0,
+  "desc2": 0,
+  "desc3": 0,
+  "umv": 12,
+  "bulto": 108
+ },
+ {
+  "codigo": "SLC023AZUL",
+  "codigoBarra": "",
+  "nombre": "SOLITA - Blíster Lápices de Color Azul Premium 4mm 6 und",
+  "categoria": "LÁPICES DE COLORES",
+  "exento": "NO",
+  "inv": 0,
+  "precioUsd": 1.6,
+  "desc1": 0,
+  "desc2": 0,
+  "desc3": 0,
+  "umv": 12,
+  "bulto": 108
+ },
+ {
+  "codigo": "SLC023BLAN",
+  "codigoBarra": "",
+  "nombre": "SOLITA - Blíster Lápices de Color Blanco Premium 4mm 6 und",
+  "categoria": "LÁPICES DE COLORES",
+  "exento": "NO",
+  "inv": 0,
+  "precioUsd": 1.6,
+  "desc1": 0,
+  "desc2": 0,
+  "desc3": 0,
+  "umv": 12,
+  "bulto": 108
+ },
+ {
+  "codigo": "SLC023NEGR",
+  "codigoBarra": "",
+  "nombre": "SOLITA - Blíster Lápices de Color Negro Premium 4mm 6 und",
+  "categoria": "LÁPICES DE COLORES",
+  "exento": "NO",
+  "inv": 0,
+  "precioUsd": 1.6,
+  "desc1": 0,
+  "desc2": 0,
+  "desc3": 0,
+  "umv": 12,
+  "bulto": 108
+ },
+ {
+  "codigo": "SLC023ROJO",
+  "codigoBarra": "",
+  "nombre": "SOLITA - Blíster Lápices de Color Rojo Premium 4mm 6 und",
+  "categoria": "LÁPICES DE COLORES",
+  "exento": "NO",
+  "inv": 0,
+  "precioUsd": 1.6,
+  "desc1": 0,
+  "desc2": 0,
+  "desc3": 0,
+  "umv": 12,
+  "bulto": 108
+ },
+ {
+  "codigo": "SLC023VERD",
+  "codigoBarra": "",
+  "nombre": "SOLITA - Blíster Lápices de Color Verde Premium 4mm 6 und",
+  "categoria": "LÁPICES DE COLORES",
+  "exento": "NO",
+  "inv": 0,
+  "precioUsd": 1.6,
+  "desc1": 0,
+  "desc2": 0,
+  "desc3": 0,
+  "umv": 12,
+  "bulto": 108
+ },
+ {
   "codigo": "SLG006",
+  "codigoBarra": "7591147023135",
   "nombre": "SOLITA - Lápiz de Grafito Premium de Madera - 12 piezas  -E-",
   "categoria": "LÁPICES DE GRAFITO",
   "exento": "SI",
@@ -950,6 +1139,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLG008",
+  "codigoBarra": "7591147024248",
   "nombre": "SOLITA - Blíster Lápiz de Grafito Jumbo HB Triangular 4pzas",
   "categoria": "LÁPICES DE GRAFITO",
   "exento": "NO",
@@ -963,6 +1153,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLG002",
+  "codigoBarra": "7591147020509",
   "nombre": "SOLITA - Lápiz de Grafito de Resina - 12 piezas",
   "categoria": "LÁPICES DE GRAFITO",
   "exento": "NO",
@@ -976,6 +1167,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLG005",
+  "codigoBarra": "7591147023203",
   "nombre": "SOLITA - Lapiz de Grafito Jumbo - 12 piezas",
   "categoria": "LÁPICES DE GRAFITO",
   "exento": "NO",
@@ -989,6 +1181,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SSA010",
+  "codigoBarra": "7591147024255",
   "nombre": "SOLITA - Blíster Sacapuntas Jumbo - 6 piezas",
   "categoria": "LÁPICES DE GRAFITO",
   "exento": "NO",
@@ -1002,6 +1195,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SMA003",
+  "codigoBarra": "7591147104063",
   "nombre": "SOLITA - Estuche Marcadores Escolares 6 piezas",
   "categoria": "MARCADORES",
   "exento": "NO",
@@ -1015,6 +1209,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SMA002",
+  "codigoBarra": "7591147104124",
   "nombre": "SOLITA - Estuche Marcadores Escolares 12 piezas",
   "categoria": "MARCADORES",
   "exento": "NO",
@@ -1028,6 +1223,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SMA004",
+  "codigoBarra": "7591147116240",
   "nombre": "SOLITA - Estuche Marcadores Escolares 24 piezas",
   "categoria": "MARCADORES",
   "exento": "NO",
@@ -1041,6 +1237,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SMA006",
+  "codigoBarra": "7591147000068",
   "nombre": "SOLITA - Estuche Marcadores Jumbo 6 piezas",
   "categoria": "MARCADORES",
   "exento": "NO",
@@ -1054,6 +1251,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SMA007",
+  "codigoBarra": "7591147000075",
   "nombre": "SOLITA - Estuche Marcadores Jumbo 12 piezas",
   "categoria": "MARCADORES",
   "exento": "NO",
@@ -1067,6 +1265,7 @@ const CATALOGO = [
  },
  {
   "codigo": "STZ001",
+  "codigoBarra": "7591147264118",
   "nombre": "SOLITA - Caja Tiza Blanca Compacta 10 piezas",
   "categoria": "TIZA Y CRAYONES DE CERA",
   "exento": "NO",
@@ -1080,6 +1279,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SCR002",
+  "codigoBarra": "7591147006121",
   "nombre": "SOLITA - Caja Crayones de Cera Jumbo 6 piezas  -E-",
   "categoria": "TIZA Y CRAYONES DE CERA",
   "exento": "SI",
@@ -1093,6 +1293,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SCR001",
+  "codigoBarra": "7591147202127",
   "nombre": "SOLITA - Caja Crayones de Cera Jumbo 12 piezas",
   "categoria": "TIZA Y CRAYONES DE CERA",
   "exento": "NO",
@@ -1106,6 +1307,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDP002AMAR",
+  "codigoBarra": "7591147100041",
   "nombre": "SOLITA - Tubo D 2 pinta 2 - 100 gr - Amarillo",
   "categoria": "D2 PINTA 2",
   "exento": "NO",
@@ -1119,6 +1321,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDP002AZUL",
+  "codigoBarra": "7591147100010",
   "nombre": "SOLITA - Tubo D 2 pinta 2 - 100 gr - Azul",
   "categoria": "D2 PINTA 2",
   "exento": "NO",
@@ -1132,6 +1335,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDP002AZCL",
+  "codigoBarra": "7591147101123",
   "nombre": "SOLITA - Tubo D 2 pinta 2 - 100 gr - Azul-Cielo",
   "categoria": "D2 PINTA 2",
   "exento": "NO",
@@ -1145,6 +1349,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDP002BLAN",
+  "codigoBarra": "7591147101086",
   "nombre": "SOLITA - Tubo D 2 pinta 2 - 100 gr - Blanco",
   "categoria": "D2 PINTA 2",
   "exento": "NO",
@@ -1158,6 +1363,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDP002CARN",
+  "codigoBarra": "7591147101147",
   "nombre": "SOLITA - Tubo D 2 pinta 2 - 100 gr - Carne",
   "categoria": "D2 PINTA 2",
   "exento": "NO",
@@ -1171,6 +1377,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDP002LILA",
+  "codigoBarra": "7591147101130",
   "nombre": "SOLITA - Tubo D 2 pinta 2 - 100 gr - Lila",
   "categoria": "D2 PINTA 2",
   "exento": "NO",
@@ -1184,6 +1391,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDP002MARR",
+  "codigoBarra": "7591147101109",
   "nombre": "SOLITA - Tubo D 2 pinta 2 - 100 gr - Marrón",
   "categoria": "D2 PINTA 2",
   "exento": "NO",
@@ -1197,6 +1405,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDP002NARA",
+  "codigoBarra": "7591147101116",
   "nombre": "SOLITA - Tubo D 2 pinta 2 - 100 gr - Naranja",
   "categoria": "D2 PINTA 2",
   "exento": "NO",
@@ -1210,6 +1419,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDP002ROJO",
+  "codigoBarra": "7591147100027",
   "nombre": "SOLITA - Tubo D 2 pinta 2 - 100 gr - Rojo",
   "categoria": "D2 PINTA 2",
   "exento": "NO",
@@ -1223,6 +1433,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDP002ROSA",
+  "codigoBarra": "7591147015345",
   "nombre": "SOLITA - Tubo D 2 pinta 2 - 100 gr - Rosado",
   "categoria": "D2 PINTA 2",
   "exento": "NO",
@@ -1236,6 +1447,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDP002VERD",
+  "codigoBarra": "7591147100034",
   "nombre": "SOLITA - Tubo D 2 pinta 2 - 100 gr - Verde",
   "categoria": "D2 PINTA 2",
   "exento": "NO",
@@ -1249,6 +1461,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDP002VECL",
+  "codigoBarra": "7591147101154",
   "nombre": "SOLITA - Tubo D 2 pinta 2 - 100 gr - Verde Claro",
   "categoria": "D2 PINTA 2",
   "exento": "NO",
@@ -1262,6 +1475,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDP002NEGR",
+  "codigoBarra": "7591147101093",
   "nombre": "SOLITA - Tubo D 2 pinta 2 - 100 gr - Negro",
   "categoria": "D2 PINTA 2",
   "exento": "NO",
@@ -1275,6 +1489,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDP002BRON",
+  "codigoBarra": "7591147018735",
   "nombre": "SOLITA - Tubo D 2 pinta 2 - 100 gr - Bronce",
   "categoria": "D2 PINTA 2",
   "exento": "NO",
@@ -1288,6 +1503,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDP002DORA",
+  "codigoBarra": "7591147015284",
   "nombre": "SOLITA - Tubo D 2 pinta 2 - 100 gr - Dorado",
   "categoria": "D2 PINTA 2",
   "exento": "NO",
@@ -1301,6 +1517,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDP006",
+  "codigoBarra": "7591147020622",
   "nombre": "SOLITA - Estuche D 2 pinta 2 - 30 grs x 6 colores",
   "categoria": "D2 PINTA 2",
   "exento": "NO",
@@ -1314,6 +1531,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPF001AMAR",
+  "codigoBarra": "7591147015048",
   "nombre": "SOLITA - Pintura al Frío 60 ml Amarillo",
   "categoria": "PINTURA AL FRÍO",
   "exento": "NO",
@@ -1327,6 +1545,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPF001AZUL",
+  "codigoBarra": "7591147015123",
   "nombre": "SOLITA - Pintura al Frío 60 ml Azul",
   "categoria": "PINTURA AL FRÍO",
   "exento": "NO",
@@ -1340,6 +1559,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPF001AZRE",
+  "codigoBarra": "7591147017110",
   "nombre": "SOLITA - Pintura al Frío 60 ml Azul Rey",
   "categoria": "PINTURA AL FRÍO",
   "exento": "NO",
@@ -1353,6 +1573,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPF001CAFE",
+  "codigoBarra": "7591147017059",
   "nombre": "SOLITA - Pintura al Frío 60 ml Café",
   "categoria": "PINTURA AL FRÍO",
   "exento": "NO",
@@ -1366,6 +1587,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPF001MARR",
+  "codigoBarra": "7591147015109",
   "nombre": "SOLITA - Pintura al Frío 60 ml Marrón",
   "categoria": "PINTURA AL FRÍO",
   "exento": "NO",
@@ -1379,6 +1601,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPF001BLAN",
+  "codigoBarra": "7591147015086",
   "nombre": "SOLITA - Pintura al Frío 60 ml Blanco",
   "categoria": "PINTURA AL FRÍO",
   "exento": "NO",
@@ -1392,6 +1615,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPF001NEGR",
+  "codigoBarra": "7591147015185",
   "nombre": "SOLITA - Pintura al Frío 60 ml Negro",
   "categoria": "PINTURA AL FRÍO",
   "exento": "NO",
@@ -1405,6 +1629,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPF001ROJO",
+  "codigoBarra": "7591147015208",
   "nombre": "SOLITA - Pintura al Frío 60 ml Rojo",
   "categoria": "PINTURA AL FRÍO",
   "exento": "NO",
@@ -1418,6 +1643,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPF001VERD",
+  "codigoBarra": "7591147015147",
   "nombre": "SOLITA - Pintura al Frío 60 ml Verde",
   "categoria": "PINTURA AL FRÍO",
   "exento": "NO",
@@ -1431,6 +1657,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPF001VELI",
+  "codigoBarra": "7591147017257",
   "nombre": "SOLITA - Pintura al Frío 60 ml Verde-Lima",
   "categoria": "PINTURA AL FRÍO",
   "exento": "NO",
@@ -1444,6 +1671,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPF001VEMA",
+  "codigoBarra": "7591147017233",
   "nombre": "SOLITA - Pintura al Frío 60 ml Verde-Manzana",
   "categoria": "PINTURA AL FRÍO",
   "exento": "NO",
@@ -1457,6 +1685,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPF001ROSA",
+  "codigoBarra": "7591147015222",
   "nombre": "SOLITA - Pintura al Frío 60 ml Rosado",
   "categoria": "PINTURA AL FRÍO",
   "exento": "NO",
@@ -1470,6 +1699,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPF001NARA",
+  "codigoBarra": "7591147015260",
   "nombre": "SOLITA - Pintura al Frío 60 ml Naranja",
   "categoria": "PINTURA AL FRÍO",
   "exento": "NO",
@@ -1483,6 +1713,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPF001LILA",
+  "codigoBarra": "7591147015161",
   "nombre": "SOLITA - Pintura al Frío 60 ml Lila",
   "categoria": "PINTURA AL FRÍO",
   "exento": "NO",
@@ -1496,6 +1727,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPF001AZTU",
+  "codigoBarra": "7591147017158",
   "nombre": "SOLITA - Pintura al Frío 60 ml Azul Turquesa",
   "categoria": "PINTURA AL FRÍO",
   "exento": "NO",
@@ -1509,6 +1741,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPF001CARN",
+  "codigoBarra": "7591147017097",
   "nombre": "SOLITA - Pintura al Frío 60 ml Carne",
   "categoria": "PINTURA AL FRÍO",
   "exento": "NO",
@@ -1522,6 +1755,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPF001FUCS",
+  "codigoBarra": "7591147017172",
   "nombre": "SOLITA - Pintura al Frío 60 ml Fucsia",
   "categoria": "PINTURA AL FRÍO",
   "exento": "NO",
@@ -1535,6 +1769,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPF001MOST",
+  "codigoBarra": "7591147017035",
   "nombre": "SOLITA - Pintura al Frío 60 ml Mostaza",
   "categoria": "PINTURA AL FRÍO",
   "exento": "NO",
@@ -1548,6 +1783,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPF002",
+  "codigoBarra": "7591147020387",
   "nombre": "SOLITA - Estuche de Pintura Al Frío 6 colores",
   "categoria": "PINTURA AL FRÍO",
   "exento": "NO",
@@ -1561,6 +1797,7 @@ const CATALOGO = [
  },
  {
   "codigo": "STE005",
+  "codigoBarra": "7591147204060",
   "nombre": "SOLITA - Tempera gel- 6 piezas    -E-",
   "categoria": "TEMPERA Y PINCELES",
   "exento": "SI",
@@ -1574,6 +1811,7 @@ const CATALOGO = [
  },
  {
   "codigo": "STE010",
+  "codigoBarra": "7591147023678",
   "nombre": "SOLITA - Estuche Tempera Gel 12 piezas - 30 cc",
   "categoria": "TEMPERA Y PINCELES",
   "exento": "NO",
@@ -1587,6 +1825,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPI107",
+  "codigoBarra": "7591147022947",
   "nombre": "SOLITA - Blíster Pinceles Escolares  2 Und",
   "categoria": "TEMPERA Y PINCELES",
   "exento": "NO",
@@ -1600,6 +1839,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPT002",
+  "codigoBarra": "7591147203063",
   "nombre": "SOLITA - Caja Plastilina Normal 6 col   -E-",
   "categoria": "PLASTILINA Y MASA PARA MOLDEAR",
   "exento": "SI",
@@ -1613,11 +1853,12 @@ const CATALOGO = [
  },
  {
   "codigo": "SPT001",
+  "codigoBarra": "7591147203100",
   "nombre": "SOLITA - Caja Plastilina Normal 10 col",
   "categoria": "PLASTILINA Y MASA PARA MOLDEAR",
   "exento": "NO",
   "inv": 0,
-  "precioUsd": 1.52,
+  "precioUsd": 2.44,
   "desc1": 0,
   "desc2": 0,
   "desc3": 0,
@@ -1626,6 +1867,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPT004",
+  "codigoBarra": "7591147203117",
   "nombre": "SOLITA - Caja Plastilina Gigante 6 col",
   "categoria": "PLASTILINA Y MASA PARA MOLDEAR",
   "exento": "NO",
@@ -1639,6 +1881,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPT003",
+  "codigoBarra": "7591147203124",
   "nombre": "SOLITA - Caja Plastilina Gigante 10 col",
   "categoria": "PLASTILINA Y MASA PARA MOLDEAR",
   "exento": "NO",
@@ -1652,6 +1895,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDM003AMAR",
+  "codigoBarra": "7591147203223",
   "nombre": "SOLITA - Envase D 2 moldea 2 1 pieza Amarillo",
   "categoria": "PLASTILINA Y MASA PARA MOLDEAR",
   "exento": "NO",
@@ -1665,6 +1909,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDM003AMOR",
+  "codigoBarra": "7591147010487",
   "nombre": "SOLITA - Envase D 2 moldea 2 1 pieza Amarillo Oro",
   "categoria": "PLASTILINA Y MASA PARA MOLDEAR",
   "exento": "NO",
@@ -1678,6 +1923,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDM003AZUL",
+  "codigoBarra": "7591147203230",
   "nombre": "SOLITA - Envase D 2 moldea 2 1 pieza Azul",
   "categoria": "PLASTILINA Y MASA PARA MOLDEAR",
   "exento": "NO",
@@ -1691,6 +1937,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDM003AZCE",
+  "codigoBarra": "7591147203292",
   "nombre": "SOLITA - Envase D 2 moldea 2 1 pieza Azul Celeste",
   "categoria": "PLASTILINA Y MASA PARA MOLDEAR",
   "exento": "NO",
@@ -1704,6 +1951,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDM003NARA",
+  "codigoBarra": "7591147203339",
   "nombre": "SOLITA - Envase D 2 moldea 2 1 pieza Naranja",
   "categoria": "PLASTILINA Y MASA PARA MOLDEAR",
   "exento": "NO",
@@ -1717,6 +1965,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDM003ROJO",
+  "codigoBarra": "7591147203261",
   "nombre": "SOLITA - Envase D 2 moldea 2 1 pieza Rojo",
   "categoria": "PLASTILINA Y MASA PARA MOLDEAR",
   "exento": "NO",
@@ -1730,6 +1979,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDM003ROSA",
+  "codigoBarra": "7591147203285",
   "nombre": "SOLITA - Envase D 2 moldea 2 1 pieza Rosado",
   "categoria": "PLASTILINA Y MASA PARA MOLDEAR",
   "exento": "NO",
@@ -1743,6 +1993,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDM003VERD",
+  "codigoBarra": "7591147203278",
   "nombre": "SOLITA - Envase D 2 moldea 2 1 pieza Verde",
   "categoria": "PLASTILINA Y MASA PARA MOLDEAR",
   "exento": "NO",
@@ -1756,6 +2007,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SDM003VEMA",
+  "codigoBarra": "7591147010500",
   "nombre": "SOLITA - Envase D 2 moldea 2 1 pieza Verde Manzana",
   "categoria": "PLASTILINA Y MASA PARA MOLDEAR",
   "exento": "NO",
@@ -1769,6 +2021,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPL004",
+  "codigoBarra": "7591147211150",
   "nombre": "SOLITA - Pega blanca - 115 Grs",
   "categoria": "PEGA LIQUIDA Y PEGA EN BARRA",
   "exento": "NO",
@@ -1782,6 +2035,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPL005",
+  "codigoBarra": "7591147212256",
   "nombre": "SOLITA - Pega blanca - 225 Grs",
   "categoria": "PEGA LIQUIDA Y PEGA EN BARRA",
   "exento": "NO",
@@ -1795,6 +2049,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPL003",
+  "codigoBarra": "7591147215004",
   "nombre": "SOLITA - Pega Blanca 500 gr",
   "categoria": "PEGA LIQUIDA Y PEGA EN BARRA",
   "exento": "NO",
@@ -1808,6 +2063,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPB003",
+  "codigoBarra": "7591147210085",
   "nombre": "SOLITA - Pega en Barra 8 gr",
   "categoria": "PEGA LIQUIDA Y PEGA EN BARRA",
   "exento": "NO",
@@ -1821,6 +2077,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPB001",
+  "codigoBarra": "7591147210153",
   "nombre": "SOLITA - Pega en Barra 15 gr",
   "categoria": "PEGA LIQUIDA Y PEGA EN BARRA",
   "exento": "NO",
@@ -1834,6 +2091,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPB004",
+  "codigoBarra": "7591147023104",
   "nombre": "SOLITA - Pega en Barra 40 gr    -E-",
   "categoria": "PEGA LIQUIDA Y PEGA EN BARRA",
   "exento": "SI",
@@ -1847,6 +2105,7 @@ const CATALOGO = [
  },
  {
   "codigo": "STI009",
+  "codigoBarra": "7591147020684",
   "nombre": "SOLITA - Tijera Escolar Soft    -E-",
   "categoria": "TIJERAS ESCOLARES",
   "exento": "SI",
@@ -1860,6 +2119,7 @@ const CATALOGO = [
  },
  {
   "codigo": "STI003",
+  "codigoBarra": "7591147010425",
   "nombre": "SOLITA - Blister Tijera Bebé 4     -E-",
   "categoria": "TIJERAS ESCOLARES",
   "exento": "SI",
@@ -1873,6 +2133,7 @@ const CATALOGO = [
  },
  {
   "codigo": "STI002",
+  "codigoBarra": "7591147349259",
   "nombre": "SOLITA - Tijera Escolar 5\" Zurdo    -E-",
   "categoria": "TIJERAS ESCOLARES",
   "exento": "SI",
@@ -1886,6 +2147,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPA002",
+  "codigoBarra": "7591147208358",
   "nombre": "SOLITA - Block Papeles Surtidos 42 Hojas",
   "categoria": "BLOCKS",
   "exento": "NO",
@@ -1899,6 +2161,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPA015",
+  "codigoBarra": "7591147208327",
   "nombre": "SOLITA - Block Cartulina Premium - 10H",
   "categoria": "BLOCKS",
   "exento": "NO",
@@ -1912,6 +2175,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPA009LUST",
+  "codigoBarra": "7591147023111",
   "nombre": "SOLITA - Block Papel Lustrillo 12 hojas    -E-",
   "categoria": "BLOCKS",
   "exento": "SI",
@@ -1925,6 +2189,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SCA002",
+  "codigoBarra": "7591147510062",
   "nombre": "SOLITA - Cartilla Integral  - E -",
   "categoria": "CUENTOS Y CARTILLAS",
   "exento": "SI",
@@ -1938,6 +2203,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SCF005-SUR6",
+  "codigoBarra": "7591147022916",
   "nombre": "SOLITA - Cuentos para Colorear Surtidos 6 pzas - E -",
   "categoria": "CUENTOS Y CARTILLAS",
   "exento": "SI",
@@ -1951,6 +2217,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SCF007-SUR6",
+  "codigoBarra": "7591147022923",
   "nombre": "SOLITA - Cuentos con Actividades Surtidos 6 pzas - E -",
   "categoria": "CUENTOS Y CARTILLAS",
   "exento": "SI",
@@ -1964,6 +2231,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1296",
+  "codigoBarra": "7591147021827",
   "nombre": "1-Paquete de Cartulina Naranja (180gr) 50x70 cm - 50 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -1977,6 +2245,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1297",
+  "codigoBarra": "7591147021841",
   "nombre": "2-Paquete de Cartulina Rosado Oscuro (180gr) 50x70 cm - 50 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -1990,6 +2259,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1298",
+  "codigoBarra": "7591147021865",
   "nombre": "3-Paquete de Cartulina Morada (180gr) 50x70 cm - 50 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2003,6 +2273,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1300",
+  "codigoBarra": "7591147021902",
   "nombre": "4-Paquete de Cartulina Verde (180gr) 50x70 cm - 50 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2016,6 +2287,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1301",
+  "codigoBarra": "7591147022664",
   "nombre": "5-Paquete de Cartulina Amarilla (180gr) 50x70 cm - 50 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2029,6 +2301,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1302",
+  "codigoBarra": "7591147022671",
   "nombre": "6-Paquete de Cartulina Verde Oscuro (180gr) 50x70 cm - 50 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2042,6 +2315,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1303",
+  "codigoBarra": "7591147022688",
   "nombre": "7-Paquete de Cartulina Roja (180gr) 50x70 cm - 50 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2055,6 +2329,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1304",
+  "codigoBarra": "7591147022695",
   "nombre": "8-Paquete de Cartulina Amarillo Pastel (180gr) 50x70 cm - 50 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2068,6 +2343,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1305",
+  "codigoBarra": "7591147022701",
   "nombre": "9-Paquete de Cartulina Celeste Pastel (180gr) 50x70 cm - 50 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2081,6 +2357,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1306",
+  "codigoBarra": "7591147022718",
   "nombre": "10-Paquete de Cartulina Rosado Pastel (180gr) 50x70cm - 50 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2094,6 +2371,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1307",
+  "codigoBarra": "7591147022725",
   "nombre": "11-Paquete de Cartulina Verde Pastel (180gr) 50x70 cm - 50 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2107,6 +2385,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1370",
+  "codigoBarra": "7451101030374",
   "nombre": "12-Paquete de Cartulina Blanca Doble Faz (300gr) 50x70 cm - 20 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2120,6 +2399,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1529",
+  "codigoBarra": "7501308642969",
   "nombre": "13-Paquete de Cartulina Negra (180gr) 50x70 cm - 20 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2133,6 +2413,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1361",
+  "codigoBarra": "7451101030459",
   "nombre": "14-Paquete de Cartulina Fluorescente Verde (180gr) 50x70 cm - 20 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2146,6 +2427,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1356",
+  "codigoBarra": "7451101030510",
   "nombre": "15-Paquete de Cartulina Fluorescente Amarillo (180gr) 50x70 cm - 20 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2159,6 +2441,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1357",
+  "codigoBarra": "7451101030497",
   "nombre": "16-Paquete de Cartulina Fluorescente Naranja (180gr) 50x70 cm - 20 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2172,6 +2455,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1358",
+  "codigoBarra": "7451101030480",
   "nombre": "17-Paquete de Cartulina Fluorescente Fucsia (180gr) 50x70 cm - 20 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2185,6 +2469,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1360",
+  "codigoBarra": "7451101030466",
   "nombre": "18-Paquete de Cartulina Fluorescente Azul Celeste (180gr) 50x70 cm - 20 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2198,6 +2483,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-4370",
+  "codigoBarra": "657381844022",
   "nombre": "19-Paquete de Cartulina Doble Color Rojo/Verde (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2211,6 +2497,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-4371",
+  "codigoBarra": "657381844039",
   "nombre": "20-Paquete de Cartulina Doble Color Amarillo/Azul (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2224,6 +2511,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-4372",
+  "codigoBarra": "657381844046",
   "nombre": "21-Paquete de Cartulina Doble Color Melón/Celeste (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2237,6 +2525,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-4373",
+  "codigoBarra": "657381844053",
   "nombre": "22-Paquete de Cartulina Doble Color Naranja/Morado (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2250,6 +2539,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-4374",
+  "codigoBarra": "657381844060",
   "nombre": "23-Paquete de Cartulina Doble Color Negro/Marrón (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2263,6 +2553,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-04391",
+  "codigoBarra": "7416501903116",
   "nombre": "24-Paquete de Cartulina Doble Color Celeste / Verde (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2276,6 +2567,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-4376",
+  "codigoBarra": "7416501902140",
   "nombre": "25-Paquete de Cartulina  Doble Color Naranja / Rojo (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2289,6 +2581,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-4377",
+  "codigoBarra": "7416501902157",
   "nombre": "26-Paquete de Cartulina  Doble Color Rosado / Fucsia (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2302,6 +2595,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-4378",
+  "codigoBarra": "7416501902164",
   "nombre": "27-Paquete de Cartulina  Doble Color Lila / Morado (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2315,6 +2609,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-4381",
+  "codigoBarra": "7416501902171",
   "nombre": "28-Paquete de Cartulina  Doble Color Verde Limón / Verde (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2328,6 +2623,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-4380",
+  "codigoBarra": "7416501902188",
   "nombre": "29-Paquete de Cartulina  Doble Color Aqua / Turquesa (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2341,6 +2637,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-4379",
+  "codigoBarra": "7416501902195",
   "nombre": "30-Paquete de Cartulina  Doble Color Celeste / Azul (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2354,6 +2651,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-4384",
+  "codigoBarra": "7416501902218",
   "nombre": "32-Paquete de Cartulina  Doble Color Gris / Negro (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2367,6 +2665,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-4382",
+  "codigoBarra": "7416501902225",
   "nombre": "33-Paquete de Cartulina  Doble Color Café / Marrón (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2380,6 +2679,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-4383",
+  "codigoBarra": "7416501902232",
   "nombre": "34-Paquete de Cartulina  Doble Color Piel Clara/Piel Oscura (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2393,6 +2693,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-4386",
+  "codigoBarra": "0657381844084",
   "nombre": "35-Paquete de Cartulina  Doble Color Oro / Amarillo (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2406,6 +2707,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-4387",
+  "codigoBarra": "0657381844091",
   "nombre": "36-Paquete de Cartulina  Doble Color Azul / Celeste (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2419,6 +2721,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-4388",
+  "codigoBarra": "0657381844107",
   "nombre": "37-Paquete de Cartulina  Doble Color Rosa / Fucsia (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2432,6 +2735,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-4389",
+  "codigoBarra": "0657381844114",
   "nombre": "38-Paquete de Cartulina  Doble Color Verde Claro / Oscuro (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2445,6 +2749,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-4390",
+  "codigoBarra": "0657381844121",
   "nombre": "39-Paquete de Cartulina  Doble Color Rojo / Naranja (180gr) - 25 und",
   "categoria": "CARTULINAS",
   "exento": "NO",
@@ -2458,6 +2763,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1442",
+  "codigoBarra": "7416501955030",
   "nombre": "Paquete de Carpeta Manila Carta (8,5x11) x 100 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2471,6 +2777,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-1462",
+  "codigoBarra": "7416501955047",
   "nombre": "Paquete de Carpeta Manila Oficio (8,5x13) x 100 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2484,6 +2791,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-2082",
+  "codigoBarra": "7416501903178",
   "nombre": "Paquete de Carpeta Arcoíris Carta 5 colores (verde, rojo, amarillo, azul, naranja) x 100 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2497,6 +2805,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-2182",
+  "codigoBarra": "7416501903239",
   "nombre": "Paquete de Carpeta Arcoíris Oficio 5 colores (verde, rojo, amarillo, azul, naranja x 100 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2510,6 +2819,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-2001",
+  "codigoBarra": "7416501901532",
   "nombre": "A-Paquete de Carpeta Manila Carta Naranja x 50 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2523,6 +2833,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-2002",
+  "codigoBarra": "7416501901549",
   "nombre": "B-Paquete de Carpeta Manila Carta Amarillo x 50 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2536,6 +2847,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-2003",
+  "codigoBarra": "7416501901556",
   "nombre": "C-Paquete de Carpeta Manila Carta Rojo x 50 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2549,6 +2861,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-2004",
+  "codigoBarra": "7416501901563",
   "nombre": "D-Paquete de Carpeta Manila Carta Azul x 50 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2562,6 +2875,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-2005",
+  "codigoBarra": "7416501901570",
   "nombre": "E-Paquete de Carpeta Manila Carta Verde x 50 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2575,6 +2889,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-2006",
+  "codigoBarra": "7416501901587",
   "nombre": "F-Paquete de Carpeta Manila Carta Rosa x 50 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2588,6 +2903,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-2007",
+  "codigoBarra": "7416501901914",
   "nombre": "G-Paquete de Carpeta Manila Carta Aqua x 50 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2601,6 +2917,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-2008",
+  "codigoBarra": "7416501901938",
   "nombre": "H-Paquete de Carpeta Manila Carta Gris x 50 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2614,6 +2931,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-2009",
+  "codigoBarra": "7416501901594",
   "nombre": "I-Paquete de Carpeta Manila Carta Violeta x 50 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2627,6 +2945,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-2010",
+  "codigoBarra": "7416501901600",
   "nombre": "J-Paquete de Carpeta Manila Carta Negro x 50 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2640,6 +2959,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-2011",
+  "codigoBarra": "7416501901952",
   "nombre": "K-Paquete de Carpeta Manila Carta Azul Marino x 50 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2653,6 +2973,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-2015",
+  "codigoBarra": "7416501901976",
   "nombre": "L-Paquete de Carpeta Manila Carta Café x 50 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2666,6 +2987,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-2017",
+  "codigoBarra": "7416501901990",
   "nombre": "M-Paquete de Carpeta Manila Carta Lila x 50 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2679,6 +3001,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-2018",
+  "codigoBarra": "7416501901617",
   "nombre": "N-Paquete de Carpeta Manila Carta Celeste x 50 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2692,6 +3015,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-2020",
+  "codigoBarra": "7416501901624",
   "nombre": "O-Paquete de Carpeta Manila Carta Fucsia x 50 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2705,6 +3029,7 @@ const CATALOGO = [
  },
  {
   "codigo": "IRA-2022",
+  "codigoBarra": "7416501902010",
   "nombre": "P-Paquete de Carpeta Manila Carta Verde Limón x 50 und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2718,6 +3043,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SCP001",
+  "codigoBarra": "7591147219538",
   "nombre": "Carpeta Transparente Barra Lateral x 10und",
   "categoria": "CARPETAS",
   "exento": "NO",
@@ -2731,6 +3057,7 @@ const CATALOGO = [
  },
  {
   "codigo": "OP-1284",
+  "codigoBarra": "7451101030206",
   "nombre": "Resmilla bond celeste 80 hojas 8,5x11",
   "categoria": "RESMILLAS",
   "exento": "NO",
@@ -2744,6 +3071,7 @@ const CATALOGO = [
  },
  {
   "codigo": "OP-1412",
+  "codigoBarra": "",
   "nombre": "Resmilla cartulina espacial morada 8.5x11 100 Hojas",
   "categoria": "RESMILLAS",
   "exento": "NO",
@@ -2757,6 +3085,7 @@ const CATALOGO = [
  },
  {
   "codigo": "OP-3027",
+  "codigoBarra": "",
   "nombre": "Resmilla cartulina carta rosado 90 lbs 250 hojas",
   "categoria": "RESMILLAS",
   "exento": "NO",
@@ -2770,6 +3099,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPA1340",
+  "codigoBarra": "7451101030640",
   "nombre": "Papel Acuarela 24H - CARTA",
   "categoria": "RESMILLAS",
   "exento": "NO",
@@ -2783,6 +3113,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPA02342",
+  "codigoBarra": "7451101031074",
   "nombre": "Resmilla Cartoncillo Sulfito C.18 24 Hojas 8.5 x 11",
   "categoria": "RESMILLAS",
   "exento": "NO",
@@ -2796,6 +3127,7 @@ const CATALOGO = [
  },
  {
   "codigo": "OTI002",
+  "codigoBarra": "7591147023159",
   "nombre": "OFICA - Tijera de oficina 7\"",
   "categoria": "OFICINA - TIJERAS",
   "exento": "NO",
@@ -2809,6 +3141,7 @@ const CATALOGO = [
  },
  {
   "codigo": "OTI001",
+  "codigoBarra": "7591147022930",
   "nombre": "OFICA - Tijera de oficina 8-1/2”",
   "categoria": "OFICINA - TIJERAS",
   "exento": "NO",
@@ -2822,6 +3155,7 @@ const CATALOGO = [
  },
  {
   "codigo": "OFH001",
+  "codigoBarra": "7591147360124",
   "nombre": "OFICA - Funda Protectora Carta 25 Unidades",
   "categoria": "OFICINA - FUNDAS",
   "exento": "NO",
@@ -2835,6 +3169,7 @@ const CATALOGO = [
  },
  {
   "codigo": "OFH002",
+  "codigoBarra": "7591147360025",
   "nombre": "OFICA - Funda Protectora Carta 100 Unidades",
   "categoria": "OFICINA - FUNDAS",
   "exento": "NO",
@@ -2848,6 +3183,7 @@ const CATALOGO = [
  },
  {
   "codigo": "OFH003",
+  "codigoBarra": "7591147012689",
   "nombre": "OFICA - Funda Protectora Oficio 25 Unidades",
   "categoria": "OFICINA - FUNDAS",
   "exento": "NO",
@@ -2861,6 +3197,7 @@ const CATALOGO = [
  },
  {
   "codigo": "OFH004",
+  "codigoBarra": "7591147023197",
   "nombre": "OFICA - Funda Protectora Oficio 100 Unidades",
   "categoria": "OFICINA - FUNDAS",
   "exento": "NO",
@@ -2874,6 +3211,7 @@ const CATALOGO = [
  },
  {
   "codigo": "OCR002",
+  "codigoBarra": "7591147020462",
   "nombre": "OFICA - Corrector Líquido 9 ml",
   "categoria": "OFICINA - CORRECTORES Y BOLIGRAFOS",
   "exento": "NO",
@@ -2887,6 +3225,7 @@ const CATALOGO = [
  },
  {
   "codigo": "OMZ001AZUL",
+  "codigoBarra": "7591147007340",
   "nombre": "OFICA - Marcador de Pizarra Azul x 12",
   "categoria": "OFICINA - MARCADORES Y RESALTADORES",
   "exento": "NO",
@@ -2900,6 +3239,7 @@ const CATALOGO = [
  },
  {
   "codigo": "OMZ001NEGR",
+  "codigoBarra": "7591147007395",
   "nombre": "OFICA - Marcador de Pizarra Negro x 12",
   "categoria": "OFICINA - MARCADORES Y RESALTADORES",
   "exento": "NO",
@@ -2913,6 +3253,7 @@ const CATALOGO = [
  },
  {
   "codigo": "OMZ001ROJO",
+  "codigoBarra": "7591147007364",
   "nombre": "OFICA - Marcador de Pizarra Rojo x 12",
   "categoria": "OFICINA - MARCADORES Y RESALTADORES",
   "exento": "NO",
@@ -2926,6 +3267,7 @@ const CATALOGO = [
  },
  {
   "codigo": "OMZ001VERD",
+  "codigoBarra": "7591147007388",
   "nombre": "OFICA - Marcador de Pizarra Verde x 12",
   "categoria": "OFICINA - MARCADORES Y RESALTADORES",
   "exento": "NO",
@@ -2939,6 +3281,7 @@ const CATALOGO = [
  },
  {
   "codigo": "OMP001NEGR",
+  "codigoBarra": "7591147007319",
   "nombre": "OFICA - Marcador Permanente Negro x 12",
   "categoria": "OFICINA - MARCADORES Y RESALTADORES",
   "exento": "NO",
@@ -2952,6 +3295,7 @@ const CATALOGO = [
  },
  {
   "codigo": "OMP001AZUL",
+  "codigoBarra": "7591147007333",
   "nombre": "OFICA - Marcador Permanente Azul x 12",
   "categoria": "OFICINA - MARCADORES Y RESALTADORES",
   "exento": "NO",
@@ -2965,6 +3309,7 @@ const CATALOGO = [
  },
  {
   "codigo": "OMP001ROJO",
+  "codigoBarra": "7591147007449",
   "nombre": "OFICA - Marcador Permanente Rojo x 12",
   "categoria": "OFICINA - MARCADORES Y RESALTADORES",
   "exento": "NO",
@@ -2978,6 +3323,7 @@ const CATALOGO = [
  },
  {
   "codigo": "OMP001VERD",
+  "codigoBarra": "7591147007463",
   "nombre": "OFICA - Marcador Permanente Verde x 12",
   "categoria": "OFICINA - MARCADORES Y RESALTADORES",
   "exento": "NO",
@@ -2991,6 +3337,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ORE006AMAR",
+  "codigoBarra": "7591147007630",
   "nombre": "OFICA - Resaltador grande amarillo",
   "categoria": "OFICINA - MARCADORES Y RESALTADORES",
   "exento": "NO",
@@ -3004,6 +3351,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ORE006NARA",
+  "codigoBarra": "7591147007715",
   "nombre": "OFICA - Resaltador grande naranja",
   "categoria": "OFICINA - MARCADORES Y RESALTADORES",
   "exento": "NO",
@@ -3017,6 +3365,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ORE006ROSA",
+  "codigoBarra": "7591147007692",
   "nombre": "OFICA - Resaltador grande rosado",
   "categoria": "OFICINA - MARCADORES Y RESALTADORES",
   "exento": "NO",
@@ -3030,6 +3379,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ORE006AZUL",
+  "codigoBarra": "7591147007685",
   "nombre": "OFICA - Resaltador grande azul",
   "categoria": "OFICINA - MARCADORES Y RESALTADORES",
   "exento": "NO",
@@ -3043,6 +3393,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ORE006VERD",
+  "codigoBarra": "7591147007654",
   "nombre": "OFICA - Resaltador grande verde",
   "categoria": "OFICINA - MARCADORES Y RESALTADORES",
   "exento": "NO",
@@ -3056,6 +3407,7 @@ const CATALOGO = [
  },
  {
   "codigo": "GEN-5030",
+  "codigoBarra": "6921615450308",
   "nombre": "Engrapadora Trabajo Pesado 50 Hojas",
   "categoria": "OFICINA - MARCADORES Y RESALTADORES",
   "exento": "NO",
@@ -3069,6 +3421,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-4385",
+  "codigoBarra": "7416501902249",
   "nombre": "Block Cartulina Escolar Doble Color Carta - 25H",
   "categoria": "ALHER - BLOCKS",
   "exento": "NO",
@@ -3082,6 +3435,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-1720",
+  "codigoBarra": "7451101030114",
   "nombre": "Block papel Milimetrado 25H - CARTA",
   "categoria": "ALHER - BLOCKS",
   "exento": "NO",
@@ -3095,6 +3449,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-4434",
+  "codigoBarra": "657381844343",
   "nombre": "Block de Dibujo (Sketch Pad) Carta - 30H - E -",
   "categoria": "ALHER - BLOCKS",
   "exento": "SI",
@@ -3108,6 +3463,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-4435",
+  "codigoBarra": "657381844350",
   "nombre": "Block Papel Acuarela Carta - 10H - E -",
   "categoria": "ALHER - BLOCKS",
   "exento": "SI",
@@ -3121,6 +3477,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-43667",
+  "codigoBarra": "0657381843667",
   "nombre": "ALHER - Sopa de Letras #01 - E -",
   "categoria": "ALHER - PASATIEMPO",
   "exento": "SI",
@@ -3134,6 +3491,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-43674",
+  "codigoBarra": "0657381843674",
   "nombre": "ALHER - Sopa de Letras #02 - E -",
   "categoria": "ALHER - PASATIEMPO",
   "exento": "SI",
@@ -3147,6 +3505,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-43698",
+  "codigoBarra": "657381843698",
   "nombre": "ALHER - Sopa de Letras #03 - E -",
   "categoria": "ALHER - PASATIEMPO",
   "exento": "SI",
@@ -3160,6 +3519,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-43681",
+  "codigoBarra": "0657381843681",
   "nombre": "ALHER - Sopa Mix #04 - E -",
   "categoria": "ALHER - PASATIEMPO",
   "exento": "SI",
@@ -3173,6 +3533,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-43704",
+  "codigoBarra": "0657381843704",
   "nombre": "ALHER - Sopa Mix #05 - E -",
   "categoria": "ALHER - PASATIEMPO",
   "exento": "SI",
@@ -3186,6 +3547,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-04447",
+  "codigoBarra": "0657381844473",
   "nombre": "ALHER - Libro Colorea - Deportes - E -",
   "categoria": "ALHER - PASATIEMPO",
   "exento": "SI",
@@ -3199,6 +3561,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-44565",
+  "codigoBarra": "0657381844572",
   "nombre": "ALHER - Libro Colorea Minecraft Vol. 2 - E -",
   "categoria": "ALHER - PASATIEMPO",
   "exento": "SI",
@@ -3212,6 +3575,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-44572",
+  "codigoBarra": "0657381844565",
   "nombre": "ALHER - Libro Colorea Minecraft Vol. 1 - E -",
   "categoria": "ALHER - PASATIEMPO",
   "exento": "SI",
@@ -3225,6 +3589,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-43766",
+  "codigoBarra": "0657381843766",
   "nombre": "ALHER - Libro Mandalas #01 - E -",
   "categoria": "ALHER - PASATIEMPO",
   "exento": "SI",
@@ -3238,6 +3603,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-43780",
+  "codigoBarra": "0657381843780",
   "nombre": "ALHER - Libro Mandalas #02 - E -",
   "categoria": "ALHER - PASATIEMPO",
   "exento": "SI",
@@ -3251,6 +3617,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-4441",
+  "codigoBarra": "0657381844411",
   "nombre": "Mampara Pequeña 21x37\" (53x94 cm)",
   "categoria": "ALHER - MAMPARA",
   "exento": "NO",
@@ -3264,6 +3631,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-4442",
+  "codigoBarra": "0657381844428",
   "nombre": "Mampara Mediana 28x39\" (71x99 cm)",
   "categoria": "ALHER - MAMPARA",
   "exento": "NO",
@@ -3277,6 +3645,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-4443",
+  "codigoBarra": "0657381844435",
   "nombre": "Mampara Grande 36x39\" (91x99 cm)",
   "categoria": "ALHER - MAMPARA",
   "exento": "NO",
@@ -3290,6 +3659,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-2349",
+  "codigoBarra": "0700721795703",
   "nombre": "Resmilla Cartulina Colores Pasteles Surtidos Carta - 25H",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3303,6 +3673,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-2350",
+  "codigoBarra": "0700721795710",
   "nombre": "Resmilla Cartulina Colores Solidos Surtidos Carta - 25H",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3316,6 +3687,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-862",
+  "codigoBarra": "7451101030060",
   "nombre": "Resmilla Cartulina Fluorescente Surtida Carta -25H",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3329,6 +3701,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-2368",
+  "codigoBarra": "7451101031098",
   "nombre": "Resmilla Hojas Colores Solidos Carta - 100H",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3342,6 +3715,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-2369",
+  "codigoBarra": "7591147021643",
   "nombre": "Resmilla Hojas Colores Pasteles Surtido Carta - 100H",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3355,6 +3729,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-861",
+  "codigoBarra": "7591147021650",
   "nombre": "Resmilla Hojas Fluorescentes Sutidas Carta - 100H",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3368,6 +3743,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-4432",
+  "codigoBarra": "0657381844329",
   "nombre": "Resmilla Papel Adhesivo Fluorescente Carta - 10H",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3381,6 +3757,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-1368",
+  "codigoBarra": "657381843961",
   "nombre": "Cartulina  Hilo Blanco 24H - CARTA",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3394,6 +3771,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-1791",
+  "codigoBarra": "657381843961",
   "nombre": "Papel Hilo Crema 24H - CARTA",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3407,6 +3785,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-2063",
+  "codigoBarra": "657381843916",
   "nombre": "Papel Adhesivo Fotográfico MATE 20H - CARTA",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3420,6 +3799,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-2064",
+  "codigoBarra": "657381843923",
   "nombre": "Papel Adhesivo Fotográfico BRILLANTE 20H - CARTA",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3433,6 +3813,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-76039",
+  "codigoBarra": "652569760392",
   "nombre": "Papel Bond Carta 100H Color - AZUL OSCURO",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3446,6 +3827,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-76040",
+  "codigoBarra": "652569760408",
   "nombre": "Papel Bond Carta 100H Color - AZUL",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3459,6 +3841,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-76041",
+  "codigoBarra": "652569760415",
   "nombre": "Papel Bond Carta 100H Color - CELESTE",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3472,6 +3855,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-76042",
+  "codigoBarra": "652569760422",
   "nombre": "Papel Bond Carta 100H Color - AMARILLO",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3485,6 +3869,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-76043",
+  "codigoBarra": "652569760439",
   "nombre": "Papel Bond Carta 100H Color - AMARILLO ORO",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3498,6 +3883,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-76044",
+  "codigoBarra": "652569760446",
   "nombre": "Papel Bond Carta 100H Color - ROJO VINO",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3511,6 +3897,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-76045",
+  "codigoBarra": "652569760453",
   "nombre": "Papel Bond Carta 100H Color - ROJO",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3524,6 +3911,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-76046",
+  "codigoBarra": "652569760460",
   "nombre": "Papel Bond Carta 100H Color - VERDE",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3537,6 +3925,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-76047",
+  "codigoBarra": "652569760477",
   "nombre": "Papel Bond Carta 100H Color - VERDE OSCURO",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3550,6 +3939,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-76048",
+  "codigoBarra": "652569760484",
   "nombre": "Papel Bond Carta 100H Color - NEGRO",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3563,6 +3953,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-76049",
+  "codigoBarra": "652569760491",
   "nombre": "Papel Bond Carta 100H Color - ROSA",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3576,6 +3967,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-76050",
+  "codigoBarra": "652569760507",
   "nombre": "Papel Bond Carta 100H Color - FUCSIA",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3589,6 +3981,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-76052",
+  "codigoBarra": "652569760521",
   "nombre": "Papel Bond Carta 100H Color - CHOCOLATE",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3602,6 +3995,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-76053",
+  "codigoBarra": "652569760538",
   "nombre": "Papel Bond Carta 100H Color - NARANJA",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3615,6 +4009,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-76054",
+  "codigoBarra": "652569760545",
   "nombre": "Papel Bond Carta 100H Color - GRIS",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3628,6 +4023,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-76055",
+  "codigoBarra": "652569760552",
   "nombre": "Papel Bond Carta 100H Color - MORADO",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3641,6 +4037,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPK001",
+  "codigoBarra": "652569760118",
   "nombre": "Rollo Papel Kraft 60g - 36\" x 100 Yardas",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3654,6 +4051,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPK002",
+  "codigoBarra": "652569760125",
   "nombre": "Rollo Papel Kraft 80g - 36\" x 100 Yardas",
   "categoria": "ALHER - PAPELES",
   "exento": "NO",
@@ -3667,6 +4065,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-EXHMAN",
+  "codigoBarra": "",
   "nombre": "Exhibidor Mamparas Carton",
   "categoria": "EXHIBIDORES",
   "exento": "NO",
@@ -3680,6 +4079,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-EXHEDPEQ",
+  "codigoBarra": "",
   "nombre": "Exhibidor Editorial Pequeño",
   "categoria": "EXHIBIDORES",
   "exento": "NO",
@@ -3693,6 +4093,7 @@ const CATALOGO = [
  },
  {
   "codigo": "ALH-EXHEDGRA",
+  "codigoBarra": "",
   "nombre": "Exhibidor Editorial Grande",
   "categoria": "EXHIBIDORES",
   "exento": "NO",
@@ -3706,6 +4107,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SEX007",
+  "codigoBarra": "",
   "nombre": "Exhibidor Metálico de Carpetas",
   "categoria": "EXHIBIDORES",
   "exento": "NO",
@@ -3719,6 +4121,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SEX006",
+  "codigoBarra": "",
   "nombre": "Exhibidor Metálico Cartulinas",
   "categoria": "EXHIBIDORES",
   "exento": "NO",
@@ -3732,6 +4135,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SPA001",
+  "codigoBarra": "7591147006503",
   "nombre": "SOLITA  - Block de Dibujo 36 Hojas -E-",
   "categoria": "BLOCKS",
   "exento": "SI",
@@ -3745,6 +4149,7 @@ const CATALOGO = [
  },
  {
   "codigo": "SLG007",
+  "codigoBarra": "7591147024248",
   "nombre": "SOLITA - Lápiz de Grafito Sketch Graph",
   "categoria": "LÁPICES DE GRAFITO",
   "exento": "NO",
@@ -3758,6 +4163,7 @@ const CATALOGO = [
  },
  {
   "codigo": "STI001",
+  "codigoBarra": "7591147023784",
   "nombre": "SOLITA - Tijera Flex Grip    -E-",
   "categoria": "TIJERAS ESCOLARES",
   "exento": "SI",
@@ -17939,13 +18345,13 @@ function priceSheetXml(rows, hasDrawing, prodW, headers, freezeRows){
       return;
     }
     // fila de producto (arreglo). Exento de IVA -> negrita en toda la fila
-    const bold = cells.__exento;
+    const bold = cells.__exento; const red = cells.__noinv;
     body+=`<row r="${r}" ht="36" customHeight="1">`+cells.map((v,ci)=>{
       if(v===''||v==null) return '';
       let s;
-      if(ci===2) s=bold?13:2;          // Producto: izquierda
-      else if(ci>=5) s=bold?14:4;      // precios: dólares
-      else s=bold?12:1;                // resto: centrado
+      if(ci===2) s=red?(bold?17:16):(bold?13:2);          // Producto: izquierda
+      else if(ci===cells.length-1) s=red?(bold?19:18):(bold?12:1); else if(ci>=5) s=red?(bold?21:20):(bold?14:4);      // precios: dólares
+      else s=red?(bold?19:18):(bold?12:1);                // resto: centrado
       return cellXmlS(r,ci,v,s);
     }).join('')+`</row>`;
   });
@@ -17957,7 +18363,7 @@ function priceSheetXml(rows, hasDrawing, prodW, headers, freezeRows){
     `<col min="4" max="4" width="7" customWidth="1"/>`,
     `<col min="5" max="5" width="8" customWidth="1"/>`
   ];
-  for(let i=5;i<headers.length;i++){ const w=String(headers[i]||'').length+1; colsArr.push(`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`); }
+  for(let i=5;i<headers.length;i++){ const w=(headers[i]==='COD. BARRA')?16:String(headers[i]||'').length+1; colsArr.push(`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`); }
   const cols=`<cols>${colsArr.join('')}</cols>`;
   const draw = hasDrawing ? `<drawing r:id="rId1"/>` : '';
   const fr=freezeRows||1;
@@ -17967,16 +18373,18 @@ function priceSheetXml(rows, hasDrawing, prodW, headers, freezeRows){
 }
 function buildPriceXlsx(){
   const enc=new TextEncoder();
-  const f=factorGlobal(); const hasDesc=f<1;
+  
   // mismo orden que el catálogo de pedido (agrupado por categoría según CATS)
   const catOrder={}; CATS.forEach((c,i)=>{ catOrder[c]=i; });
   const ordC=c=>(catOrder[c]!==undefined?catOrder[c]:1e9);
-  const prods=CATALOGO.slice().sort((a,b)=>ordC(a.categoria)-ordC(b.categoria));
+  const prods=CATALOGO.filter(lpIncluded).sort((a,b)=>ordC(a.categoria)-ordC(b.categoria));
+  const hasDesc = lpActive ? true : (factorGlobal()<1);
 
   // encabezados dinámicos (etiquetas como en la imagen)
   const headers=['IMAGEN','CÓDIGO ARTÍCULO','NOMBRE DEL PRODUCTO','UMV','BULTO','PRECIO UNIT $'];
   if(hasDesc) headers.push('PRECIO C/DESC');
   headers.push('PRECIO + IVA');
+  headers.push('COD. BARRA');
   const lastColL=colName(headers.length-1);
   // Banda de título: logo OFICA (imagen, izq) + LISTA DE PRECIOS y línea de descuentos (der), y fila de encabezado azul
   const descTxt=descuentosTexto();
@@ -17990,11 +18398,12 @@ function buildPriceXlsx(){
   let curCat=null;
   prods.forEach((p,i)=>{
     if(p.categoria!==curCat){ curCat=p.categoria; rows.push({__cat:catDisplay(curCat), __brand:brandOf(curCat)}); }
-    const net=precioNeto(p); const iva=ivaRateOf(p);
+    const net=lpNet(p); const iva=ivaRateOf(p);
     const row=['', p.codigo, String(p.nombre||''), (+p.umv||0), (+p.bulto||0), round2(p.precioUsd)];
     if(hasDesc) row.push(round2(net));
     row.push(iva>0 ? round2(net*(1+iva)) : '');
-    row.__exento = (iva===0);   // productos exentos de IVA en negrita
+    row.push(p.codigoBarra||'');
+    row.__exento = (iva===0); row.__noinv = (Math.round(+p.inv||0)<=0);   // productos exentos de IVA en negrita
     prodRowIdx[i]=rows.length;   // fila donde quedará este producto (0-based)
     rows.push(row);
   });
@@ -18021,7 +18430,7 @@ function buildPriceXlsx(){
     const rowIdx=prodRowIdx[i]; // fila real del producto (incluye filas de categoría)
     anchors.push(
       `<oneCellAnchor>`+
-        `<from><col>0</col><colOff>66675</colOff><row>${rowIdx}</row><rowOff>57150</rowOff></from>`+
+        `<from><col>0</col><colOff>195262</colOff><row>${rowIdx}</row><rowOff>57150</rowOff></from>`+
         `<ext cx="342900" cy="342900"/>`+
         `<pic>`+
           `<nvPicPr><cNvPr id="${n}" name="Image ${n}" descr="Picture"/><cNvPicPr/></nvPicPr>`+
@@ -18056,7 +18465,7 @@ function buildPriceXlsx(){
   const ct=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/><Default Extension="png" ContentType="image/png"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${hasDrawing?'<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>':''}</Types>`;
   const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="[$$-409]#,##0.00"/></numFmts><fonts count="9"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FF009DDC"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FF8B57A5"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="28"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="24"/><name val="Times New Roman"/><family val="1"/></font><font><i/><sz val="9"/><name val="Times New Roman"/><family val="1"/></font><font><b/><sz val="18"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF200"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF282828"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE9F5C6"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFBDD7EE"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="16"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="4" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="5" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="6" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="7" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf><xf numFmtId="164" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="8" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="[$$-409]#,##0.00"/></numFmts><fonts count="11"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FF009DDC"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FF8B57A5"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="28"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="24"/><name val="Times New Roman"/><family val="1"/></font><font><i/><sz val="9"/><name val="Times New Roman"/><family val="1"/></font><font><b/><sz val="18"/><name val="Calibri"/><family val="2"/></font><font><sz val="11"/><color rgb="FFC0392B"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFC0392B"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF200"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF282828"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE9F5C6"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFBDD7EE"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="22"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="4" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="5" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="6" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="7" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf><xf numFmtId="164" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="8" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="9" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="10" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="9" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="10" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="9" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="10" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
   const rels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
   const wb=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -18100,21 +18509,22 @@ function askPdfOrExcel(){
 }
 // arma la Lista de Precios para imprimir/guardar como PDF (mismo orden que el catálogo)
 function buildPricePrint(){
-  const f=factorGlobal(); const hasDesc=f<1;
+  
   const catOrder={}; CATS.forEach((c,i)=>{ catOrder[c]=i; });
   const ordC=c=>(catOrder[c]!==undefined?catOrder[c]:1e9);
-  const prods=CATALOGO.slice().sort((a,b)=>ordC(a.categoria)-ordC(b.categoria));
-  const ncols = 5 + (hasDesc?2:1);
+  const prods=CATALOGO.filter(lpIncluded).sort((a,b)=>ordC(a.categoria)-ordC(b.categoria));
+  const hasDesc = lpActive ? true : (factorGlobal()<1);
+  const ncols = 8 + (hasDesc?1:0);
   const thBlue='background:#BDD7EE;color:#14202B';
-  let head=`<tr><th style="${thBlue}">IMAGEN</th><th style="${thBlue}">CÓDIGO ARTÍCULO</th><th style="${thBlue}">NOMBRE DEL PRODUCTO</th><th class="n" style="${thBlue}">UMV</th><th class="n" style="${thBlue}">BULTO</th><th class="n" style="${thBlue}">PRECIO UNIT $</th>`+(hasDesc?`<th class="n" style="${thBlue}">PRECIO C/DESC</th>`:'')+`<th class="n" style="${thBlue}">PRECIO + IVA</th></tr>`;
+  let head=`<tr><th style="${thBlue}">IMAGEN</th><th style="${thBlue}">CÓDIGO ARTÍCULO</th><th style="${thBlue}">NOMBRE DEL PRODUCTO</th><th class="n" style="${thBlue}">UMV</th><th class="n" style="${thBlue}">BULTO</th><th class="n" style="${thBlue}">PRECIO UNIT $</th>`+(hasDesc?`<th class="n" style="${thBlue}">PRECIO C/DESC</th>`:'')+`<th class="n" style="${thBlue}">PRECIO + IVA</th><th style="${thBlue};text-align:center">COD. BARRA</th></tr>`;
   let cat=null, rowsHtml='';
   prods.forEach(p=>{
     if(p.categoria!==cat){ cat=p.categoria; const bc=brandHex(brandOf(cat)); rowsHtml+=`<tr class="cat"><td colspan="${ncols}" style="background:${bc.bg};color:${bc.fg};font-weight:800;text-align:center">${esc(catDisplay(cat))}</td></tr>`; }
-    const net=precioNeto(p); const iva=ivaRateOf(p);
+    const net=lpNet(p); const iva=ivaRateOf(p);
     const src=imgFor(p.codigo);
     const img=src?`<img src="${src}" alt="" style="width:32px;height:32px;object-fit:contain">`:'';
-    const trSty = iva===0 ? ' style="font-weight:bold"' : '';   // exento de IVA -> negrita
-    rowsHtml+=`<tr${trSty}><td class="imgc">${img}</td><td>${esc(p.codigo)}</td><td>${esc(p.nombre)}</td><td class="n">${fmtN.format(+p.umv||0)}</td><td class="n">${fmtN.format(+p.bulto||0)}</td><td class="n">${fmt.format(p.precioUsd)}</td>`+(hasDesc?`<td class="n">${fmt.format(net)}</td>`:'')+`<td class="n">${iva>0?fmt.format(net*(1+iva)):''}</td></tr>`;
+    var _noinv=Math.round(+p.inv||0)<=0; var _sty=(iva===0?'font-weight:bold;':'')+(_noinv?'color:#C0392B;':''); const trSty = _sty?(' style="'+_sty+'"'):'';   // exento de IVA -> negrita
+    rowsHtml+=`<tr${trSty}><td class="imgc">${img}</td><td>${esc(p.codigo)}</td><td>${esc(p.nombre)}</td><td class="n">${fmtN.format(+p.umv||0)}</td><td class="n">${fmtN.format(+p.bulto||0)}</td><td class="n">${fmt.format(p.precioUsd)}</td>`+(hasDesc?`<td class="n">${fmt.format(net)}</td>`:'')+`<td class="n">${iva>0?fmt.format(net*(1+iva)):''}</td><td style="text-align:center">${esc(p.codigoBarra||'')}</td></tr>`;
   });
   $('#print').innerHTML=`
     <div class="ph" style="align-items:center">
@@ -18127,6 +18537,167 @@ function buildPricePrint(){
       </div>
       <div style="text-align:right;font-size:12px"><b>Fecha:</b> ${esc(state.meta.fecha||'')}<br>${prods.length} referencias</div></div>
     <table class="pricelist"><thead>${head}</thead><tbody>${rowsHtml}</tbody></table>`;
+}
+// ===== LISTA DE PRECIOS: seleccion por marca/linea con descuentos =====
+var lpActive=false, lpCatSel={}, lpBrandDisc={}, lpCount={}, lpGlobalDisc=null, lpExpanded={}, lpProdOff={}, lpProdInit=false;
+var LP_BRANDS=[{key:'solita',name:'SOLITA'},{key:'ofica',name:'OFICA'},{key:'alher',name:'ALHER'}];
+function lpIncluded(p){ if(!lpActive) return true; var cs=lpCatSel[p.categoria]; return !!(cs && cs.on && !lpProdOff[p.codigo]); }
+function lpLineNet(p){
+  var cs=lpCatSel[p.categoria]||{d1:0,d2:0,d3:0};
+  var price=(+(p&&p.precioUsd)||0)*(1-(+cs.d1||0)/100)*(1-(+cs.d2||0)/100)*(1-(+cs.d3||0)/100);
+  return round2(price);
+}
+function lpNet(p){ if(!lpActive) return precioNeto(p); return lpLineNet(p); }
+function lpPriceHtml(p){ var lista=round2(p.precioUsd), of=lpLineNet(p); return (of<lista-1e-9) ? '<del>'+fmt.format(lista)+'</del> '+fmt.format(of) : fmt.format(lista); }
+function lpRefreshPrices(){ var sp=$('#lpBody').querySelectorAll('.lp-pprice[data-lppcode]'); for(var i=0;i<sp.length;i++){ var code=sp[i].getAttribute('data-lppcode'); var p=(typeof byCode!=='undefined'&&byCode[code])?byCode[code]:null; if(p) sp[i].innerHTML=lpPriceHtml(p); } }
+function lpAnyDesc(prods){ for(var i=0;i<prods.length;i++){ if(lpNet(prods[i]) < round2(prods[i].precioUsd)-1e-9) return true; } return false; }
+function lpTree(){
+  var byBrand={solita:[],ofica:[],alher:[]};
+  CATS.forEach(function(cat){
+    var b=brandOf(cat);
+    if(lpCount[cat]==null) lpCount[cat]=CATALOGO.filter(function(p){return p.categoria===cat;}).length;
+    (byBrand[b]||byBrand.solita).push({cat:cat,display:catDisplay(cat),count:lpCount[cat]});
+  });
+  return LP_BRANDS.map(function(b){return {key:b.key,name:b.name,cats:byBrand[b.key]};}).filter(function(b){return b.cats.length;});
+}
+function lpPct(x){ return Math.round((+x||0)*100); }
+function lpInit(){
+  if(!lpGlobalDisc){ lpGlobalDisc={d1:lpPct(state.meta.desc1),d2:lpPct(state.meta.desc2),d3:lpPct(state.meta.desc3)}; }
+  if(!lpProdInit){ lpProdInit=true; CATALOGO.forEach(function(p){ if(Math.round(+p.inv||0)<=0) lpProdOff[p.codigo]=true; }); }
+  lpTree().forEach(function(b){
+    if(!lpBrandDisc[b.key]) lpBrandDisc[b.key]={d1:lpGlobalDisc.d1,d2:lpGlobalDisc.d2,d3:lpGlobalDisc.d3};
+    b.cats.forEach(function(c){ if(!lpCatSel[c.cat]) lpCatSel[c.cat]={on:true,d1:lpGlobalDisc.d1,d2:lpGlobalDisc.d2,d3:lpGlobalDisc.d3}; });
+  });
+}
+function lpClampPct(v){ v=parseFloat(v); if(!isFinite(v)||v<0) v=0; if(v>100) v=100; return v; }
+function lpDiscGroup(vals,attrs){
+  var h='<div class="lp-discs">';
+  [1,2,3].forEach(function(d){
+    h+='<label class="lp-disc"><span>Desc '+d+'</span><span class="lp-inwrap"><input type="number" inputmode="decimal" min="0" max="100" step="1" value="'+(vals['d'+d]||'')+'" placeholder="0" '+attrs+' data-d="'+d+'"><i>%</i></span></label>';
+  });
+  return h+'</div>';
+}
+function lpProductRows(cat){
+  var list=CATALOGO.filter(function(p){return p.categoria===cat;});
+  var h='';
+  list.forEach(function(p){
+    var on=!lpProdOff[p.codigo];
+    var pinv=Math.round(+p.inv||0); var isc=pinv<=0?'no':(pinv<(+p.bulto||0)?'low':'ok');
+    h+='<div class="lp-prow'+(on?'':' off')+'">'
+      +'<button class="lp-ptog '+(on?'on':'off')+'" data-lpptoggle="'+esc(p.codigo)+'" aria-pressed="'+on+'" title="Incluir o excluir esta referencia"><span class="dot"></span></button>'
+      +'<span class="lp-pcode">'+esc(p.codigo)+'</span>'
+      +'<span class="lp-pname">'+esc(p.nombre)+'</span>'
+      +'<span class="lp-pinv '+isc+'">Inv. '+fmtN.format(pinv)+'</span>'
+      +'<span class="lp-pprice" data-lppcode="'+esc(p.codigo)+'">'+lpPriceHtml(p)+'</span>'
+      +'</div>';
+  });
+  return h||'<div class="lp-prow"><span class="lp-pname">Sin productos</span></div>';
+}
+function lpCatAllOn(cat){
+  var all=true;
+  CATALOGO.forEach(function(p){ if(p.categoria===cat && lpProdOff[p.codigo]) all=false; });
+  return all;
+}
+function lpUpdateCatTog(cat){
+  var ci=CATS.indexOf(cat);
+  var btn=$('#lpBody').querySelector('[data-lpctoggle="'+ci+'"]');
+  if(!btn) return;
+  var cs=lpCatSel[cat];
+  btn.className='lp-tog '+(!cs.on?'off':(lpCatAllOn(cat)?'on':'part'));
+  btn.setAttribute('aria-pressed', cs.on);
+}
+function lpRender(){
+  lpInit();
+  var tree=lpTree(), html='';
+  tree.forEach(function(b){
+    var bd=lpBrandDisc[b.key];
+    var allOn=b.cats.every(function(c){return lpCatSel[c.cat].on;});
+    var someOn=b.cats.some(function(c){return lpCatSel[c.cat].on;});
+    var bstate=allOn?'on':(someOn?'part':'off');
+    html+='<section class="lp-brand '+b.key+'">'
+      +'<div class="lp-bhead">'
+      +'<button class="lp-tog '+bstate+'" data-lpbtoggle="'+b.key+'" aria-pressed="'+allOn+'" title="Activar o desactivar toda la marca"><span class="dot"></span></button>'
+      +'<span class="lp-bname">'+b.name+'</span>'
+      +lpDiscGroup(bd,'data-lpbdisc="'+b.key+'"')
+      +'</div><div class="lp-lines">';
+    b.cats.forEach(function(c){
+      var cs=lpCatSel[c.cat], ci=CATS.indexOf(c.cat);
+      html+='<div class="lp-line'+(cs.on?' on':'')+'">'
+        +'<button class="lp-tog '+(!cs.on?'off':(lpCatAllOn(c.cat)?'on':'part'))+'" data-lpctoggle="'+ci+'" aria-pressed="'+cs.on+'"><span class="dot"></span></button>'
+        +'<button class="lp-exp" data-lpexp="'+ci+'" title="Ver u ocultar productos">'+(lpExpanded[c.cat]?'−':'+')+'</button>'
+        +'<span class="lp-cname">'+esc(c.display)+'</span>'
+        +'<span class="lp-cn">'+c.count+'</span>'
+        +lpDiscGroup(cs,'data-lpcdisc="'+ci+'"')
+        +(lpExpanded[c.cat]?'<div class="lp-sub">'+lpProductRows(c.cat)+'</div>':'')
+        +'</div>';
+    });
+    html+='</div></section>';
+  });
+  $('#lpBody').innerHTML=html;
+  var gw=$('#lpGlobalWrap'); if(gw) gw.innerHTML='<span class="lp-glabel">Descuento global</span>'+lpDiscGroup(lpGlobalDisc,'data-lpgdisc="1"');
+  lpUpdateSummary();
+}
+function lpSyncLineDiscs(){
+  var inps=$('#lpBody').querySelectorAll('[data-lpcdisc]');
+  for(var i=0;i<inps.length;i++){ var inp=inps[i]; if(document.activeElement===inp) continue; var cat=CATS[+inp.dataset.lpcdisc], d=inp.dataset.d; inp.value=lpCatSel[cat]['d'+d]||''; }
+}
+function lpSyncAllDiscs(){
+  var body=$('#lpBody');
+  var bi=body.querySelectorAll('[data-lpbdisc]');
+  for(var i=0;i<bi.length;i++){ var e=bi[i]; if(document.activeElement===e) continue; e.value=lpBrandDisc[e.dataset.lpbdisc]['d'+e.dataset.d]||''; }
+  lpSyncLineDiscs();
+}
+function lpUpdateSummary(){
+  var cats=0,prods=0;
+  for(var cat in lpCatSel){ if(lpCatSel[cat].on) cats++; }
+  CATALOGO.forEach(function(p){ var cs=lpCatSel[p.categoria]; if(cs && cs.on && !lpProdOff[p.codigo]) prods++; });
+  $('#lpSummary').textContent=cats+' '+(cats===1?'línea':'líneas')+' · '+prods+' '+(prods===1?'producto':'productos');
+  $('#lpGen').disabled=(prods===0);
+}
+function lpOnClick(e){
+  var ex=e.target.closest?e.target.closest('[data-lpexp]'):null;
+  if(ex){ var xcat=CATS[+ex.dataset.lpexp]; lpExpanded[xcat]=!lpExpanded[xcat]; lpRender(); return; }
+  var pt=e.target.closest?e.target.closest('[data-lpptoggle]'):null;
+  if(pt){ var pcode=pt.dataset.lpptoggle; if(lpProdOff[pcode]) delete lpProdOff[pcode]; else lpProdOff[pcode]=true; var pon=!lpProdOff[pcode]; pt.classList.toggle('on',pon); pt.classList.toggle('off',!pon); pt.setAttribute('aria-pressed',pon); var prow=pt.closest('.lp-prow'); if(prow) prow.classList.toggle('off',!pon); var pp=(typeof byCode!=='undefined'&&byCode[pcode])?byCode[pcode]:CATALOGO.find(function(x){return x.codigo===pcode;}); if(pp) lpUpdateCatTog(pp.categoria); lpUpdateSummary(); return; }
+  var bt=e.target.closest?e.target.closest('[data-lpbtoggle]'):null;
+  if(bt){ var brand=lpTree().find(function(x){return x.key===bt.dataset.lpbtoggle;}); var nv=!brand.cats.every(function(c){return lpCatSel[c.cat].on;}); brand.cats.forEach(function(c){lpCatSel[c.cat].on=nv;}); lpRender(); return; }
+  var ct=e.target.closest?e.target.closest('[data-lpctoggle]'):null;
+  if(ct){ var cat=CATS[+ct.dataset.lpctoggle]; lpCatSel[cat].on=!lpCatSel[cat].on; lpRender(); return; }
+}
+function lpOnInput(e){
+  var gi=e.target.closest?e.target.closest('[data-lpgdisc]'):null;
+  if(gi){ var gd=gi.dataset.d, gv=lpClampPct(gi.value); lpGlobalDisc['d'+gd]=gv; lpTree().forEach(function(b){ lpBrandDisc[b.key]['d'+gd]=gv; b.cats.forEach(function(c){ lpCatSel[c.cat]['d'+gd]=gv; }); }); lpSyncAllDiscs(); lpUpdateSummary(); lpRefreshPrices(); return; }
+  var bi=e.target.closest?e.target.closest('[data-lpbdisc]'):null;
+  if(bi){ var key=bi.dataset.lpbdisc, d=bi.dataset.d, v=lpClampPct(bi.value); lpBrandDisc[key]['d'+d]=v; var brand=lpTree().find(function(x){return x.key===key;}); brand.cats.forEach(function(c){ lpCatSel[c.cat]['d'+d]=v; }); lpSyncLineDiscs(); lpUpdateSummary(); lpRefreshPrices(); return; }
+  var cvi=e.target.closest?e.target.closest('[data-lpcdisc]'):null;
+  if(cvi){ var cat=CATS[+cvi.dataset.lpcdisc], d=cvi.dataset.d; lpCatSel[cat]['d'+d]=lpClampPct(cvi.value); lpRefreshPrices(); return; }
+}
+function openLpModal(){ lpRender(); $('#lpModal').classList.add('open'); }
+function closeLpModal(){ $('#lpModal').classList.remove('open'); }
+function lpShowGen(show){ var o=document.getElementById('lpGenOverlay'); if(o) o.classList.toggle('show', !!show); }
+async function lpGenerateSelected(){
+  var any=false; for(var c in lpCatSel){ if(lpCatSel[c].on){ any=true; break; } }
+  if(!any){ toast('Selecciona al menos una linea'); return; }
+  var choice=await askPdfOrExcel();
+  if(choice==null) return;
+  lpShowGen(true);
+  await new Promise(function(r){ setTimeout(r, 60); });
+  var _sm={d1:state.meta.desc1,d2:state.meta.desc2,d3:state.meta.desc3};
+  state.meta.desc1=(+lpGlobalDisc.d1||0)/100; state.meta.desc2=(+lpGlobalDisc.d2||0)/100; state.meta.desc3=(+lpGlobalDisc.d3||0)/100;
+  lpActive=true;
+  try{
+    if(choice==='excel'){
+      var bytes=buildPriceXlsx();
+      download('Lista-de-Precios-'+(state.meta.fecha||'')+'.xlsx', bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      toast('Lista de precios (Excel) generada ✓');
+      closeLpModal();
+    } else {
+      buildPricePrint();
+      closeLpModal();
+      setTimeout(function(){ window.print(); }, 60);
+    }
+  }catch(e){ toast('Error al generar la lista'); console.error(e); }
+  finally{ lpActive=false; state.meta.desc1=_sm.d1; state.meta.desc2=_sm.d2; state.meta.desc3=_sm.d3; lpShowGen(false); }
 }
 async function exportPriceList(){
   const choice=await askPdfOrExcel();
@@ -18745,7 +19316,15 @@ function wire(){
   $('#aEdit').addEventListener('click',editarPedido);
   $('#aClean').addEventListener('click',limpiarPedido);
   // ver pedidos guardados
-  $('#btnPrecios').addEventListener('click',exportPriceList);
+  $('#btnPrecios').addEventListener('click',openLpModal);
+  $('#lpClose').addEventListener('click',closeLpModal);
+  $('#lpCancel').addEventListener('click',closeLpModal);
+  $('#lpModal').addEventListener('click',function(e){ if(e.target===$('#lpModal')) closeLpModal(); });
+  $('#lpModal').addEventListener('click',lpOnClick);
+  $('#lpModal').addEventListener('input',lpOnInput);
+  $('#lpAll').addEventListener('click',function(){ lpProdOff={}; for(var c in lpCatSel) lpCatSel[c].on=true; lpRender(); });
+  $('#lpNone').addEventListener('click',function(){ for(var c in lpCatSel) lpCatSel[c].on=false; lpRender(); });
+  $('#lpGen').addEventListener('click',lpGenerateSelected);
   // cargar pedido desde xlsx (admin)
   $('#btnCargar').addEventListener('click',async ()=>{
     if(totals().lineas>0){ const ok=await askConfirm('¿Reemplazar el pedido actual con el del archivo?','Sí','No'); if(!ok) return; }
