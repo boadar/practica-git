@@ -376,6 +376,7 @@
   @media print{
     body{background:#fff}
     .app{display:none !important}
+    body > *:not(#print){display:none !important}
     #print{display:block;color:#000;font-size:12px}
     @page{margin:14mm}
     #print h1{font-size:18px;margin:0 0 2px}
@@ -386,6 +387,8 @@
     #print th,#print td{border:1px solid #999;padding:5px 7px;text-align:left}
     #print th{background:#eee;font-size:11px;text-transform:uppercase;letter-spacing:.3px}
     #print td.n,#print th.n{text-align:right;font-variant-numeric:tabular-nums}
+    #print table thead th.ch{text-align:center;vertical-align:middle;line-height:1.15}
+    #print .imp{white-space:nowrap}
     #print tfoot td{font-weight:bold;background:#f4f4f4}
     #print .cat td{background:#e8eef3;font-weight:bold;text-transform:uppercase;font-size:11px}
     #print table.pricelist{font-size:10px}
@@ -405,7 +408,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v91</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v93</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -17493,7 +17496,7 @@ function buildOrderXlsxStyled(o){
   const cols=`<cols><col min="1" max="1" width="22" customWidth="1"/><col min="2" max="2" width="46" customWidth="1"/><col min="3" max="3" width="8" customWidth="1"/><col min="4" max="4" width="13" customWidth="1"/><col min="5" max="5" width="7" customWidth="1"/><col min="6" max="6" width="8" customWidth="1"/><col min="7" max="7" width="14" customWidth="1"/><col min="8" max="8" width="18" customWidth="1"/></cols>`;
   const views=`<sheetViews><sheetView workbookViewId="0"><pane ySplit="8" topLeftCell="A9" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A9" sqref="A9"/></sheetView></sheetViews>`;
   const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${views}${cols}<sheetData>${body}</sheetData>${mergeXml}</worksheet>`;
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${views}${cols}<sheetData>${body}</sheetData>${mergeXml}<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup orientation="landscape"/></worksheet>`;
 
   const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="[$$-409]#,##0.00"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9D9D9"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF00FFFF"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF8EA9DB"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color indexed="64"/></left><right style="thin"><color indexed="64"/></right><top style="thin"><color indexed="64"/></top><bottom style="thin"><color indexed="64"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="12"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="1" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="1" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
@@ -19013,17 +19016,17 @@ function buildPrint(){
   lines.forEach(p=>{
     if(p.categoria!==cat){cat=p.categoria;rowsHtml+=`<tr class="cat"><td colspan="6">${esc(catDisplay(cat))}</td></tr>`;}
     const qty=state.qty[p.codigo],net=precioNeto(p),importe=net*qty;
-    rowsHtml+=`<tr><td>${esc(p.codigo)}</td><td>${esc(p.nombre)}</td><td class="n">${fmtN.format(qty)}</td><td class="n">${fmt.format(p.precioUsd)}</td><td class="n">${fmt.format(net)}</td><td class="n">${fmt.format(importe)}</td></tr>`;
+    rowsHtml+=`<tr><td>${esc(p.codigo)}</td><td>${esc(p.nombre)}</td><td class="n">${fmtN.format(qty)}</td><td class="n">${fmt.format(p.precioUsd)}</td><td class="n">${fmt.format(net)}</td><td class="n imp">${fmt.format(importe)}</td></tr>`;
   });
   const dl=descLabel();
-  const foot=(label,val,cls)=>`<tr${cls?' class="'+cls+'"':''}><td colspan="5" class="n">${label}</td><td class="n">${val}</td></tr>`;
+  const foot=(label,val,cls)=>`<tr${cls?' class="'+cls+'"':''}><td colspan="5" class="n">${label}</td><td class="n imp">${val}</td></tr>`;
   $('#print').innerHTML=`
-    <div class="ph"><div><h1>Pedido — OFICA</h1><div>${lines.length} productos · ${fmtN.format(t.unidades)} unidades · Desc ${dl}</div></div>
+    <div class="ph" style="align-items:center"><div style="display:flex;align-items:center;gap:16px"><img src="${OFICA_LOGO}" alt="OFICA" style="height:52px;width:auto"><div><h1>Pedido — OFICA</h1><div>${lines.length} productos · ${fmtN.format(t.unidades)} unidades · Desc ${dl}</div></div></div>
     <div style="text-align:right;font-size:12px"><b>Fecha:</b> ${esc(m.fecha||'')}<br>${m.numped?'<b>Pedido #:</b> '+esc(m.numped):''}</div></div>
     <div class="pmeta"><b>Cliente:</b> ${esc(m.cliente||'—')} ${m.codcliente?'('+esc(m.codcliente)+')':''}<br>
     <b>Vendedor:</b> ${esc(m.vendedor||'—')}<br><b>Condición de pago:</b> ${esc(m.condicion||'—')}
     ${m.obs?'<br><b>Observaciones:</b> '+esc(m.obs):''}</div>
-    <table><thead><tr><th>Código</th><th>Producto</th><th class="n">Cant.</th><th class="n">Precio Unit $</th><th class="n">Precio c/desc</th><th class="n">Importe</th></tr></thead>
+    <table><colgroup><col style="width:11%"><col><col style="width:8%"><col style="width:12%"><col style="width:9%"><col style="width:16%"></colgroup><thead><tr><th>Código</th><th>Producto</th><th class="ch">Cant.</th><th class="ch">Precio<br>Unit $</th><th class="ch">Precio c/desc</th><th class="ch imp">Importe</th></tr></thead>
     <tbody>${rowsHtml}</tbody>
     <tfoot>
       ${foot('Base exenta',fmt.format(t.baseEx))}
