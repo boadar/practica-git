@@ -1,14 +1,15 @@
-"""Buscador de medicamentos en Farmacia Badan — version LIGERA para iPad.
+"""Buscador de medicamentos en Farmacia Badan — via servicio anti-Cloudflare.
 
-No necesita instalar nada (solo la libreria estandar de Python).
-Farmacia Badan parece estar hecha con Magento, que entrega los precios
-dentro del HTML de la pagina.
+Farmacia Badan usa Cloudflare, que bloquea a Python. Para sortearlo usamos
+un servicio (ScraperAPI) que carga la pagina con un navegador real en sus
+servidores y nos devuelve el HTML ya listo.
+
+REQUISITO: una clave (API key) gratuita de https://www.scraperapi.com
+Guarda tu clave en un archivo llamado apikey.txt (misma carpeta):
+    pbpaste > apikey.txt      (despues de copiar tu clave)
 
 USO:
     python badan.py paracetamol
-
-Esta version, ademas de buscar, muestra un pequeno diagnostico si no logra
-leer los precios, para poder ajustarla.
 """
 import html as _html
 import re
@@ -20,46 +21,37 @@ import urllib.request
 
 BASE = "https://farmaciabadan.com"
 
-# Encabezados que imitan a un navegador Chrome de escritorio, para intentar
-# evitar el bloqueo 403 anti-robots.
-_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-    ),
-    "Accept": (
-        "text/html,application/xhtml+xml,application/xml;q=0.9,"
-        "image/avif,image/webp,*/*;q=0.8"
-    ),
-    "Accept-Language": "es-VE,es;q=0.9,en;q=0.8",
-    "Referer": "https://farmaciabadan.com/",
-    "Upgrade-Insecure-Requests": "1",
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-User": "?1",
-}
+
+def leer_clave():
+    try:
+        with open("apikey.txt") as f:
+            return f.read().strip()
+    except Exception:
+        return ""
 
 
-def pedir(url):
-    req = urllib.request.Request(url, headers=_HEADERS)
+def pedir_via_servicio(target, clave):
+    """Pide la pagina a traves de ScraperAPI (render=true pasa Cloudflare)."""
+    api = "https://api.scraperapi.com/?" + urllib.parse.urlencode(
+        {"api_key": clave, "url": target, "render": "true"}
+    )
+    req = urllib.request.Request(api, headers={"User-Agent": "buscador-medicamentos"})
+    # El renderizado puede tardar; damos tiempo de sobra.
     with urllib.request.urlopen(
-        req, timeout=30, context=ssl.create_default_context()
+        req, timeout=120, context=ssl.create_default_context()
     ) as r:
         return r.read().decode("utf-8", "replace")
 
 
 def _limpiar(t):
-    # Decodifica entidades (&nbsp;, &reg;, etc.) y normaliza espacios.
     return re.sub(r"\s+", " ", _html.unescape(t)).strip()
 
 
-def buscar(consulta):
-    """Devuelve (html, filas). Cada fila: (nombre, precio_num, precio_visible, link)."""
+def buscar(consulta, clave):
     q = urllib.parse.quote(consulta)
-    html = pedir(BASE + "/catalogsearch/result/?q=" + q)
+    target = BASE + "/catalogsearch/result/?q=" + q
+    html = pedir_via_servicio(target, clave)
 
-    # En Magento, cada producto va dentro de un bloque "product-item-info".
     bloques = html.split("product-item-info")[1:]
     filas = []
     for b in bloques[:40]:
@@ -67,67 +59,58 @@ def buscar(consulta):
         if not m_nom:
             continue
         nombre = _limpiar(m_nom.group(1))
-
-        # Precio numerico (Magento lo pone en data-price-amount).
         m_p = re.search(
             r'data-price-amount="([\d.]+)"[^>]*data-price-type="finalPrice"', b
         ) or re.search(r'data-price-amount="([\d.]+)"', b)
         precio = float(m_p.group(1)) if m_p else None
-
-        # Precio visible (texto), para saber la moneda (Bs. o $).
         m_v = re.search(r'class=["\']?price["\']?\s*>\s*([^<]+?)\s*<', b)
         visible = _limpiar(m_v.group(1)) if m_v else ""
-
-        # Enlace al producto.
         m_l = re.search(r'product-item-link"\s+href="([^"]+)"', b)
         link = m_l.group(1) if m_l else ""
-
         filas.append((nombre, precio, visible, link))
     return html, filas
 
 
 def main():
+    clave = leer_clave()
+    if not clave:
+        print("Falta tu clave de ScraperAPI.")
+        print("1) Crea una cuenta gratis en https://www.scraperapi.com")
+        print("2) Copia tu API key")
+        print("3) En a-Shell:  pbpaste > apikey.txt")
+        print("4) Vuelve a correr:  python badan.py paracetamol")
+        return
+
     consulta = " ".join(sys.argv[1:]).strip() or "paracetamol"
-    print("\nBuscando '%s' en Farmacia Badan...\n" % consulta)
+    print("\nBuscando '%s' en Farmacia Badan (via servicio)...\n" % consulta)
+    print("(Puede tardar 20-60 segundos, ten paciencia.)\n")
 
     try:
-        html, filas = buscar(consulta)
+        html, filas = buscar(consulta, clave)
     except urllib.error.HTTPError as e:
-        print("El servidor respondio: HTTP %s" % e.code)
-        print("DIAGNOSTICO del bloqueo (copiamelo):")
-        servidor = e.headers.get("Server", "?")
-        cfray = e.headers.get("cf-ray")
-        print("  Server:", servidor)
-        print("  Cloudflare (cf-ray):", cfray if cfray else "no")
+        print("El servicio respondio: HTTP %s" % e.code)
+        if e.code == 401:
+            print("La clave parece invalida. Revisa apikey.txt.")
+        elif e.code in (403, 429):
+            print("Puede que se acabaron los creditos gratis del mes.")
         try:
-            cuerpo = e.read().decode("utf-8", "replace")
+            print("Detalle:", _limpiar(e.read().decode("utf-8", "replace")[:200]))
         except Exception:
-            cuerpo = ""
-        pista = ""
-        bajo = cuerpo.lower()
-        if "cloudflare" in bajo or "cf-" in bajo or "just a moment" in bajo:
-            pista = "Parece proteccion de Cloudflare."
-        elif "captcha" in bajo:
-            pista = "Parece pedir captcha."
-        print("  Pista:", pista if pista else "bloqueo simple del servidor")
-        print("  Inicio del mensaje:", _limpiar(cuerpo[:200]))
+            pass
         return
     except Exception as e:
-        print("ERROR al conectar: %s" % e)
-        print("Copiame este mensaje.")
+        print("ERROR: %s" % e)
+        return
+
+    if "Just a moment" in html or "cf-browser-verification" in html:
+        print("Cloudflare todavia bloqueo. Con el plan gratis a veces pasa.")
+        print("Prueba agregando mas potencia: dime y activamos la opcion 'premium'.")
         return
 
     if not filas:
-        print("No pude leer productos con el metodo esperado.")
-        print("DIAGNOSTICO (copiame estas lineas):")
-        print("  product-item-link presente:", "product-item-link" in html)
+        print("Se leyo la pagina pero no encontre productos.")
         print("  data-price-amount presente:", "data-price-amount" in html)
-        pide_login = "customer/account/login" in html or "Iniciar sesión" in html
-        print("  parece pedir login:", pide_login)
-        print("  tamano del html:", len(html))
-        t = re.search(r"<title>([^<]*)</title>", html)
-        if t:
-            print("  titulo:", _limpiar(t.group(1)))
+        print("  tamano html:", len(html))
         return
 
     print("%d producto(s):\n" % len(filas))
@@ -140,8 +123,7 @@ def main():
         if link:
             print("     %s" % (link if link.startswith("http") else BASE + link))
         print("")
-
-    print("Dime: los precios estan en Bs. o en $ (REF)? Con eso lo termino.")
+    print("Dime: los precios estan en Bs. o en $ (REF)?")
 
 
 if __name__ == "__main__":
