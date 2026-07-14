@@ -14,20 +14,35 @@ import html as _html
 import re
 import ssl
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 
 BASE = "https://farmaciabadan.com"
-_UA = (
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
-    "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile Safari/605.1.15"
-)
+
+# Encabezados que imitan a un navegador Chrome de escritorio, para intentar
+# evitar el bloqueo 403 anti-robots.
+_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,"
+        "image/avif,image/webp,*/*;q=0.8"
+    ),
+    "Accept-Language": "es-VE,es;q=0.9,en;q=0.8",
+    "Referer": "https://farmaciabadan.com/",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-User": "?1",
+}
 
 
 def pedir(url):
-    req = urllib.request.Request(
-        url, headers={"User-Agent": _UA, "Accept": "text/html,application/xhtml+xml"}
-    )
+    req = urllib.request.Request(url, headers=_HEADERS)
     with urllib.request.urlopen(
         req, timeout=30, context=ssl.create_default_context()
     ) as r:
@@ -77,6 +92,26 @@ def main():
 
     try:
         html, filas = buscar(consulta)
+    except urllib.error.HTTPError as e:
+        print("El servidor respondio: HTTP %s" % e.code)
+        print("DIAGNOSTICO del bloqueo (copiamelo):")
+        servidor = e.headers.get("Server", "?")
+        cfray = e.headers.get("cf-ray")
+        print("  Server:", servidor)
+        print("  Cloudflare (cf-ray):", cfray if cfray else "no")
+        try:
+            cuerpo = e.read().decode("utf-8", "replace")
+        except Exception:
+            cuerpo = ""
+        pista = ""
+        bajo = cuerpo.lower()
+        if "cloudflare" in bajo or "cf-" in bajo or "just a moment" in bajo:
+            pista = "Parece proteccion de Cloudflare."
+        elif "captcha" in bajo:
+            pista = "Parece pedir captcha."
+        print("  Pista:", pista if pista else "bloqueo simple del servidor")
+        print("  Inicio del mensaje:", _limpiar(cuerpo[:200]))
+        return
     except Exception as e:
         print("ERROR al conectar: %s" % e)
         print("Copiame este mensaje.")
