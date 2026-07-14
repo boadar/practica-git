@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Buscador de Medicamentos</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>💊 Buscador y comparador de precios</h1>
+    <p class="sub">Busca un medicamento y compara precios entre sitios (Bs. y USD REF).</p>
+  </header>
+
+  <main>
+    <form id="form-busqueda" autocomplete="off">
+      <input
+        id="input-consulta"
+        type="text"
+        placeholder="Ej: Paracetamol, Ibuprofeno, Amoxicilina..."
+        aria-label="Medicamento a buscar"
+        required
+      />
+      <button type="submit">Buscar</button>
+    </form>
+
+    <div id="info" class="info"></div>
+    <div id="estado" class="estado"></div>
+
+    <table id="tabla" hidden>
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th>Presentación</th>
+          <th>Precio original</th>
+          <th>Bs.</th>
+          <th>USD</th>
+          <th>Fuente</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+
+    <div id="errores" class="errores"></div>
+  </main>
+
+  <footer>
+    <span id="config-info"></span>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

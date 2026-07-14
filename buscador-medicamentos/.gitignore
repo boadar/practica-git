@@ -1,0 +1,11 @@
+# Configuracion local (contiene la tasa de cambio real que uses)
+config.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/

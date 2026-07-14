@@ -1,0 +1,102 @@
+:root {
+  --azul: #1565c0;
+  --azul-oscuro: #0d47a1;
+  --gris: #f4f6f9;
+  --borde: #dfe3e8;
+  --texto: #222;
+  --verde: #2e7d32;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--texto);
+  background: var(--gris);
+}
+
+header {
+  background: linear-gradient(135deg, var(--azul), var(--azul-oscuro));
+  color: #fff;
+  padding: 1.5rem 1rem;
+  text-align: center;
+}
+
+header h1 { margin: 0 0 .25rem; font-size: 1.5rem; }
+header .sub { margin: 0; opacity: .9; font-size: .9rem; }
+
+main {
+  max-width: 960px;
+  margin: 1.5rem auto;
+  padding: 0 1rem;
+}
+
+#form-busqueda {
+  display: flex;
+  gap: .5rem;
+  margin-bottom: 1rem;
+}
+
+#input-consulta {
+  flex: 1;
+  padding: .7rem .9rem;
+  font-size: 1rem;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+}
+
+button {
+  padding: .7rem 1.4rem;
+  font-size: 1rem;
+  color: #fff;
+  background: var(--azul);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+button:hover { background: var(--azul-oscuro); }
+
+.info, .estado { margin: .5rem 0; font-size: .9rem; color: #555; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+
+th, td {
+  padding: .65rem .75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--borde);
+  font-size: .9rem;
+}
+
+th { background: #eef2f7; font-weight: 600; }
+
+tr:last-child td { border-bottom: none; }
+
+.mas-barato { background: #e8f5e9; }
+.mas-barato td:first-child::before { content: "⭐ "; }
+
+.precio { font-weight: 600; white-space: nowrap; }
+.comparacion { color: var(--verde); font-weight: 700; }
+
+td a { color: var(--azul); text-decoration: none; }
+td a:hover { text-decoration: underline; }
+
+.errores {
+  margin-top: 1rem;
+  font-size: .85rem;
+  color: #b71c1c;
+}
+
+footer {
+  text-align: center;
+  padding: 1rem;
+  font-size: .8rem;
+  color: #777;
+}

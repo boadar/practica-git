@@ -1,0 +1,7 @@
+{
+  "//": "Copia este archivo a config.json y ajusta los valores.",
+  "moneda_comun": "USD",
+  "tasa_bs_por_usd": 6.96,
+  "timeout_segundos": 15,
+  "max_resultados_por_sitio": 20
+}

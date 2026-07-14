@@ -1,0 +1,78 @@
+"""PLANTILLA para agregar un sitio real.
+
+Pasos para usarla:
+  1. Copia este archivo como app/scrapers/mi_sitio.py
+  2. Cambia el nombre de la clase, `nombre`, `moneda_por_defecto` y la URL.
+  3. Ajusta los selectores HTML (find/select) segun la pagina real.
+  4. Agrega en app/scrapers/__init__.py:  from . import mi_sitio
+
+La app usa BeautifulSoup para leer el HTML. Si el sitio carga sus precios
+por JavaScript (no vienen en el HTML inicial), avisame: en ese caso se usa
+una tecnica distinta (API interna del sitio o navegador headless).
+"""
+from __future__ import annotations
+
+import httpx
+from bs4 import BeautifulSoup
+
+from ..models import Resultado
+from .base import BaseScraper
+
+
+class MiSitioScraper(BaseScraper):
+    nombre = "Nombre del Sitio"          # aparece en los resultados
+    moneda_por_defecto = "BOB"           # "BOB" (Bs.) o "USD" (REF)
+    habilitado = True
+
+    # URL de busqueda del sitio. {q} se reemplaza por el termino buscado.
+    URL_BUSQUEDA = "https://www.ejemplo.com/buscar?q={q}"
+
+    async def buscar(
+        self, consulta: str, cliente: httpx.AsyncClient, limite: int
+    ) -> list[Resultado]:
+        url = self.URL_BUSQUEDA.format(q=consulta)
+        resp = await cliente.get(url)
+        resp.raise_for_status()
+        sopa = BeautifulSoup(resp.text, "html.parser")
+
+        resultados: list[Resultado] = []
+        # AJUSTAR: selector que envuelve cada producto en la pagina.
+        for tarjeta in sopa.select(".producto")[:limite]:
+            nombre_el = tarjeta.select_one(".nombre")
+            precio_el = tarjeta.select_one(".precio")
+            if not nombre_el or not precio_el:
+                continue
+
+            precio = self._parsear_precio(precio_el.get_text())
+            if precio is None:
+                continue
+
+            enlace = tarjeta.select_one("a")
+            resultados.append(
+                Resultado(
+                    nombre=nombre_el.get_text(strip=True),
+                    precio=precio,
+                    moneda=self.moneda_por_defecto,
+                    fuente=self.nombre,
+                    url=enlace["href"] if enlace and enlace.has_attr("href") else None,
+                )
+            )
+        return resultados
+
+    @staticmethod
+    def _parsear_precio(texto: str) -> float | None:
+        """Extrae un numero de un texto tipo 'Bs. 12,50' o '$us 3.20'."""
+        import re
+
+        limpio = re.sub(r"[^\d,.]", "", texto or "")
+        if not limpio:
+            return None
+        # Normaliza separadores: quita miles y usa punto decimal.
+        if "," in limpio and "." in limpio:
+            limpio = limpio.replace(".", "").replace(",", ".")
+        else:
+            limpio = limpio.replace(",", ".")
+        try:
+            return float(limpio)
+        except ValueError:
+            return None
