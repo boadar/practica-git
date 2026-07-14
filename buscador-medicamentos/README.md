@@ -88,14 +88,36 @@ Debería listar los productos con su precio en Bs. Si sale un error o no
 encuentra nada, cópialo y lo ajustamos (probablemente el sitio use otra ruta
 de API).
 
+## Scripts ligeros para iPad (a-Shell)
+
+Para usar en el iPad con la app **a-Shell** (Python sin instalar nada):
+
+```bash
+python locatel.py paracetamol
+```
+
+- `locatel_ipad.py` → busca en **Locatel**. Funciona directo. ✅
+
+## Farmacia Badan — solo desde COMPUTADORA
+
+Badan usa **Cloudflare**, que exige un navegador real. Por eso **no** se puede
+leer con Python en el iPad (ni gratis con servicios). Se lee con Playwright
+(navegador automático) en una Mac/PC:
+
+```bash
+pip install playwright
+playwright install chromium
+python badan_computadora.py paracetamol
+```
+
 ## Estado actual
 
-- **Locatel Venezuela** (`app/scrapers/locatel.py`): activo. Lee los productos
-  desde la API interna del sitio (formato VTEX). Precio principal en **Bs.**;
-  el USD se estima con la tasa de `config.json` (en la web, el valor **REF** es
-  el USD exacto).
-- **Farmacia Demo**: deshabilitado (datos ficticios de ejemplo).
-- **Farmatodo**: pendiente.
+| Farmacia | Moneda | Estado |
+|----------|--------|--------|
+| **Locatel** | Bs. (+ USD estimado) | ✅ Funciona (iPad y PC) |
+| **Farmacia Badan** | por confirmar (Bs./$) | 🖥️ Solo computadora (Cloudflare) |
+| **Farmatodo** | Bs. | ⏳ Pendiente |
+| Farmacia Demo | — | Deshabilitado (ejemplo) |
 
-> ⚠️ Nota: estos sitios se prueban corriendo la app en **tu máquina**. El
-> entorno de desarrollo remoto bloquea el acceso a esos dominios.
+> ⚠️ Nota: el entorno de desarrollo remoto bloquea estos dominios, así que los
+> scrapers se prueban corriendo en **tu dispositivo** (iPad o computadora).
