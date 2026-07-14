@@ -1,9 +1,13 @@
-"""Buscador de medicamentos en Farmatodo — version LIGERA para iPad (a-Shell).
+"""Buscador de medicamentos en Farmatodo — via Algolia (para iPad, a-Shell).
 
-No necesita instalar nada (solo la libreria estandar de Python).
-Farmatodo es una SPA que carga los precios por una API interna. Este script
-prueba las rutas de API mas comunes (formato VTEX, como Locatel) y, si no
-lo logra, muestra un diagnostico para saber que tipo de bloqueo hay.
+Farmatodo busca con Algolia. Datos descubiertos del sitio:
+    App id:  vcojeyd2po
+    Clave:   869a91e98550dd668b8b1dc04bca9011  (clave publica de busqueda)
+    Indices: products-vzla / products-venezuela / products
+
+Este script consulta Algolia, detecta el indice correcto y muestra los
+productos. Ademas imprime los CAMPOS del primer resultado, para afinar
+que campo es el nombre y cual el precio.
 
 USO:
     python farmatodo.py paracetamol
@@ -15,91 +19,40 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-# Cuantos Bs. equivale 1 USD. Ajustalo al valor del dia.
+APP = "vcojeyd2po"
+KEY = "869a91e98550dd668b8b1dc04bca9011"
+INDICES = ["products-vzla", "products-venezuela", "products", "prod-vzla"]
 TASA_BS_POR_USD = 720.0
 
-BASE = "https://www.farmatodo.com.ve"
-_UA = (
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
-    "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile Safari/605.1.15"
-)
 
-
-def _pedir(url):
+def algolia(index, consulta):
+    url = "https://%s-dsn.algolia.net/1/indexes/%s/query" % (APP, index)
+    cuerpo = json.dumps(
+        {"params": urllib.parse.urlencode({"query": consulta, "hitsPerPage": 24})}
+    ).encode("utf-8")
     req = urllib.request.Request(
-        url, headers={"User-Agent": _UA, "Accept": "application/json, text/plain, */*"}
+        url,
+        data=cuerpo,
+        method="POST",
+        headers={
+            "X-Algolia-Application-Id": APP,
+            "X-Algolia-API-Key": KEY,
+            "Content-Type": "application/json",
+            "User-Agent": "buscador-medicamentos",
+        },
     )
     with urllib.request.urlopen(
         req, timeout=30, context=ssl.create_default_context()
     ) as r:
-        return r.read().decode("utf-8", "replace")
+        return json.loads(r.read().decode("utf-8", "replace"))
 
 
-def _fila_vtex(p):
-    """Convierte un producto VTEX en (nombre, marca, precio_bs, link)."""
-    nombre = p.get("productName") or p.get("productTitle")
-    if not nombre:
-        return None
-    marca = p.get("brand") or ""
-    precio = None
-    items = p.get("items") or []
-    if items:
-        vendedores = items[0].get("sellers") or []
-        if vendedores:
-            oferta = vendedores[0].get("commertialOffer") or {}
-            precio = oferta.get("Price") or oferta.get("spotPrice")
-    if precio is None:
-        precio = ((p.get("priceRange") or {}).get("sellingPrice") or {}).get("lowPrice")
-    if not precio:
-        return None
-    link = p.get("link") or ""
-    if not link and p.get("linkText"):
-        link = BASE + "/" + p["linkText"] + "/p"
-    elif link.startswith("/"):
-        link = BASE + link
-    return (nombre.strip(), marca, float(precio), link)
-
-
-def buscar(consulta):
-    """Devuelve (filas, diagnostico). filas=[] si no logro leer productos."""
-    q = urllib.parse.quote(consulta)
-    diag = []
-
-    intentos = [
-        ("catalogo VTEX",
-         BASE + "/api/catalog_system/pub/products/search/" + q + "?_from=0&_to=19"),
-        ("intelligent-search",
-         BASE + "/api/io/_v/api/intelligent-search/product_search/*?query="
-         + q + "&count=20&locale=es-VE"),
-    ]
-
-    for nombre_metodo, url in intentos:
-        try:
-            texto = _pedir(url)
-            datos = json.loads(texto)
-            if isinstance(datos, dict):
-                datos = datos.get("products", [])
-            filas = [f for f in (_fila_vtex(p) for p in datos) if f]
-            if filas:
-                return filas, diag
-            diag.append("%s: respondio pero sin productos" % nombre_metodo)
-        except urllib.error.HTTPError as e:
-            cuerpo = ""
-            try:
-                cuerpo = e.read().decode("utf-8", "replace")
-            except Exception:
-                pass
-            cf = "cloudflare" in (e.headers.get("Server", "").lower()) or (
-                "just a moment" in cuerpo.lower()
-            )
-            diag.append(
-                "%s: HTTP %s%s"
-                % (nombre_metodo, e.code, " (CLOUDFLARE)" if cf else "")
-            )
-        except Exception as e:
-            diag.append("%s: %s" % (nombre_metodo, type(e).__name__))
-
-    return [], diag
+def campo(h, nombres):
+    for n in nombres:
+        v = h.get(n)
+        if v not in (None, "", [], {}):
+            return v
+    return None
 
 
 def bs(n):
@@ -114,28 +67,62 @@ def bs(n):
 
 def main():
     consulta = " ".join(sys.argv[1:]).strip() or "paracetamol"
-    print("\nBuscando '%s' en Farmatodo...\n" % consulta)
+    print("\nBuscando '%s' en Farmatodo (Algolia)...\n" % consulta)
 
-    filas, diag = buscar(consulta)
+    hits, usado = None, None
+    for idx in INDICES:
+        try:
+            data = algolia(idx, consulta)
+            n = data.get("nbHits", 0)
+            print("  indice '%s': %s resultados" % (idx, n))
+            if n and data.get("hits"):
+                hits, usado = data["hits"], idx
+                break
+        except urllib.error.HTTPError as e:
+            print("  indice '%s': HTTP %s" % (idx, e.code))
+        except Exception as e:
+            print("  indice '%s': %s" % (idx, type(e).__name__))
 
-    if not filas:
-        print("No pude leer productos. DIAGNOSTICO (copiamelo):")
-        for d in diag:
-            print("  -", d)
+    if not hits:
+        print("\nNo hubo resultados en ningun indice. Copiame lo de arriba.")
         return
 
-    filas.sort(key=lambda f: f[2])
-    print("%d producto(s), del mas barato al mas caro:\n" % len(filas))
-    for i, (nombre, marca, precio, link) in enumerate(filas, 1):
-        estrella = " *" if i == 1 else ""
-        print("%2d.%s %s" % (i, estrella, nombre))
+    print("\nUsando indice: %s\n" % usado)
+
+    # Esquema del primer producto (para afinar nombre/precio).
+    print("=== CAMPOS del primer producto (copiamelos) ===")
+    for k in sorted(hits[0].keys()):
+        s = str(hits[0][k])
+        if len(s) > 70:
+            s = s[:70] + "..."
+        print("   %s = %s" % (k, s))
+    print("")
+
+    # Extraccion best-effort (por si los campos son los tipicos).
+    filas = []
+    for h in hits:
+        nombre = campo(h, ["name", "productName", "fullName", "description", "title", "nombre"])
+        precio = campo(h, ["price", "finalPrice", "fullPrice", "sellPrice", "precio",
+                           "priceWithDiscount", "offerPrice", "salePrice"])
+        marca = campo(h, ["brand", "marca", "laboratory", "laboratorio", "manufacturer"])
+        try:
+            precio = float(precio) if precio is not None else None
+        except Exception:
+            precio = None
+        if nombre:
+            filas.append((str(nombre), marca, precio))
+
+    filas.sort(key=lambda f: (f[2] is None, f[2] if f[2] is not None else 0))
+    print("=== %d PRODUCTOS (del mas barato al mas caro) ===\n" % len(filas))
+    for i, (nombre, marca, precio) in enumerate(filas, 1):
+        print("%2d.%s %s" % (i, " *" if i == 1 else "", nombre))
         if marca:
             print("     Marca: %s" % marca)
-        print("     Bs. %s   (~$%.2f)" % (bs(precio), precio / TASA_BS_POR_USD))
-        if link:
-            print("     %s" % link)
+        if precio is not None:
+            print("     Bs. %s   (~$%.2f)" % (bs(precio), precio / TASA_BS_POR_USD))
+        else:
+            print("     (precio: ver campos de arriba)")
         print("")
-    print("(* = mas barato.  USD estimado con 1 USD = %s Bs.)" % bs(TASA_BS_POR_USD))
 
 
 if __name__ == "__main__":
