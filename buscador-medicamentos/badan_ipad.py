@@ -30,17 +30,28 @@ def leer_clave():
         return ""
 
 
-def pedir_via_servicio(target, clave):
-    """Pide la pagina a traves de ScraperAPI (render=true pasa Cloudflare)."""
+def pedir_via_servicio(target, clave, intentos=2):
+    """Pide la pagina via ScraperAPI en modo potente (ultra_premium + render),
+    el mas capaz de superar Cloudflare. Reintenta una vez si hay error 5xx."""
     api = "https://api.scraperapi.com/?" + urllib.parse.urlencode(
-        {"api_key": clave, "url": target, "render": "true"}
+        {
+            "api_key": clave,
+            "url": target,
+            "render": "true",
+            "ultra_premium": "true",
+        }
     )
     req = urllib.request.Request(api, headers={"User-Agent": "buscador-medicamentos"})
-    # El renderizado puede tardar; damos tiempo de sobra.
-    with urllib.request.urlopen(
-        req, timeout=120, context=ssl.create_default_context()
-    ) as r:
-        return r.read().decode("utf-8", "replace")
+    for i in range(intentos):
+        try:
+            with urllib.request.urlopen(
+                req, timeout=140, context=ssl.create_default_context()
+            ) as r:
+                return r.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as e:
+            if e.code >= 500 and i < intentos - 1:
+                continue  # error temporal del servicio: reintentar
+            raise
 
 
 def _limpiar(t):
