@@ -411,7 +411,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v93</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v94</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -19017,7 +19017,7 @@ function buildPrint(){
   const lines=CATALOGO.filter(p=>state.qty[p.codigo]>0);
   let cat=null,rowsHtml='';
   lines.forEach(p=>{
-    if(p.categoria!==cat){cat=p.categoria;rowsHtml+=`<tr class="cat"><td colspan="6">${esc(catDisplay(cat))}</td></tr>`;}
+    
     const qty=state.qty[p.codigo],net=precioNeto(p),importe=net*qty;
     rowsHtml+=`<tr><td>${esc(p.codigo)}</td><td>${esc(p.nombre)}</td><td class="n">${fmtN.format(qty)}</td><td class="n">${fmt.format(p.precioUsd)}</td><td class="n">${fmt.format(net)}</td><td class="n imp">${fmt.format(importe)}</td></tr>`;
   });
@@ -19042,9 +19042,17 @@ function buildPrint(){
       ${foot('TOTAL',fmt.format(t.total),'tot')}
     </tfoot></table>`;
 }
+function printWhenReady(){
+  const imgs=[...document.querySelectorAll('#print img')];
+  const pend=imgs.filter(im=>!(im.complete && im.naturalWidth>0));
+  if(!pend.length){ window.print(); return; }
+  let fired=false; const go=()=>{ if(fired) return; fired=true; window.print(); };
+  let n=0; pend.forEach(im=>{ const f=()=>{ if(++n>=pend.length) go(); }; im.addEventListener('load',f,{once:true}); im.addEventListener('error',f,{once:true}); });
+  setTimeout(go, 2000);
+}
 function doPrint(){
   if(totals().lineas===0){toast('Agrega productos primero');return;}
-  buildPrint(); window.print();
+  buildPrint(); printWhenReady();
 }
 
 // ---- nuevo pedido ----
