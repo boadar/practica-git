@@ -395,7 +395,11 @@
     #print table.pricelist th,#print table.pricelist td{padding:3px 5px}
     #print table.pricelist td.imgc{width:38px;text-align:center;padding:2px}
     #print table.pricelist td.imgc img{width:32px;height:32px;object-fit:contain}
-    #print table.pricelist thead th{position:sticky;top:0}
+    #print table.pricelist thead{display:table-header-group}
+    #print table.pricelist tr{page-break-inside:avoid;break-inside:avoid}
+    #print table.pricelist td{page-break-inside:avoid;break-inside:avoid}
+    #print table.pricelist tr.cat{page-break-inside:avoid;break-inside:avoid;page-break-after:avoid;break-after:avoid}
+    #print table.pricelist td.imgc img{display:block;margin:0 auto}
   }
 </style>
 
@@ -404,7 +408,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v87</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v88</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
