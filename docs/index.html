@@ -411,7 +411,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v95</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v96</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -437,6 +437,10 @@
       <button class="iconbtn cargarinv" id="btnPrecioTmp" type="button" style="display:none" title="Cambiar precios de forma temporal para este pedido (no afecta la base de datos)">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
         <span class="btnlabel">Cambio de precio temporal</span>
+      </button>
+      <button class="iconbtn cargarinv" id="btnOverInv" type="button" style="display:none" aria-pressed="false" title="Permitir tomar pedidos con cantidades mayores al inventario (queda activo aunque se cierre el modo administrador)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11V7a5 5 0 0 1 9.9-1"/><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/></svg>
+        <span class="btnlabel">Permitir sobre-inventario</span>
       </button>
       <button class="iconbtn cargarinv" id="btnReset" type="button" style="display:none" title="Volver a mostrar referencias ocultadas o eliminadas localmente">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
@@ -774,6 +778,7 @@
   .ptmp-foot .btn{padding:9px 14px;font-size:13px}
   .ptmp-empty{padding:26px 16px;text-align:center;color:var(--ink-3);font-size:13px}
   .tag.ptmp-tag{background:var(--brand-tint);color:var(--brand-ink)}
+  #btnOverInv[aria-pressed="true"]{background:#fff;color:#B26A00;border-color:#fff}
   .lp-ptog{-webkit-appearance:none;appearance:none;cursor:pointer;flex:0 0 auto;width:34px;height:20px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);position:relative;transition:background .12s,border-color .12s;padding:0}
   .lp-ptog .dot{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .12s}
   .lp-ptog.on{background:var(--active);border-color:var(--active)}
@@ -18043,7 +18048,7 @@ function render(){
       <p class="name"><span class="pcode">${esc(p.codigo)}</span> - ${esc(p.nombre)}</p>
       <div class="sub">
         <span class="plabel">Precio</span>
-        ${priceHtml}${(adminMode&&precioTmpDe(p)!=null)?`<span class="tag ptmp-tag" title="Precio temporal de este pedido">Precio temp.</span>`:''}
+        ${priceHtml}${(adminMode&&precioTmpDe(p)!=null)?`<span class="tag ptmp-tag" title="Precio temporal de este pedido">Precio temp. ${fmt.format(precioTmpDe(p))}</span>`:''}
         ${!exento?`<span class="sep">·</span><span class="plabel">Precio + IVA</span><span class="price">${fmt.format(netIva)}</span>`:`<span class="tag exento">Exento IVA</span>`}
       </div>
       <div class="prow">
@@ -18078,7 +18083,10 @@ function setQty(code,val){
   save();
 }
 // La referencia tiene inventario (>0) y la cantidad pedida lo supera
+let allowOverInv=false;
+function toggleOverInv(){ allowOverInv=!allowOverInv; const b=$('#btnOverInv'); if(b) b.setAttribute('aria-pressed', allowOverInv?'true':'false'); toast(allowOverInv?'Se permiten cantidades mayores al inventario':'Cantidades limitadas al inventario'); }
 function inventarioExcedido(code,val){
+  if(allowOverInv) return false;
   const p=byCode[code]; const inv=Math.floor(+(p&&p.inv)||0);
   return inv>0 && Math.floor(+val||0)>inv;
 }
@@ -18248,7 +18256,7 @@ function cerrarListaCliente(input){
 }
 
 async function toggleAdmin(){
-  const admBtns=['#btnCargar','#btnCargarInv','#btnNuevoProd','#btnPrecioTmp','#btnRespaldo','#btnRestaurar','#btnReset'];
+  const admBtns=['#btnCargar','#btnCargarInv','#btnNuevoProd','#btnPrecioTmp','#btnOverInv','#btnRespaldo','#btnRestaurar','#btnReset'];
   if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display='none'; }); filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
   const pass=await askPassword();
   if(pass==null) return;
@@ -19470,6 +19478,7 @@ function wire(){
   $('#ptmpBody').addEventListener('input',ptmpOnInput);
   $('#ptmpSave').addEventListener('click',ptmpSave);
   $('#ptmpClear').addEventListener('click',()=>{ ptmpDraft={}; ptmpRender($('#ptmpSearch').value); });
+  $('#btnOverInv').addEventListener('click',toggleOverInv);
   $('#fileRestaurar').addEventListener('change',e=>{
     const f=e.target.files&&e.target.files[0]; if(!f){ e.target.value=''; return; }
     f.text().then(txt=>{ restaurarRespaldo(txt); e.target.value=''; })
