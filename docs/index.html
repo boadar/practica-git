@@ -411,7 +411,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v94</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v95</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -433,6 +433,10 @@
       <button class="iconbtn cargarinv" id="btnRestaurar" type="button" style="display:none" title="Restaurar un respaldo guardado">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
         <span class="btnlabel">Restaurar</span>
+      </button>
+      <button class="iconbtn cargarinv" id="btnPrecioTmp" type="button" style="display:none" title="Cambiar precios de forma temporal para este pedido (no afecta la base de datos)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        <span class="btnlabel">Cambio de precio temporal</span>
       </button>
       <button class="iconbtn cargarinv" id="btnReset" type="button" style="display:none" title="Volver a mostrar referencias ocultadas o eliminadas localmente">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
@@ -749,6 +753,27 @@
   .lp-spinner{width:42px;height:42px;border-radius:50%;border:4px solid var(--line);border-top-color:var(--brand);animation:lpspin .8s linear infinite}
   @keyframes lpspin{to{transform:rotate(360deg)}}
   .lp-gentext{font-size:14px;font-weight:800;letter-spacing:.4px;color:var(--brand-ink);text-align:center}
+  .ptmp-sheet{max-width:640px}
+  .ptmp-hint{padding:10px 16px;font-size:12px;color:var(--ink-2);background:var(--surface-2);border-bottom:1px solid var(--line)}
+  .ptmp-search{padding:10px 16px;border-bottom:1px solid var(--line)}
+  .ptmp-search input{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:14px;background:var(--surface-2)}
+  .ptmp-body{overflow:auto;padding:2px 0;flex:1 1 auto}
+  .ptmp-row{display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--line-2)}
+  .ptmp-row.has{background:var(--brand-tint)}
+  .ptmp-info{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .ptmp-code{font-size:11.5px;font-weight:800;color:var(--ink)}
+  .ptmp-name{font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ptmp-base{flex:0 0 auto;font-size:9px;color:var(--ink-3);text-align:right;line-height:1.25;text-transform:uppercase}
+  .ptmp-base b{font-size:12px;color:var(--ink-2)}
+  .ptmp-inwrap{flex:0 0 auto;display:flex;align-items:center;gap:3px;border:1px solid var(--line);border-radius:8px;padding:5px 8px;background:var(--surface)}
+  .ptmp-inwrap span{color:var(--ink-3);font-size:12px}
+  .ptmp-inwrap input{width:66px;border:none;outline:none;font-size:14px;font-weight:700;color:var(--brand-ink);text-align:right;background:transparent}
+  .ptmp-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-top:1px solid var(--line);background:var(--surface);flex-wrap:wrap}
+  .ptmp-count{font-size:12px;font-weight:700;color:var(--ink-2)}
+  .ptmp-foot-btns{display:flex;gap:8px;margin-left:auto}
+  .ptmp-foot .btn{padding:9px 14px;font-size:13px}
+  .ptmp-empty{padding:26px 16px;text-align:center;color:var(--ink-3);font-size:13px}
+  .tag.ptmp-tag{background:var(--brand-tint);color:var(--brand-ink)}
   .lp-ptog{-webkit-appearance:none;appearance:none;cursor:pointer;flex:0 0 auto;width:34px;height:20px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);position:relative;transition:background .12s,border-color .12s;padding:0}
   .lp-ptog .dot{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .12s}
   .lp-ptog.on{background:var(--active);border-color:var(--active)}
@@ -794,6 +819,15 @@
     .lp-cname{flex-basis:100%}
   }
 </style>
+<div class="modal" id="precioTmpModal">
+  <div class="sheet ptmp-sheet">
+    <header><h2>Cambio de precio temporal</h2><button class="closex" id="ptmpClose">&times;</button></header>
+    <div class="ptmp-hint">Fija precios <b>solo para este pedido</b>. No cambia la base de datos ni otros pedidos, y solo aplica en modo administrador.</div>
+    <div class="ptmp-search"><input type="search" id="ptmpSearch" placeholder="Buscar producto o código…" autocomplete="off"></div>
+    <div class="ptmp-body" id="ptmpBody"></div>
+    <div class="ptmp-foot"><span class="ptmp-count" id="ptmpCount"></span><div class="ptmp-foot-btns"><button class="btn ghost" id="ptmpClear">Quitar todos</button><button class="btn" id="ptmpCancel">Cancelar</button><button class="btn primary" id="ptmpSave">Guardar</button></div></div>
+  </div>
+</div>
 <div class="modal lpmodal" id="lpModal">
   <div class="sheet lp-sheet">
     <header><h2>Generar lista de precios</h2><button class="closex" id="lpClose">&times;</button></header>
@@ -17281,10 +17315,55 @@ const esc = s=>String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt
 function factorGlobal(){const d1=+state.meta.desc1||0,d2=+state.meta.desc2||0,d3=+state.meta.desc3||0;return (1-d1)*(1-d2)*(1-d3);}
 // Precio unitario con los descuentos del cliente.
 // Se aplican todos los descuentos SIN redondeo intermedio y se redondea SOLO el resultado final a 2 decimales.
+var ptmpDraft={};
+function precioTmpDe(p){ return (adminMode && p && state.meta && state.meta.precioTmp && state.meta.precioTmp[p.codigo]!=null) ? +state.meta.precioTmp[p.codigo] : null; }
 function precioNeto(p){
   const d1=+state.meta.desc1||0,d2=+state.meta.desc2||0,d3=+state.meta.desc3||0;
-  const price=(+(p&&p.precioUsd)||0)*(1-d1)*(1-d2)*(1-d3);
-  return round2(price);   // redondeo a 2 decimales solo al final
+  const ov=precioTmpDe(p);
+  const base=(ov!=null)?ov:(+(p&&p.precioUsd)||0);
+  return round2(base*(1-d1)*(1-d2)*(1-d3));   // redondeo a 2 decimales solo al final
+}
+function openPrecioTmp(){ ptmpDraft=Object.assign({}, state.meta.precioTmp||{}); const s=$('#ptmpSearch'); if(s) s.value=''; ptmpRender(''); $('#precioTmpModal').classList.add('open'); }
+function ptmpRender(q){
+  q=(q||'').trim().toLowerCase();
+  let list;
+  if(!q){
+    const inOrder=CATALOGO.filter(p=>state.qty[p.codigo]>0);
+    const extra=CATALOGO.filter(p=>ptmpDraft[p.codigo]!=null && !(state.qty[p.codigo]>0));
+    list=inOrder.concat(extra);
+  } else {
+    list=CATALOGO.filter(p=>String(p.codigo).toLowerCase().includes(q)||String(p.nombre||'').toLowerCase().includes(q)).slice(0,60);
+  }
+  let h='';
+  if(!list.length){ h='<div class="ptmp-empty">'+(q?'Sin resultados':'El pedido no tiene productos. Usa el buscador para fijar un precio temporal.')+'</div>'; }
+  list.forEach(p=>{
+    const base=(+p.precioUsd||0), tmp=ptmpDraft[p.codigo], has=tmp!=null;
+    h+='<div class="ptmp-row'+(has?' has':'')+'">'
+      +'<div class="ptmp-info"><span class="ptmp-code">'+esc(p.codigo)+'</span><span class="ptmp-name">'+esc(p.nombre)+'</span></div>'
+      +'<div class="ptmp-base">Base<br><b>'+fmt.format(base)+'</b></div>'
+      +'<div class="ptmp-inwrap"><span>$</span><input type="text" inputmode="decimal" data-ptmpcode="'+esc(p.codigo)+'" value="'+(has?(+tmp).toFixed(2):'')+'" placeholder="'+base.toFixed(2)+'" aria-label="Precio temporal de '+esc(p.codigo)+'"></div>'
+      +'</div>';
+  });
+  $('#ptmpBody').innerHTML=h;
+  ptmpUpdateCount();
+}
+function ptmpOnInput(e){
+  const inp=e.target.closest('[data-ptmpcode]'); if(!inp) return;
+  const code=inp.dataset.ptmpcode; const raw=String(inp.value).replace(',','.').trim();
+  if(raw===''){ delete ptmpDraft[code]; }
+  else { const v=parseFloat(raw); if(isFinite(v)&&v>=0) ptmpDraft[code]=round2(v); else delete ptmpDraft[code]; }
+  const row=inp.closest('.ptmp-row'); if(row) row.classList.toggle('has', ptmpDraft[code]!=null);
+  ptmpUpdateCount();
+}
+function ptmpUpdateCount(){ const n=Object.keys(ptmpDraft).length; const el=$('#ptmpCount'); if(el) el.textContent=n+' precio'+(n===1?'':'s')+' temporal'+(n===1?'':'es'); }
+function ptmpSave(){
+  const clean={};
+  Object.keys(ptmpDraft).forEach(code=>{ const p=byCode[code]; const v=+ptmpDraft[code]; if(p && isFinite(v) && v>=0 && round2(v)!==round2(+p.precioUsd||0)) clean[code]=round2(v); });
+  if(Object.keys(clean).length) state.meta.precioTmp=clean; else delete state.meta.precioTmp;
+  save(); render(); updateTotals();
+  $('#precioTmpModal').classList.remove('open');
+  const n=Object.keys(clean).length;
+  toast(n?(n+' precio'+(n===1?'':'s')+' temporal'+(n===1?'':'es')+' aplicado'+(n===1?'':'s')+' \u2713'):'Sin precios temporales');
 }
 function descLabel(){const ds=[+state.meta.desc1||0,+state.meta.desc2||0,+state.meta.desc3||0];const p=ds.filter(d=>d>0).map(d=>Math.round(d*100)+'%');return p.length?p.join(' + '):'—';}
 // Texto "Descuentos X%+Y%+Z%" con los descuentos seleccionados en la ficha del cliente (vacío si no hay)
@@ -17964,7 +18043,7 @@ function render(){
       <p class="name"><span class="pcode">${esc(p.codigo)}</span> - ${esc(p.nombre)}</p>
       <div class="sub">
         <span class="plabel">Precio</span>
-        ${priceHtml}
+        ${priceHtml}${(adminMode&&precioTmpDe(p)!=null)?`<span class="tag ptmp-tag" title="Precio temporal de este pedido">Precio temp.</span>`:''}
         ${!exento?`<span class="sep">·</span><span class="plabel">Precio + IVA</span><span class="price">${fmt.format(netIva)}</span>`:`<span class="tag exento">Exento IVA</span>`}
       </div>
       <div class="prow">
@@ -18169,7 +18248,7 @@ function cerrarListaCliente(input){
 }
 
 async function toggleAdmin(){
-  const admBtns=['#btnCargar','#btnCargarInv','#btnNuevoProd','#btnRespaldo','#btnRestaurar','#btnReset'];
+  const admBtns=['#btnCargar','#btnCargarInv','#btnNuevoProd','#btnPrecioTmp','#btnRespaldo','#btnRestaurar','#btnReset'];
   if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display='none'; }); filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
   const pass=await askPassword();
   if(pass==null) return;
@@ -19057,7 +19136,8 @@ function doPrint(){
 
 // ---- nuevo pedido ----
 async function newOrder(){
-  if(totals().lineas>0 && !(await askConfirm('¿Borrar el pedido actual y empezar uno nuevo? Esta acción no se puede deshacer.','Sí, borrar'))) return;
+  const hayTmp = state.meta.precioTmp && Object.keys(state.meta.precioTmp).length>0;
+  if((totals().lineas>0 || hayTmp) && !(await askConfirm((hayTmp?'Este pedido tiene precios temporales que se perderán. ':'')+'¿Borrar el pedido actual y empezar uno nuevo? Esta acción no se puede deshacer.','Sí, borrar'))) return;
   const keep=state.meta.vendedor, kd1=state.meta.desc1, kd2=state.meta.desc2, kd3=state.meta.desc3;
   state.qty={}; state.meta={vendedor:keep||'',desc1:kd1||'0',desc2:kd2||'0',desc3:kd3||'0'};
   const d=new Date(); state.meta.fecha=d.toISOString().slice(0,10);
@@ -19382,6 +19462,14 @@ function wire(){
   $('#btnRespaldo').addEventListener('click',()=>{ try{ generarRespaldo(); }catch(err){ toast('No se pudo generar el respaldo'); console.error(err); } });
   $('#btnRestaurar').addEventListener('click',()=>{ $('#fileRestaurar').click(); });
   $('#btnReset').addEventListener('click',()=>{ restablecerDatosLocales(); });
+  $('#btnPrecioTmp').addEventListener('click',openPrecioTmp);
+  $('#ptmpClose').addEventListener('click',()=>$('#precioTmpModal').classList.remove('open'));
+  $('#ptmpCancel').addEventListener('click',()=>$('#precioTmpModal').classList.remove('open'));
+  $('#precioTmpModal').addEventListener('click',e=>{ if(e.target===$('#precioTmpModal')) $('#precioTmpModal').classList.remove('open'); });
+  $('#ptmpSearch').addEventListener('input',()=>ptmpRender($('#ptmpSearch').value));
+  $('#ptmpBody').addEventListener('input',ptmpOnInput);
+  $('#ptmpSave').addEventListener('click',ptmpSave);
+  $('#ptmpClear').addEventListener('click',()=>{ ptmpDraft={}; ptmpRender($('#ptmpSearch').value); });
   $('#fileRestaurar').addEventListener('change',e=>{
     const f=e.target.files&&e.target.files[0]; if(!f){ e.target.value=''; return; }
     f.text().then(txt=>{ restaurarRespaldo(txt); e.target.value=''; })
