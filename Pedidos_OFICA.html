@@ -408,7 +408,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v97</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v98</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -17541,7 +17541,7 @@ function buildOrderXlsxStyled(o){
   // --- filas superiores: etiquetas cliente (izq) + caja de totales (der) ---
   const leftLbl=['NOMBRE CLIENTE','CÓDIGO CLIENTE','VENDEDOR','CONDICIÓN DE PAGO','OBSERVACIONES'];
   const leftVal=[data.nombre, data.cod, m.vendedor||'', m.condicion||'', m.obs||''];
-  const sumLbl=['SUB TOTAL 1','DESCUENTOS','SUBTOTAL 2','I.V.A.','TOTAL'];
+  const sumLbl=['SUB TOTAL 1','DESCUENTOS','SUBTOTAL C/DESC','I.V.A.','TOTAL'];
   const sumVal=[round2(t.subtotal), round2(t.descuento), subtotal2, round2(t.iva), round2(t.total)];
   const sumSty=[3,4,3,4,6];
   let body='';
