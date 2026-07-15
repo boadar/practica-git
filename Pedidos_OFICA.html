@@ -408,7 +408,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v98</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v99</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -17318,7 +17318,7 @@ function factorGlobal(){const d1=+state.meta.desc1||0,d2=+state.meta.desc2||0,d3
 // Precio unitario con los descuentos del cliente.
 // Se aplican todos los descuentos SIN redondeo intermedio y se redondea SOLO el resultado final a 2 decimales.
 var ptmpDraft={};
-function precioTmpDe(p){ return (adminMode && p && state.meta && state.meta.precioTmp && state.meta.precioTmp[p.codigo]!=null) ? +state.meta.precioTmp[p.codigo] : null; }
+function precioTmpDe(p){ return (p && state.meta && state.meta.precioTmp && state.meta.precioTmp[p.codigo]!=null) ? +state.meta.precioTmp[p.codigo] : null; }
 function precioNeto(p){
   const d1=+state.meta.desc1||0,d2=+state.meta.desc2||0,d3=+state.meta.desc3||0;
   const ov=precioTmpDe(p);
@@ -18114,7 +18114,7 @@ function refreshRow(row){
 // ---- totales UI ----
 function updateTotals(){
   const t=totals(); const dl=descLabel();
-  $('#tTotal').textContent=fmt.format(t.total);
+  $('#tTotal').textContent=fmt.format(t.total-t.iva);
   let meta=`${t.lineas} ${t.lineas===1?'línea':'líneas'} · ${fmtN.format(t.unidades)} und`;
   if(dl!=='—') meta+=` · Desc ${dl}`;
   $('#tMeta').textContent=meta;
