@@ -411,7 +411,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v96</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v97</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -19125,6 +19125,7 @@ function buildPrint(){
       ${foot('Descuento '+(dl==='—'?'':'('+dl+')'),'– '+fmt.format(t.descuento))}
       ${foot('Base exenta c/desc.',fmt.format(t.baseExD))}
       ${foot('Base imponible c/desc.',fmt.format(t.baseImpD))}
+      ${foot('Subtotal c/desc.',fmt.format(t.baseExD+t.baseImpD))}
       ${foot('IVA (16%)',fmt.format(t.iva))}
       ${foot('TOTAL',fmt.format(t.total),'tot')}
     </tfoot></table>`;
