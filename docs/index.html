@@ -411,7 +411,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v107</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v108</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -505,6 +505,8 @@
           <option>60 DÍAS / SESENTA (60) DÍAS.</option>
           <option>90 DÍAS / NOVENTA (90) DÍAS.</option>
           <option>120 DÍAS / CIENTO VEINTE (120) DÍAS.</option>
+          <option>30 - 60 / DIVIDIR EN 30 Y 60 DÍAS.</option>
+          <option>30 - 60 - 90 / DIVIDIR EN 30, 60 Y 90 DÍAS.</option>
         </select>
       </div>
       <div class="row3">
@@ -710,6 +712,8 @@
             <option>15 DÍAS / QUINCE (15) DÍAS.</option>
             <option>30 DÍAS / TREINTA (30) DÍAS.</option>
             <option>60 DÍAS / SESENTA (60) DÍAS.</option>
+            <option>30 - 60 / DIVIDIR EN 30 Y 60 DÍAS.</option>
+            <option>30 - 60 - 90 / DIVIDIR EN 30, 60 Y 90 DÍAS.</option>
           </select></div>
         </div>
         <label class="rc-check"><input type="checkbox" id="rcRet"> Es agente de retención</label>
@@ -17428,6 +17432,73 @@ function setLocked(on){
   if(bEdit) bEdit.style.display = on?'':'none';
 }
 
+// ---- División de pedido por condición de pago (30-60 / 30-60-90) ----
+// Divide un pedido en 2 o 3 pedidos con condiciones 30/60/90 días. Referencias
+// ENTERAS (no se pican cantidades), cada pedido cercano al promedio del total, y
+// el inventario se consume primero en el pedido de 30 días (luego 60, luego 90);
+// las referencias sin inventario se colocan al final (en los plazos más largos).
+var DIA_COND = {30:'30 DÍAS / TREINTA (30) DÍAS.',60:'60 DÍAS / SESENTA (60) DÍAS.',90:'90 DÍAS / NOVENTA (90) DÍAS.'};
+function condSplitPlan(cond){
+  var c=(cond||'').trim();
+  if(/^30\s*-\s*60\s*-\s*90/.test(c)) return [30,60,90];
+  if(/^30\s*-\s*60/.test(c)) return [30,60];
+  return null;
+}
+function dividirPedido(dias){
+  var N=dias.length;
+  var items=CATALOGO.filter(function(p){return state.qty[p.codigo]>0;}).map(function(p){
+    return {code:p.codigo, val: precioNeto(p)*(+state.qty[p.codigo]||0)*(1+ivaRateOf(p)), inStock: Math.round(+p.inv||0)>0};
+  });
+  var total=items.reduce(function(s,i){return s+i.val;},0);
+  var target = N>0 ? total/N : total;
+  var inS=items.filter(function(i){return i.inStock;}).sort(function(a,b){return b.val-a.val;});
+  var noS=items.filter(function(i){return !i.inStock;}).sort(function(a,b){return b.val-a.val;});
+  var queue=inS.concat(noS);   // primero con inventario, luego sin inventario
+  var buckets=[], sums=[]; for(var k=0;k<N;k++){buckets.push([]);sums.push(0);}
+  var b=0;
+  queue.forEach(function(it){
+    // avanza al siguiente plazo cuando el actual ya llegó cerca del promedio
+    if(b<N-1 && sums[b]>0 && (sums[b]+it.val/2)>target) b++;
+    buckets[b].push(it.code); sums[b]+=it.val;
+  });
+  var res=[];
+  for(var i=0;i<N;i++){ if(buckets[i].length) res.push({dias:dias[res.length], codes:buckets[i]}); }
+  return res;
+}
+async function guardarPedidoDividido(dias){
+  var grupos=dividirPedido(dias);
+  var savedQty=state.qty, savedMeta=state.meta;
+  var baseMeta=JSON.parse(JSON.stringify(state.meta));
+  var baseNumped=state.meta.numped||'';
+  var nombre=(state.meta.cliente||'').trim();
+  var nuevos=[]; var stamp=Date.now();
+  grupos.forEach(function(g,i){
+    var q={}; g.codes.forEach(function(c){ q[c]=savedQty[c]; });
+    var m=JSON.parse(JSON.stringify(baseMeta));
+    m.condicion=DIA_COND[g.dias]||baseMeta.condicion;
+    m.numped=baseNumped+' ('+(i+1)+'/'+grupos.length+' - '+g.dias+' dias)';
+    state.qty=q; state.meta=m;               // total exacto (con IVA) por subgrupo
+    var t=totals().total;
+    nuevos.push({
+      id:'P'+stamp+'-'+i+'-'+Math.floor(Math.random()*1000),
+      nombre:nombre, codcliente:baseMeta.codcliente||'', fecha:baseMeta.fecha||'',
+      numped:m.numped, total:t, savedAt:new Date().toISOString(),
+      meta:m, qty:q, status:'PENDIENTE', editado:false
+    });
+  });
+  state.qty=savedQty; state.meta=savedMeta;  // restaurar el estado original
+  var list=loadOrders();
+  var filtered = currentOrderId ? list.filter(function(o){return o.id!==currentOrderId;}) : list;
+  nuevos.forEach(function(r){ filtered.push(r); });
+  storeOrders(filtered); currentOrderId=null;
+  var montos=nuevos.map(function(r){return fmt.format(r.total);}).join(' · ');
+  var enviar=await askConfirm(
+    (nuevos.length<dias.length ? ('Solo había referencias para '+nuevos.length+' pedido'+(nuevos.length===1?'':'s')+'. ') : ('El pedido se dividió en '+nuevos.length+' pedidos. '))
+    + nuevos.map(function(r,i){return dias[i]+' días: '+fmt.format(r.total);}).join('   ·   ')
+    + '. ¿Deseas enviarlos ahora?','Sí, enviar','No');
+  if(enviar){ await enviarPedidos(nuevos.map(function(r){return r.id;})); }
+  else { limpiarPedidoTodo(); toast('Guardado: '+nuevos.length+' pedido'+(nuevos.length===1?'':'s')+' ('+montos+')'); }
+}
 async function guardarPedido(){
   if(locked){ toast('Pulsa EDITAR PEDIDO para modificar'); return; }
   if(totals().lineas===0){ toast('Agrega productos primero'); return; }
@@ -17448,6 +17519,8 @@ async function guardarPedido(){
     state.meta.numped = p(d.getDate())+p(d.getMonth()+1)+String(d.getFullYear()).slice(-2)+'_'+p(d.getHours())+p(d.getMinutes())+' '+nombre;
     const fn=document.getElementById('f_numped'); if(fn) fn.value=state.meta.numped;
   }
+  const _plan = condSplitPlan(condicion);
+  if(_plan){ await guardarPedidoDividido(_plan); return; }
   const list=loadOrders();
   const rec={
     id: currentOrderId || ('P'+Date.now()+'-'+Math.floor(Math.random()*1000)),
