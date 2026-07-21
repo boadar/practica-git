@@ -411,7 +411,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v109</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v110</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -17594,9 +17594,14 @@ function statusClass(o){
 function cerrarPedidos(){ $('#ordersModal').classList.remove('open'); }
 
 // ---- enviar pedidos por correo ----
+function nombreArchivoPedido(numped, nombre, fecha){
+  const base=(numped||'').trim();
+  if(base){ return base.replace(/[\\/:*?"<>|]/g,'-').replace(/\s+/g,' ').trim()+'.xlsx'; }
+  const cli=(nombre||'pedido').replace(/[^\w\s-]/g,'').trim().replace(/\s+/g,'-');
+  return 'Pedido-'+cli+'-'+(fecha||'')+'.xlsx';
+}
 function safeNameFor(o){
-  const cli=(o.nombre||'pedido').replace(/[^\w\s-]/g,'').trim().replace(/\s+/g,'-');
-  return `Pedido-${cli}-${o.fecha||''}.xlsx`;
+  return nombreArchivoPedido(o.numped, o.nombre, o.fecha);
 }
 function buildOrderXlsxFor(o){
   return buildOrderXlsxStyled(o);
@@ -18482,8 +18487,8 @@ function download(name,bytes,mime){
   setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},500);
 }
 function safeName(){
-  const m=state.meta; const cli=(m.cliente||'pedido').replace(/[^\w\s-]/g,'').trim().replace(/\s+/g,'-');
-  return `Pedido-${cli}-${m.fecha||''}.xlsx`;
+  const m=state.meta;
+  return nombreArchivoPedido(m.numped, m.cliente, m.fecha);
 }
 function exportExcel(){
   if(totals().lineas===0){toast('Agrega productos primero');return;}
