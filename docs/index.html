@@ -411,7 +411,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v101</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v102</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -17322,11 +17322,16 @@ function factorGlobal(){const d1=+state.meta.desc1||0,d2=+state.meta.desc2||0,d3
 // Se aplican todos los descuentos SIN redondeo intermedio y se redondea SOLO el resultado final a 2 decimales.
 var ptmpDraft={};
 function precioTmpDe(p){ return (p && state.meta && state.meta.precioTmp && state.meta.precioTmp[p.codigo]!=null) ? +state.meta.precioTmp[p.codigo] : null; }
+function descDe(p){
+  const dp = (p && state.meta && state.meta.descProd) ? state.meta.descProd[p.codigo] : null;
+  if(dp) return [+dp.d1||0, +dp.d2||0, +dp.d3||0];   // descuento por producto
+  return [+state.meta.desc1||0, +state.meta.desc2||0, +state.meta.desc3||0];   // global (fallback)
+}
 function precioNeto(p){
-  const d1=+state.meta.desc1||0,d2=+state.meta.desc2||0,d3=+state.meta.desc3||0;
+  const d=descDe(p);
   const ov=precioTmpDe(p);
   const base=(ov!=null)?ov:(+(p&&p.precioUsd)||0);
-  return round2(base*(1-d1)*(1-d2)*(1-d3));   // redondeo a 2 decimales solo al final
+  return round2(base*(1-d[0])*(1-d[1])*(1-d[2]));   // redondeo a 2 decimales solo al final
 }
 function openPrecioTmp(){ ptmpDraft=Object.assign({}, state.meta.precioTmp||{}); const s=$('#ptmpSearch'); if(s) s.value=''; ptmpRender(''); $('#precioTmpModal').classList.add('open'); }
 function ptmpRender(q){
@@ -18903,21 +18908,20 @@ function cargarPedidoDesdeXlsx(buf){
   const vendedor=(g('B5')!=null?String(g('B5')).trim():'');
   const condicion=(g('B6')!=null?String(g('B6')).trim():'');
   let obs=(g('B7')!=null?String(g('B7')):'');
-  const d1=+g('G10')||0, d2=+g('H10')||0, d3=+g('I10')||0;
-  const qty={}; const missing=[];
+  const qty={}; const descProd={}; const missing=[];
   for(let r=13;r<=maxRow;r++){
     const code=cells['A'+r], ped=cells['O'+r];
     if(code==null) continue; const c=String(code).trim(); if(!c) continue;
     const pv=parseFloat(ped); if(!(pv>0)) continue;
     const prod=byCode[c];
-    if(prod){ const u=+prod.umv||0; const q=u>0?Math.round(pv/u)*u:Math.round(pv); if(q>0) qty[c]=q; }
+    if(prod){ const u=+prod.umv||0; const q=u>0?Math.round(pv/u)*u:Math.round(pv); if(q>0){ qty[c]=q; descProd[c]={d1:+g('G'+r)||0,d2:+g('H'+r)||0,d3:+g('I'+r)||0}; } }
     else missing.push(c+' x'+Math.round(pv));
   }
   if(missing.length){ obs=(obs.trim()?obs.trim()+'\n\n':'')+'No cargados (fuera de catálogo): '+missing.join('; '); }
   if(Object.keys(qty).length===0 && !nombre){ throw new Error('El archivo no tiene datos de pedido'); }
   // aplicar (reemplaza el pedido actual)
   state.qty=qty;
-  state.meta={cliente:nombre,codcliente:cod,vendedor:vendedor,condicion:condicion,numped:'',obs:obs,desc1:String(d1),desc2:String(d2),desc3:String(d3)};
+  state.meta={cliente:nombre,codcliente:cod,vendedor:vendedor,condicion:condicion,numped:'',obs:obs,desc1:'0',desc2:'0',desc3:'0',descProd:descProd};
   const dt=new Date(); state.meta.fecha=dt.toISOString().slice(0,10);
   currentOrderId=null; setLocked(false); save();
   syncMetaFields();
