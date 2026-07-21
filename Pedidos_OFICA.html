@@ -408,7 +408,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v104</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v106</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -17318,6 +17318,20 @@ function factorGlobal(){const d1=+state.meta.desc1||0,d2=+state.meta.desc2||0,d3
 // Precio unitario con los descuentos del cliente.
 // Se aplican todos los descuentos SIN redondeo intermedio y se redondea SOLO el resultado final a 2 decimales.
 var ptmpDraft={};
+function descResumenTexto(meta){
+  meta = meta || state.meta;
+  const parts=[];
+  const g=[+meta.desc1||0,+meta.desc2||0,+meta.desc3||0].filter(x=>x>0).map(x=>Math.round(x*100)+'%');
+  if(g.length) parts.push('General '+g.join('+'));
+  const dp=meta.descProd||{};
+  Object.keys(dp).forEach(c=>{ const d=dp[c]; const ps=[+d.d1||0,+d.d2||0,+d.d3||0].filter(x=>x>0).map(x=>Math.round(x*100)+'%'); if(ps.length) parts.push(c+' '+ps.join('+')); });
+  return parts.length ? ('Descuentos: '+parts.join(' · ')) : '';
+}
+function obsConDesc(meta){
+  meta = meta || state.meta;
+  const o=(meta.obs||'').trim(); const d=descResumenTexto(meta);
+  return d ? (o ? o+'\n'+d : d) : o;
+}
 function precioTmpDe(p){ return (p && state.meta && state.meta.precioTmp && state.meta.precioTmp[p.codigo]!=null) ? +state.meta.precioTmp[p.codigo] : null; }
 function descDe(p){
   const dp = (p && state.meta && state.meta.descProd) ? state.meta.descProd[p.codigo] : null;
@@ -17545,7 +17559,7 @@ function buildOrderXlsxStyled(o){
   const subtotal2=round2(t.subtotal-t.descuento);
   // --- filas superiores: etiquetas cliente (izq) + caja de totales (der) ---
   const leftLbl=['NOMBRE CLIENTE','CÓDIGO CLIENTE','VENDEDOR','CONDICIÓN DE PAGO','OBSERVACIONES'];
-  const leftVal=[data.nombre, data.cod, m.vendedor||'', m.condicion||'', m.obs||''];
+  const leftVal=[data.nombre, data.cod, m.vendedor||'', m.condicion||'', obsConDesc(m)||''];
   const sumLbl=['SUB TOTAL 1','DESCUENTOS','SUBTOTAL C/DESC','I.V.A.','TOTAL'];
   const sumVal=[round2(t.subtotal), round2(t.descuento), subtotal2, round2(t.iva), round2(t.total)];
   const sumSty=[3,4,3,4,6];
@@ -18916,7 +18930,7 @@ function cargarPedidoDesdeXlsx(buf){
   }
   const _descTxt=[];
   Object.keys(descProd).forEach(c=>{ const d=descProd[c]; const ps=[d.d1,d.d2,d.d3].filter(x=>x>0).map(x=>Math.round(x*100)+'%'); if(ps.length) _descTxt.push(c+' '+ps.join('+')); });
-  if(_descTxt.length){ obs=(obs.trim()?obs.trim()+'\n':'')+'Descuentos: '+_descTxt.join(' · '); }
+  if(false){ obs=(obs.trim()?obs.trim()+'\n':'')+'Descuentos: '+_descTxt.join(' · '); }
   if(missing.length){ obs=(obs.trim()?obs.trim()+'\n\n':'')+'No cargados (fuera de catálogo): '+missing.join('; '); }
   if(Object.keys(qty).length===0 && !nombre){ throw new Error('El archivo no tiene datos de pedido'); }
   // aplicar (reemplaza el pedido actual)
@@ -19119,7 +19133,7 @@ function buildPrint(){
     <div style="text-align:right;font-size:12px"><b>Fecha:</b> ${esc(m.fecha||'')}<br>${m.numped?'<b>Pedido #:</b> '+esc(m.numped):''}</div></div>
     <div class="pmeta"><b>Cliente:</b> ${esc(m.cliente||'—')} ${m.codcliente?'('+esc(m.codcliente)+')':''}<br>
     <b>Vendedor:</b> ${esc(m.vendedor||'—')}<br><b>Condición de pago:</b> ${esc(m.condicion||'—')}
-    ${m.obs?'<br><b>Observaciones:</b> '+esc(m.obs):''}</div>
+    ${obsConDesc(m)?'<br><b>Observaciones:</b> '+esc(obsConDesc(m)).replace(/\n/g,'<br>'):''}</div>
     <table><colgroup><col style="width:11%"><col><col style="width:8%"><col style="width:12%"><col style="width:9%"><col style="width:16%"></colgroup><thead><tr><th>Código</th><th>Producto</th><th class="ch">Cant.</th><th class="ch">Precio<br>Unit $</th><th class="ch">Precio c/desc</th><th class="ch imp">Importe</th></tr></thead>
     <tbody>${rowsHtml}</tbody>
     <tfoot>
