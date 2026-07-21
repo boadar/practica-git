@@ -408,7 +408,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v108</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v109</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -19044,7 +19044,7 @@ async function cargarInventarioDesdeXlsx(buf){
   const norm=s=>String(s).replace(/[^A-Za-z0-9]/g,'').toUpperCase();
   const normMap={}; CATALOGO.forEach(p=>{ normMap[norm(p.codigo)]=p.codigo; });
   const HEADERS={'CODIGO':1,'COD':1,'CODIGODEPRODUCTO':1,'CODIGOPRODUCTO':1,'REFERENCIA':1,'REF':1,'ITEM':1,'PRODUCTO':1,'DATADETALLE':1,'INVENTARIO':1,'EXISTENCIA':1};
-  const updated={}; const missing=[]; let count=0, dataRows=0;
+  const updated={}; const missing=[]; const foundSet={}; let count=0, dataRows=0;
   for(let r=1;r<=maxRow;r++){
     const rawB=cells['B'+r]; if(rawB==null) continue;
     const codeStr=String(rawB).trim(); if(!codeStr) continue;
@@ -19052,19 +19052,30 @@ async function cargarInventarioDesdeXlsx(buf){
     dataRows++;
     const found = byCode[codeStr] ? codeStr : (normMap[nb] || null);
     const invNum=parseFloat(cells['E'+r]); const cant=isFinite(invNum)?invNum:0;
-    if(found){ byCode[found].inv=cant; updated[found]=cant; count++; }
+    if(found){ updated[found]=cant; foundSet[found]=1; count++; }
     else if(cant>1){ const nombre=cells['C'+r]!=null?String(cells['C'+r]).trim():''; missing.push({code:codeStr,nombre:nombre,cant:cant}); }
   }
   if(count===0 && dataRows===0){ throw new Error('La hoja "Data Detalle" no tiene datos de inventario (revisa columnas B y E)'); }
-  if(count>0){ saveInvOverrides(updated); render(); updateTotals(); }
+  if(count===0){
+    await askConfirm('Ninguna de las '+dataRows+' referencia'+(dataRows===1?'':'s')+' del archivo coincide con el catálogo. No se cambió el inventario. Revisa que el archivo sea el correcto (código en columna B).','Entendido','Cerrar');
+    return;
+  }
+  // El archivo es la foto COMPLETA del inventario: las referencias del catálogo que
+  // NO vengan en el archivo (o vengan con 0) quedan en inventario 0.
+  let zeroed=0;
+  CATALOGO.forEach(p=>{ if(!foundSet[p.codigo]){ updated[p.codigo]=0; if(Math.round(+p.inv||0)!==0) zeroed++; } });
+  const okInv = await askConfirm('El archivo trae '+count+' referencia'+(count===1?'':'s')+' con inventario.\n\nLas referencias del catálogo que no aparecen en el archivo pasarán a inventario 0'+(zeroed?(' ('+zeroed+' tenían stock y quedarán en 0)'):'')+'.\n\n¿Actualizar el inventario?','Sí, actualizar','Cancelar');
+  if(!okInv){ toast('Carga de inventario cancelada'); return; }
+  Object.keys(updated).forEach(c=>{ if(byCode[c]) byCode[c].inv=updated[c]; });
+  saveInvOverrides(updated); render(); updateTotals();
   if(missing.length){
     // Excel de no encontradas: código (col origen B) | nombre (col origen C) | cantidad (col origen E)
     // Solo se incluyen las que no están en el catálogo y tienen inventario > 1 unidad.
     const rows=[['Código','Nombre','Cantidad'],...missing.map(x=>[x.code,x.nombre,x.cant])];
     try{ download('Referencias-no-encontradas.xlsx', buildXlsx(rows), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); }catch(e){ console.error(e); }
-    await askConfirm('Inventario actualizado: '+count+' referencia'+(count===1?'':'s')+'. No se encontraron '+missing.length+' referencia'+(missing.length===1?'':'s')+' (con inventario > 1) en el catálogo; se descargó un Excel con el detalle.','Entendido','Cerrar');
+    await askConfirm('Inventario actualizado: '+count+' referencia'+(count===1?'':'s')+' del archivo'+(zeroed?(' · '+zeroed+' quedaron en 0'):'')+'. No se encontraron '+missing.length+' referencia'+(missing.length===1?'':'s')+' (con inventario > 1) en el catálogo; se descargó un Excel con el detalle.','Entendido','Cerrar');
   } else {
-    toast('Inventario actualizado: '+count+' referencia'+(count===1?'':'s')+' ✓');
+    toast('Inventario actualizado: '+count+' del archivo'+(zeroed?(' · '+zeroed+' en 0'):'')+' ✓');
   }
 }
 
