@@ -408,7 +408,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v99</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v100</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -18903,7 +18903,7 @@ function cargarPedidoDesdeXlsx(buf){
   const d1=+g('E10')||0, d2=+g('F10')||0, d3=+g('G10')||0;
   const qty={}; const missing=[];
   for(let r=13;r<=maxRow;r++){
-    const code=cells['A'+r], ped=cells['M'+r];
+    const code=cells['A'+r], ped=cells['O'+r];
     if(code==null) continue; const c=String(code).trim(); if(!c) continue;
     const pv=parseFloat(ped); if(!(pv>0)) continue;
     const prod=byCode[c];
