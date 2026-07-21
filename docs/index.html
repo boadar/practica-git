@@ -411,7 +411,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v110</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v111</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -17447,7 +17447,8 @@ function condSplitPlan(cond){
 function dividirPedido(dias){
   var N=dias.length;
   var items=CATALOGO.filter(function(p){return state.qty[p.codigo]>0;}).map(function(p){
-    return {code:p.codigo, val: precioNeto(p)*(+state.qty[p.codigo]||0)*(1+ivaRateOf(p)), inStock: Math.round(+p.inv||0)>0};
+    // "con inventario" para el pedido de 30 días = el disponible cubre TODA la cantidad pedida
+    return {code:p.codigo, val: precioNeto(p)*(+state.qty[p.codigo]||0)*(1+ivaRateOf(p)), inStock: Math.round(+p.inv||0) >= (+state.qty[p.codigo]||0)};
   });
   var total=items.reduce(function(s,i){return s+i.val;},0);
   var target = N>0 ? total/N : total;
@@ -17457,12 +17458,12 @@ function dividirPedido(dias){
   var buckets=[], sums=[]; for(var k=0;k<N;k++){buckets.push([]);sums.push(0);}
   var b=0;
   queue.forEach(function(it){
-    // avanza al siguiente plazo cuando el actual ya llegó cerca del promedio
-    if(b<N-1 && sums[b]>0 && (sums[b]+it.val/2)>target) b++;
+    if(!it.inStock && b===0 && N>1){ b=1; }                        // el pedido de 30 días lleva SOLO referencias cubiertas (inv ≥ cantidad)
+    else if(b<N-1 && sums[b]>0 && (sums[b]+it.val/2)>target){ b++; } // avanza cuando el plazo actual ya llegó cerca del promedio
     buckets[b].push(it.code); sums[b]+=it.val;
   });
   var res=[];
-  for(var i=0;i<N;i++){ if(buckets[i].length) res.push({dias:dias[res.length], codes:buckets[i]}); }
+  for(var i=0;i<N;i++){ if(buckets[i].length) res.push({dias:dias[i], codes:buckets[i]}); }
   return res;
 }
 async function guardarPedidoDividido(dias){
@@ -17494,7 +17495,7 @@ async function guardarPedidoDividido(dias){
   var montos=nuevos.map(function(r){return fmt.format(r.total);}).join(' · ');
   var enviar=await askConfirm(
     (nuevos.length<dias.length ? ('Solo había referencias para '+nuevos.length+' pedido'+(nuevos.length===1?'':'s')+'. ') : ('El pedido se dividió en '+nuevos.length+' pedidos. '))
-    + nuevos.map(function(r,i){return dias[i]+' días: '+fmt.format(r.total);}).join('   ·   ')
+    + nuevos.map(function(r,i){return grupos[i].dias+' días: '+fmt.format(r.total);}).join('   ·   ')
     + '. ¿Deseas enviarlos ahora?','Sí, enviar','No');
   if(enviar){ await enviarPedidos(nuevos.map(function(r){return r.id;})); }
   else { limpiarPedidoTodo(); toast('Guardado: '+nuevos.length+' pedido'+(nuevos.length===1?'':'s')+' ('+montos+')'); }
