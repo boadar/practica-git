@@ -408,7 +408,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v103</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v104</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -18914,6 +18914,9 @@ function cargarPedidoDesdeXlsx(buf){
     if(prod){ const u=+prod.umv||0; const q=u>0?Math.round(pv/u)*u:Math.round(pv); if(q>0){ qty[c]=q; descProd[c]={d1:+g('G'+r)||0,d2:+g('H'+r)||0,d3:+g('I'+r)||0}; } }
     else missing.push(c+' x'+Math.round(pv));
   }
+  const _descTxt=[];
+  Object.keys(descProd).forEach(c=>{ const d=descProd[c]; const ps=[d.d1,d.d2,d.d3].filter(x=>x>0).map(x=>Math.round(x*100)+'%'); if(ps.length) _descTxt.push(c+' '+ps.join('+')); });
+  if(_descTxt.length){ obs=(obs.trim()?obs.trim()+'\n':'')+'Descuentos: '+_descTxt.join(' · '); }
   if(missing.length){ obs=(obs.trim()?obs.trim()+'\n\n':'')+'No cargados (fuera de catálogo): '+missing.join('; '); }
   if(Object.keys(qty).length===0 && !nombre){ throw new Error('El archivo no tiene datos de pedido'); }
   // aplicar (reemplaza el pedido actual)
