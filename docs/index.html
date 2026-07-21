@@ -411,7 +411,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v102</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v103</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -18031,8 +18031,8 @@ function render(){
     const exento=ivaRateOf(p)===0;
     const step=(+p.umv>0)?+p.umv:1;
     const priceHtml = adminMode
-      ? `<span class="price editing">$ <input type="text" inputmode="decimal" class="priceedit" data-price value="${(+p.precioUsd||0).toFixed(2)}" aria-label="Precio de ${esc(p.codigo)}"></span>${f<1?`<span class="sep">·</span><span class="plabel">Con desc.</span><span class="price">${fmt.format(net)}</span>`:''}`
-      : (f<1
+      ? `<span class="price editing">$ <input type="text" inputmode="decimal" class="priceedit" data-price value="${(+p.precioUsd||0).toFixed(2)}" aria-label="Precio de ${esc(p.codigo)}"></span>${net<round2(+p.precioUsd||0)?`<span class="sep">·</span><span class="plabel">Con desc.</span><span class="price">${fmt.format(net)}</span>`:''}`
+      : (net<round2(+p.precioUsd||0)
         ? `<span class="price"><span class="was">${fmt.format(p.precioUsd)}</span>${fmt.format(net)}</span>`
         : `<span class="price">${fmt.format(p.precioUsd)}</span>`);
     const inv=Math.round(+p.inv||0);
