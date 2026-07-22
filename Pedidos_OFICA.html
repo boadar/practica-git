@@ -408,7 +408,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v113</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v115</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -17457,29 +17457,24 @@ function dividirPedido(dias){
   var queue=items.slice().sort(function(a,b){ return (a.tier-b.tier) || (b.val-a.val); });
   var buckets=[], sums=[]; for(var k=0;k<N;k++){buckets.push([]);sums.push(0);}
   var b=0;
+  // Llenado CONTIGUO por niveles de inventario. Como la cola está ordenada por nivel (cubre ->
+  // poco -> sin) y los pedidos se llenan en orden SIN mover referencias entre ellos, se garantiza
+  // que ninguna referencia sin inventario quede en un pedido anterior a una con inventario.
+  // Se avanza al siguiente plazo al llegar cerca del promedio (montos parecidos); el último pedido
+  // recibe el resto (queda como el de menor monto cuando hay desviación).
   queue.forEach(function(it){
-    if(b<N-1 && sums[b]>0 && (sums[b]+it.val/2)>target){ b++; }   // avanza cuando el plazo actual ya llegó cerca del promedio
+    if(b<N-1 && sums[b]>0 && (sums[b]+it.val/2)>target){ b++; }
     buckets[b].push(it); sums[b]+=it.val;
   });
-  // Refinamiento (REGLA principal = montos parecidos al promedio): mueve una referencia ENTERA
-  // de un pedido a otro mientras acerque los montos al promedio (reduce la varianza).
-  var guard=0, improved=true;
-  while(improved && guard++<300){
-    improved=false;
-    for(var x=0;x<N && !improved;x++){
-      for(var idx=0; idx<buckets[x].length && !improved; idx++){
-        var it=buckets[x][idx];
-        for(var y=0;y<N;y++){
-          if(y===x) continue;
-          var delta=((sums[x]-it.val-target)*(sums[x]-it.val-target)+(sums[y]+it.val-target)*(sums[y]+it.val-target))
-                   -((sums[x]-target)*(sums[x]-target)+(sums[y]-target)*(sums[y]-target));
-          if(delta < -1e-6){   // mover reduce la varianza -> pedidos más parecidos
-            buckets[x].splice(idx,1); buckets[y].push(it);
-            sums[x]-=it.val; sums[y]+=it.val; improved=true; break;
-          }
-        }
-      }
-    }
+  // Garantiza que el ÚLTIMO pedido sea el de menor monto: si quedó mayor que algún otro, mueve
+  // referencias del último al penúltimo. Como son las de menor inventario (final de la cola), el
+  // orden cubre->poco->sin se mantiene (no se adelanta ninguna referencia con inventario).
+  var gg=0;
+  while(N>1 && buckets[N-1].length>1 && gg++<2000){
+    var minOtros=sums[0]; for(var t=1;t<=N-2;t++){ if(sums[t]<minOtros) minOtros=sums[t]; }
+    if(sums[N-1] <= minOtros) break;
+    var mv=buckets[N-1].shift();
+    buckets[N-2].push(mv); sums[N-1]-=mv.val; sums[N-2]+=mv.val;
   }
   // Dentro de cada pedido, mostrar primero lo de mayor inventario (cubre -> poco -> sin)
   var res=[];
