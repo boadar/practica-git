@@ -408,7 +408,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v111</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v112</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -17444,23 +17444,46 @@ function condSplitPlan(cond){
 function dividirPedido(dias){
   var N=dias.length;
   var items=CATALOGO.filter(function(p){return state.qty[p.codigo]>0;}).map(function(p){
-    // "con inventario" para el pedido de 30 días = el disponible cubre TODA la cantidad pedida
-    return {code:p.codigo, val: precioNeto(p)*(+state.qty[p.codigo]||0)*(1+ivaRateOf(p)), inStock: Math.round(+p.inv||0) >= (+state.qty[p.codigo]||0)};
+    var inv=Math.round(+p.inv||0), q=(+state.qty[p.codigo]||0);
+    // nivel 0 = el inventario cubre TODA la cantidad; 1 = poco inventario (no cubre); 2 = sin inventario
+    var tier = inv>=q ? 0 : (inv>0 ? 1 : 2);
+    return {code:p.codigo, val: precioNeto(p)*q*(1+ivaRateOf(p)), tier:tier};
   });
   var total=items.reduce(function(s,i){return s+i.val;},0);
   var target = N>0 ? total/N : total;
-  var inS=items.filter(function(i){return i.inStock;}).sort(function(a,b){return b.val-a.val;});
-  var noS=items.filter(function(i){return !i.inStock;}).sort(function(a,b){return b.val-a.val;});
-  var queue=inS.concat(noS);   // primero con inventario, luego sin inventario
+  // REGLA principal: cada pedido con un monto parecido al promedio (total/N).
+  // Orden de LLENADO (secundario): primero las que cubren la cantidad, luego poco inventario,
+  // al final sin inventario; dentro de cada nivel, mayor valor primero (ayuda al balance).
+  var queue=items.slice().sort(function(a,b){ return (a.tier-b.tier) || (b.val-a.val); });
   var buckets=[], sums=[]; for(var k=0;k<N;k++){buckets.push([]);sums.push(0);}
   var b=0;
   queue.forEach(function(it){
-    if(!it.inStock && b===0 && N>1){ b=1; }                        // el pedido de 30 días lleva SOLO referencias cubiertas (inv ≥ cantidad)
-    else if(b<N-1 && sums[b]>0 && (sums[b]+it.val/2)>target){ b++; } // avanza cuando el plazo actual ya llegó cerca del promedio
-    buckets[b].push(it.code); sums[b]+=it.val;
+    if(b<N-1 && sums[b]>0 && (sums[b]+it.val/2)>target){ b++; }   // avanza cuando el plazo actual ya llegó cerca del promedio
+    buckets[b].push(it); sums[b]+=it.val;
   });
+  // Refinamiento (REGLA principal = montos parecidos al promedio): mueve una referencia ENTERA
+  // de un pedido a otro mientras acerque los montos al promedio (reduce la varianza).
+  var guard=0, improved=true;
+  while(improved && guard++<300){
+    improved=false;
+    for(var x=0;x<N && !improved;x++){
+      for(var idx=0; idx<buckets[x].length && !improved; idx++){
+        var it=buckets[x][idx];
+        for(var y=0;y<N;y++){
+          if(y===x) continue;
+          var delta=((sums[x]-it.val-target)*(sums[x]-it.val-target)+(sums[y]+it.val-target)*(sums[y]+it.val-target))
+                   -((sums[x]-target)*(sums[x]-target)+(sums[y]-target)*(sums[y]-target));
+          if(delta < -1e-6){   // mover reduce la varianza -> pedidos más parecidos
+            buckets[x].splice(idx,1); buckets[y].push(it);
+            sums[x]-=it.val; sums[y]+=it.val; improved=true; break;
+          }
+        }
+      }
+    }
+  }
+  // Dentro de cada pedido, mostrar primero lo de mayor inventario (cubre -> poco -> sin)
   var res=[];
-  for(var i=0;i<N;i++){ if(buckets[i].length) res.push({dias:dias[i], codes:buckets[i]}); }
+  for(var i=0;i<N;i++){ if(buckets[i].length){ buckets[i].sort(function(a,b){return (a.tier-b.tier)||(b.val-a.val);}); res.push({dias:dias[i], codes:buckets[i].map(function(x){return x.code;})}); } }
   return res;
 }
 async function guardarPedidoDividido(dias){
