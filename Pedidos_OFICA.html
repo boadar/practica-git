@@ -408,7 +408,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v115</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v116</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -434,6 +434,10 @@
       <button class="iconbtn cargarinv" id="btnPrecioTmp" type="button" style="display:none" title="Cambiar precios de forma temporal para este pedido (no afecta la base de datos)">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
         <span class="btnlabel">Cambio de precio temporal</span>
+      </button>
+      <button class="iconbtn cargarinv" id="btnDescuentos" type="button" style="display:none" title="Agregar un descuento personalizado para este pedido (se coloca en Descuento 1 de la ficha del cliente)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+        <span class="btnlabel">Administrar descuentos</span>
       </button>
       <button class="iconbtn cargarinv" id="btnOverInv" type="button" style="display:none" aria-pressed="false" title="Permitir tomar pedidos con cantidades mayores al inventario y habilitar las referencias sin stock (queda activo aunque se cierre el modo administrador)">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11V7a5 5 0 0 1 9.9-1"/><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/></svg>
@@ -17415,7 +17419,12 @@ function storeOrders(list){ try{localStorage.setItem(ORDERS_KEY,JSON.stringify(l
 // refleja state.meta en los campos del detalle
 function syncMetaFields(){
   const map={f_fecha:'fecha',f_vendedor:'vendedor',f_cliente:'cliente',f_codcliente:'codcliente',f_condicion:'condicion',f_numped:'numped',f_obs:'obs',f_desc1:'desc1',f_desc2:'desc2',f_desc3:'desc3'};
-  for(const id in map){ const e=document.getElementById(id); if(e) e.value = state.meta[map[id]]!=null ? state.meta[map[id]] : ''; }
+  for(const id in map){
+    const e=document.getElementById(id); if(!e) continue;
+    const v = state.meta[map[id]]!=null ? state.meta[map[id]] : '';
+    if(id==='f_desc1'||id==='f_desc2'||id==='f_desc3') descAsegurarOpcion(e, v);   // descuentos personalizados
+    e.value = v;
+  }
 }
 
 // activa/desactiva el modo solo lectura (no re-renderiza; el llamador lo hace)
@@ -17977,16 +17986,117 @@ async function imagenReducida(file, max){
   }catch(e){ return uri; }
 }
 // --- extractor de texto de PDF (RIF del SENIAT) usando inflateRaw ---
+// ===== PDF cifrado (SENIAT): MD5 + RC4 para leer el RIF =====
+// Los comprobantes de RIF del SENIAT vienen cifrados (Standard handler, RC4 128-bit,
+// contrasena de usuario vacia). Sin descifrar, los streams no inflan y no se extrae nada.
+function md5Bytes(bytes){
+  function rl(n,c){ return (n<<c)|(n>>>(32-c)); }
+  var S=[7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,
+         5,9,14,20,5,9,14,20,5,9,14,20,5,9,14,20,
+         4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23,
+         6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21];
+  var K=new Int32Array(64), i;
+  for(i=0;i<64;i++) K[i]=(Math.floor(Math.abs(Math.sin(i+1))*4294967296))|0;
+  var ml=bytes.length, padLen=(((ml+1+8+63)>>6)<<6);
+  var msg=new Uint8Array(padLen); msg.set(bytes); msg[ml]=0x80;
+  var bits=ml*8, lo=bits>>>0, hi=Math.floor(bits/4294967296);
+  msg[padLen-8]=lo&255; msg[padLen-7]=(lo>>>8)&255; msg[padLen-6]=(lo>>>16)&255; msg[padLen-5]=(lo>>>24)&255;
+  msg[padLen-4]=hi&255; msg[padLen-3]=(hi>>>8)&255; msg[padLen-2]=(hi>>>16)&255; msg[padLen-1]=(hi>>>24)&255;
+  var a0=0x67452301|0,b0=0xefcdab89|0,c0=0x98badcfe|0,d0=0x10325476|0, M=new Int32Array(16);
+  for(var off=0;off<padLen;off+=64){
+    for(var j=0;j<16;j++) M[j]=msg[off+j*4]|(msg[off+j*4+1]<<8)|(msg[off+j*4+2]<<16)|(msg[off+j*4+3]<<24);
+    var A=a0,B=b0,C=c0,D=d0,F,g;
+    for(i=0;i<64;i++){
+      if(i<16){ F=(B&C)|(~B&D); g=i; }
+      else if(i<32){ F=(D&B)|(~D&C); g=(5*i+1)&15; }
+      else if(i<48){ F=B^C^D; g=(3*i+5)&15; }
+      else { F=C^(B|~D); g=(7*i)&15; }
+      F=(((F+A)|0)+((K[i]+M[g])|0))|0;
+      A=D; D=C; C=B; B=(B+rl(F,S[i]))|0;
+    }
+    a0=(a0+A)|0; b0=(b0+B)|0; c0=(c0+C)|0; d0=(d0+D)|0;
+  }
+  var out=new Uint8Array(16), vs=[a0,b0,c0,d0];
+  for(i=0;i<4;i++){ out[i*4]=vs[i]&255; out[i*4+1]=(vs[i]>>>8)&255; out[i*4+2]=(vs[i]>>>16)&255; out[i*4+3]=(vs[i]>>>24)&255; }
+  return out;
+}
+function rc4Bytes(key, data){
+  var S=new Uint8Array(256), i, j=0, t;
+  for(i=0;i<256;i++) S[i]=i;
+  for(i=0;i<256;i++){ j=(j+S[i]+key[i%key.length])&255; t=S[i]; S[i]=S[j]; S[j]=t; }
+  var out=new Uint8Array(data.length); i=0; j=0;
+  for(var k=0;k<data.length;k++){
+    i=(i+1)&255; j=(j+S[i])&255; t=S[i]; S[i]=S[j]; S[j]=t;
+    out[k]=data[k]^S[(S[i]+S[j])&255];
+  }
+  return out;
+}
+// Lee una cadena literal PDF "(...)" a partir de la posicion del parentesis
+function pdfLitString(s, start){
+  var out=[], depth=1, k=start+1;
+  while(k<s.length){
+    var c=s.charCodeAt(k);
+    if(c===0x5C){
+      var n=s.charCodeAt(k+1), mp={110:10,114:13,116:9,98:8,102:12};
+      if(mp[n]!=null){ out.push(mp[n]); k+=2; }
+      else if(n>=0x30&&n<=0x37){ var o='',q=k+1; while(q<s.length&&o.length<3){ var cc=s.charCodeAt(q); if(cc<0x30||cc>0x37) break; o+=s.charAt(q); q++; } out.push(parseInt(o,8)&255); k=q; }
+      else { out.push(n); k+=2; }
+    } else if(c===0x28){ depth++; out.push(c); k++; }
+    else if(c===0x29){ depth--; if(depth===0) break; out.push(c); k++; }
+    else { out.push(c&255); k++; }
+  }
+  return out;
+}
+// Clave RC4 del archivo (contrasena de usuario vacia). null si no esta cifrado o usa AES.
+function pdfClaveRC4(s){
+  var em=s.match(/\/Encrypt\s+(\d+)\s+0\s+R/); if(!em) return null;
+  var oi=s.search(new RegExp('(^|[^0-9])'+em[1]+'\\s+0\\s+obj'));
+  if(oi<0) return null;
+  var seg=s.slice(oi, oi+800);
+  var rm=seg.match(/\/R\s+(\d+)/), pm=seg.match(/\/P\s+(-?\d+)/);
+  var lm=seg.match(/\/Length\s+(\d+)/), vm=seg.match(/\/V\s+(\d+)/);
+  if(!rm||!pm) return null;
+  var R=+rm[1], V=vm?+vm[1]:1, Ln=lm?+lm[1]:40, P=+pm[1];
+  if(V>2) return null;                       // AES (V4/V5) no soportado
+  var oidx=seg.indexOf('/O ('); if(oidx<0) oidx=seg.indexOf('/O(');
+  if(oidx<0) return null;
+  var O=pdfLitString(seg, seg.indexOf('(', oidx));
+  var idm=s.match(/\/ID\s*\[\s*<([0-9A-Fa-f]+)>/), ID=[];
+  if(idm){ for(var q=0;q+1<idm[1].length;q+=2) ID.push(parseInt(idm[1].substr(q,2),16)); }
+  var PAD=[0x28,0xBF,0x4E,0x5E,0x4E,0x75,0x8A,0x41,0x64,0x00,0x4E,0x56,0xFF,0xFA,0x01,0x08,
+           0x2E,0x2E,0x00,0xB6,0xD0,0x68,0x3E,0x80,0x2F,0x0C,0xA9,0xFE,0x64,0x53,0x69,0x7A];
+  var inp=PAD.concat(O);
+  inp.push(P&255,(P>>8)&255,(P>>16)&255,(P>>24)&255);   // P como entero con signo, little-endian
+  inp=inp.concat(ID);
+  var key=md5Bytes(new Uint8Array(inp));
+  var n=(R>=3)?(Ln>>3):5;
+  if(R>=3){ for(var it=0; it<50; it++) key=md5Bytes(key.subarray(0,n)); }
+  return key.subarray(0,n);
+}
+function pdfObjKey(key, num, gen){
+  var a=new Uint8Array(key.length+5); a.set(key,0);
+  a[key.length]=num&255; a[key.length+1]=(num>>8)&255; a[key.length+2]=(num>>16)&255;
+  a[key.length+3]=gen&255; a[key.length+4]=(gen>>8)&255;
+  return md5Bytes(a).subarray(0, Math.min(key.length+5,16));
+}
 function pdfExtraerStrings(buf){
   const strings=[];
-  const S=[0x73,0x74,0x72,0x65,0x61,0x6d], E=[0x65,0x6e,0x64,0x73,0x74,0x72,0x65,0x61,0x6d];
-  function idx(arr,from){ outer: for(let i=from;i<=buf.length-arr.length;i++){ for(let k=0;k<arr.length;k++) if(buf[i+k]!==arr[k]) continue outer; return i; } return -1; }
-  let p=0;
-  while(true){
-    const s=idx(S,p); if(s<0) break;
-    let d=s+6; if(buf[d]===0x0d) d++; if(buf[d]===0x0a) d++;
-    const e=idx(E,d); if(e<0) break;
-    const data=buf.subarray(d,e); p=e+9;
+  let s=''; const CH=8192;
+  for(let i=0;i<buf.length;i+=CH){ s+=String.fromCharCode.apply(null, buf.subarray(i, Math.min(i+CH, buf.length))); }
+  const key=pdfClaveRC4(s);            // null = PDF sin cifrar
+  const objRe=/(\d+)\s+(\d+)\s+obj/g, objs=[]; let om;
+  while(om=objRe.exec(s)) objs.push({num:+om[1], gen:+om[2], at:om.index, end:objRe.lastIndex});
+  for(let oi=0; oi<objs.length; oi++){
+    const o=objs[oi], limit=(oi+1<objs.length)?objs[oi+1].at:s.length;
+    const st=s.indexOf('stream', o.end);
+    if(st<0 || st>=limit) continue;
+    if(s.slice(o.end, st).indexOf('/FlateDecode')<0) continue;   // solo streams comprimidos con Flate (evita imágenes DCT/CCITT que cuelgan el inflate)
+    let d=st+6;
+    if(s.charCodeAt(d)===13) d++;
+    if(s.charCodeAt(d)===10) d++;
+    const e=s.indexOf('endstream', d); if(e<0) continue;
+    let data=buf.subarray(d,e);
+    if(key) data=rc4Bytes(pdfObjKey(key,o.num,o.gen), data);
     let out=null;
     try{ out=inflateRaw(data[0]===0x78?data.subarray(2):data); }catch(err){ continue; }
     let txt=''; for(let i=0;i<out.length;i++) txt+=String.fromCharCode(out[i]);
@@ -18013,6 +18123,8 @@ function parseRif(clean){
     for(let k=di+1;k<clean.length;k++){ const s=clean[k]; if(/FECHA|DIVISI|FIRMA|CONDICI|COMPROBANTE|REGISTRO/i.test(s)) break; if(s) parts.push(s); }
     dir=parts.join(' ').replace(/\s+/g,' ').trim();
   }
+  const fm=rif.match(/^([JGVEP])(\d{8})(\d)$/);
+  if(fm) rif=fm[1]+'-'+fm[2]+'-'+fm[3];   // formato estandar J-12345678-9
   return {rif,nombre,direccion:dir};
 }
 function rcAddrBlockHtml(){
@@ -18324,6 +18436,58 @@ function askPassword(){
   });
 }
 
+// ---- Administrar descuentos (admin): descuento personalizado para ESTE pedido ----
+// Los selects de Descuento traen opciones fijas (0/5/10/15/20/30%). Esto permite al
+// administrador fijar cualquier porcentaje; el valor se coloca en Descuento 1 de la ficha.
+function descFmtPct(v){
+  const p=(+v||0)*100;
+  return String(Math.round(p*100)/100).replace('.',',')+'%';
+}
+// Agrega la opcion al select si el valor no esta en la lista (para que se vea al reabrir el pedido)
+function descAsegurarOpcion(sel, val){
+  if(!sel || !sel.options) return;
+  const v=String(val==null?'':val); if(v==='') return;
+  const num=+v; if(!isFinite(num)) return;
+  for(let i=0;i<sel.options.length;i++){ if(+sel.options[i].value===num) return; }
+  const opt=document.createElement('option');
+  opt.value=v; opt.textContent=descFmtPct(num);
+  let ref=null;
+  for(let i=0;i<sel.options.length;i++){ if(+sel.options[i].value>num){ ref=sel.options[i]; break; } }
+  sel.insertBefore(opt, ref);
+}
+// Pide un porcentaje reutilizando el modal generico
+function askDescuento(msg, initial){
+  return new Promise(res=>{
+    const m=$('#catModal'), inp=$('#catInput'), dl=$('#catInputList'), ok=$('#catOk'), cancel=$('#catCancel'), x=$('#catNo');
+    if(msg!=null) $('#catMsg').textContent=msg;
+    dl.innerHTML=['5','10','12','15','18','20','25','30','35','40','45','50'].map(v=>'<option value="'+v+'"></option>').join('');
+    inp.value=initial||''; inp.setAttribute('inputmode','decimal');
+    function done(v){ m.classList.remove('open'); dl.innerHTML=''; inp.removeAttribute('inputmode');
+      ok.removeEventListener('click',fOk); cancel.removeEventListener('click',fNo); x.removeEventListener('click',fNo); inp.removeEventListener('keydown',fKey); res(v); }
+    function fOk(){ const val=String(inp.value||'').trim(); if(!val){ inp.focus(); return; } done(val); }
+    function fNo(){ done(null); }
+    function fKey(ev){ if(ev.key==='Enter'){ev.preventDefault();fOk();} else if(ev.key==='Escape'){ev.preventDefault();fNo();} }
+    ok.addEventListener('click',fOk); cancel.addEventListener('click',fNo); x.addEventListener('click',fNo); inp.addEventListener('keydown',fKey);
+    m.classList.add('open'); setTimeout(()=>{inp.focus(); if(inp.select) inp.select();},50);
+  });
+}
+async function administrarDescuentos(){
+  if(locked){ toast('Pulsa EDITAR PEDIDO para modificar'); return; }
+  const actual=(+state.meta.desc1||0)*100;
+  const txt=await askDescuento(
+    'Descuento adicional para ESTE pedido (%).\nSe coloca en Descuento 1 de la ficha del cliente.',
+    actual? String(Math.round(actual*100)/100).replace('.',',') : '');
+  if(txt==null) return;
+  const pct=parseFloat(String(txt).replace('%','').replace(',','.').trim());
+  if(!isFinite(pct) || pct<0 || pct>100){ toast('Descuento inválido: escribe un número entre 0 y 100'); return; }
+  const frac=Math.round(pct*100)/10000;           // 12,5 -> 0.125
+  const sel=$('#f_desc1');
+  descAsegurarOpcion(sel, frac);
+  if(sel) sel.value=String(frac);
+  state.meta.desc1=String(frac);
+  save(); render(); updateTotals();
+  toast(frac>0 ? ('Descuento '+descFmtPct(frac)+' aplicado a este pedido') : 'Descuento 1 en 0%');
+}
 // pide la categoría de un producto; devuelve el texto o null si se cancela
 function askCategoria(msg,initial){
   return new Promise(res=>{
@@ -18369,7 +18533,7 @@ function cerrarListaCliente(input){
 }
 
 async function toggleAdmin(){
-  const admBtns=['#btnCargar','#btnCargarInv','#btnNuevoProd','#btnPrecioTmp','#btnOverInv','#btnRespaldo','#btnRestaurar','#btnReset'];
+  const admBtns=['#btnCargar','#btnCargarInv','#btnNuevoProd','#btnPrecioTmp','#btnDescuentos','#btnOverInv','#btnRespaldo','#btnRestaurar','#btnReset'];
   if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display='none'; }); filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
   const pass=await askPassword();
   if(pass==null) return;
@@ -19502,6 +19666,9 @@ function wire(){
         toast(d.rif?'Datos del RIF leídos ✓':'RIF adjuntado; escribe los datos');
       } else if(esPdf){
         regCli.docs[key]={name:f.name, dataUri:await fileToDataUri(f)};
+      } else if(key==='rif'){
+        regCli.docs[key]={name:(f.name||key).replace(/\.[^.]+$/,'')+'.jpg', dataUri:await imagenReducida(f,1500)};
+        toast('RIF adjuntado como imagen; para que se llenen los datos solos, adjunta el PDF del RIF');
       } else {
         regCli.docs[key]={name:(f.name||key).replace(/\.[^.]+$/,'')+'.jpg', dataUri:await imagenReducida(f,1500)};
       }
@@ -19605,7 +19772,8 @@ function wire(){
   $('#ptmpBody').addEventListener('input',ptmpOnInput);
   $('#ptmpSave').addEventListener('click',ptmpSave);
   $('#ptmpClear').addEventListener('click',()=>{ ptmpDraft={}; ptmpRender($('#ptmpSearch').value); });
-  $('#btnOverInv').addEventListener('click',toggleOverInv);
+  $('#btnDescuentos').addEventListener('click',administrarDescuentos);
+    $('#btnOverInv').addEventListener('click',toggleOverInv);
   $('#fileRestaurar').addEventListener('change',e=>{
     const f=e.target.files&&e.target.files[0]; if(!f){ e.target.value=''; return; }
     f.text().then(txt=>{ restaurarRespaldo(txt); e.target.value=''; })
