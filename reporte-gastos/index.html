@@ -4,8 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#282828">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Procesador de Facturas</title>
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
 :root{--ofica:#282828;--acc:#009DDC;--ok:#1d9e75;--bg:#eef1f4;--card:#fff;--line:#e2e6ea;--txt:#282828;--mut:#6b7280;--danger:#c0392b}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -52,8 +57,6 @@ table.ftbl .num{text-align:right;font-variant-numeric:tabular-nums}
 table.ftbl .base{background:#f4f8fb;color:var(--mut)}
 table.ftbl .cod{font-family:monospace;color:var(--mut)}
 table.ftbl .del{color:var(--danger);cursor:pointer;text-align:center;font-weight:700}
-table.ftbl select.cat{font-family:inherit;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:5px 6px;background:#fff;color:var(--txt);max-width:190px}
-table.ftbl select.cat:focus{outline:2px solid var(--acc);outline-offset:-2px}
 .progress{display:none;text-align:center;padding:34px 0}
 .spin{width:48px;height:48px;border:4px solid #dfe4e8;border-top-color:var(--acc);border-radius:50%;margin:0 auto 18px;animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
@@ -61,12 +64,65 @@ table.ftbl select.cat:focus{outline:2px solid var(--acc);outline-offset:-2px}
 .bar{height:6px;background:#dfe4e8;border-radius:4px;margin:16px auto 0;max-width:260px;overflow:hidden}
 .bar i{display:block;height:100%;background:var(--acc);width:0;transition:width .2s}
 .editnote{font-size:11px;color:var(--mut);text-align:center;margin:8px 0 0}
+/* Tarjetas-formulario de resultados */
+.fcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 18px 16px;margin-bottom:14px}
+.fcard .fhead{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px}
+.fcard .ftitle{font-size:17px;font-weight:700;color:var(--txt)}
+.fcard .fsub{font-size:12px;color:var(--mut);margin:2px 0 14px}
+.fcard .fx{border:none;background:none;color:var(--danger);font-size:20px;cursor:pointer;line-height:1;padding:0 2px}
+.fsection{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#8a97a3;margin:16px 0 10px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
+.fgrid.tres{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:520px){.fgrid,.fgrid.tres{grid-template-columns:1fr}}
+.fld{display:flex;flex-direction:column;min-width:0}
+.fld label{font-size:13px;font-weight:700;color:var(--txt);margin-bottom:6px;text-align:center}
+.fld input{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px 13px;font-size:15px;font-family:inherit;background:#f7f9fb;color:var(--txt);text-align:center;transition:border-color .12s,box-shadow .12s}
+.fld input::placeholder{color:#aeb8c2}
+.fld input:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(0,157,220,.18);background:#fff}
+.fld input.ro{background:#eef4f8;color:var(--mut);font-weight:600}
+.fld select{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px 13px;font-size:15px;font-family:inherit;background:#f7f9fb;color:var(--txt);text-align:center;transition:border-color .12s,box-shadow .12s;cursor:pointer;appearance:none;-webkit-appearance:none}
+.fld select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(0,157,220,.18);background:#fff}
+.fld .num{font-variant-numeric:tabular-nums}
+.fgrid .full{grid-column:1/-1}
+.recon{display:inline-block;font-size:10px;font-weight:700;color:var(--ok);background:#e1f5ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:middle}
+.flinks{display:flex;flex-wrap:wrap;gap:18px;margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
+.link{color:var(--acc);background:none;border:none;font:inherit;font-size:13px;cursor:pointer;text-decoration:underline;padding:0}
+.textobox{display:none;margin-top:10px;background:#f7f9fb;border:1px solid var(--line);border-radius:10px;padding:10px 12px;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#334}
+.copiado{color:var(--ok);font-size:12px;font-weight:600;align-self:center}
+/* Reporte de facturas guardadas (estilo cobranza) */
+.rphead{display:flex;align-items:center;gap:12px;margin:0 0 14px}
+.homebtn{background:#fff;border:1px solid var(--line);border-radius:10px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;color:var(--ofica)}
+.homebtn:active{transform:scale(.96)}
+.homebtn svg{width:24px;height:24px}
+.rptitle{flex:1;text-align:center;font-size:18px;font-weight:700;letter-spacing:.5px;color:var(--txt)}
+.rphint{color:var(--mut);font-size:13px;margin:0 0 14px;line-height:1.5}
+.rpbar{display:flex;align-items:center;justify-content:space-between;margin:0 0 12px;padding:0 2px}
+.rpsel{display:flex;align-items:center;gap:9px;font-size:14px;color:var(--txt);cursor:pointer;user-select:none}
+.rpsel input{width:18px;height:18px;accent-color:var(--acc);cursor:pointer}
+.rpdel{color:var(--danger);background:none;border:none;font:inherit;font-size:14px;font-weight:600;cursor:pointer;text-decoration:underline;padding:0}
+.rpdel[disabled]{opacity:.4;cursor:default;text-decoration:none}
+.rcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px;display:flex;gap:12px;align-items:flex-start}
+.rcard .chk{width:18px;height:18px;margin-top:3px;accent-color:var(--acc);flex:0 0 auto;cursor:pointer}
+.rbody{flex:1;min-width:0}
+.rtop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.rname{font-size:16px;font-weight:700;color:var(--txt);cursor:pointer}
+.rname:hover{color:var(--acc)}
+.ramount{font-size:16px;font-weight:700;color:var(--txt);white-space:nowrap;text-align:right}
+.rmeta{font-size:12px;color:var(--mut);margin-top:3px}
+.rbadge{display:inline-block;font-size:11px;font-weight:700;color:var(--ok);background:#e1f5ee;border-radius:8px;padding:3px 9px;margin-top:8px}
+.rbot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap}
+.rref{font-size:12px;color:var(--mut);min-width:0;word-break:break-word}
+.ractions{display:flex;gap:14px;flex:0 0 auto}
+.ractions button{background:none;border:none;font:inherit;font-size:13px;font-weight:600;cursor:pointer;text-decoration:underline;padding:0}
+.ractions .ed{color:var(--acc)}
+.ractions .el{color:var(--danger)}
+.rpvacio{text-align:center;color:var(--mut);font-size:14px;padding:40px 10px}
 </style>
 </head>
 <body>
 <div class="hdr">
   <h1>Procesador de Facturas</h1>
-  <div class="sub">OFICA Representaciones</div>
+  <div class="sub">OFICA Representaciones · v4.1</div>
 </div>
 
 <div class="wrap">
@@ -80,13 +136,18 @@ table.ftbl select.cat:focus{outline:2px solid var(--acc);outline-offset:-2px}
       <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
       Cargar facturas o tomar foto
     </label>
-    <input type="file" id="file" accept="image/*,application/pdf" multiple capture="environment" style="display:none">
+    <input type="file" id="file" accept="image/*,application/pdf" multiple style="display:none">
     <label class="drop card" id="drop" for="file" style="margin-top:12px">
       <div class="t">o arrastra tus facturas aquí</div>
       <div class="d">Acepta JPG, PNG, WEBP, GIF y PDF</div>
       <div class="lista" id="lista"></div>
     </label>
+    <button class="btn btn-ghost" id="btnVerGuardadas" style="margin-top:12px;display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      Ver facturas procesadas (<span id="cntGuardadas">0</span>)
+    </button>
     <div class="hint">Todo el procesamiento ocurre en tu dispositivo (OCR local). No se envía nada a ningún servidor.<br>Los datos se pueden corregir antes de exportar.</div>
+    <div style="text-align:center;margin-top:14px"><button class="link" data-tasas>⤓ Descargar tabla de tasas BCV (Excel)</button></div>
   </div>
 
   <!-- Progreso -->
@@ -96,27 +157,37 @@ table.ftbl select.cat:focus{outline:2px solid var(--acc);outline-offset:-2px}
     <div class="bar"><i id="pbar"></i></div>
   </div>
 
-  <!-- Resultados -->
+  <!-- Resultados del OCR (revisión / edición) -->
   <div id="scResult" style="display:none">
     <div class="sheet-title"><span class="badge badge-ok" id="resBadge">✓ 0 facturas</span></div>
+    <div id="lista-facturas"></div>
+    <div class="editnote">Revisa y corrige los campos si hace falta. La Base se calcula sola (Total − IVA).</div>
+    <div class="toolbar" style="margin-top:14px">
+      <button class="btn btn-ok" id="btnGuardar"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M5 12l5 5 9-11"/></svg>Guardar facturas</button>
+      <label class="btn btn-ghost" for="file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Agregar más</label>
+      <button class="btn btn-ghost" id="btnSalir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/><path d="M16 16l5-4-5-4M21 12H9"/></svg>Salir</button>
+    </div>
+  </div>
+
+  <!-- Reporte de facturas guardadas -->
+  <div id="scReport" style="display:none">
+    <div class="rphead">
+      <button class="homebtn" id="btnHome" title="Ir al inicio" aria-label="Ir al inicio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg></button>
+      <div class="rptitle">FACTURAS PROCESADAS</div>
+      <span style="width:44px;flex:0 0 auto"></span>
+    </div>
     <div class="toolbar">
-      <button class="btn btn-acc" id="btnXlsx"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Excel</button>
+      <label class="btn btn-acc" for="file"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuevas facturas</label>
+      <button class="btn btn-ok" id="btnXlsx"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Excel</button>
       <button class="btn btn-ghost" id="btnCsv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>CSV</button>
     </div>
-    <div class="ftbl-wrap">
-      <table class="ftbl">
-        <thead><tr>
-          <th>Archivo</th><th>Comercio</th><th>RIF comercio</th><th>Cédula o RIF</th>
-          <th>Nombre o Razón Social</th><th>Fecha y hora</th><th>Nº factura</th>
-          <th class="num">Base</th><th class="num">IVA</th><th class="num">Total</th><th>Categoría</th><th></th>
-        </tr></thead>
-        <tbody id="tbody"></tbody>
-      </table>
+    <p class="rphint">Facturas guardadas en este dispositivo. Puedes <b>editar</b> o <b>eliminar</b> cualquiera, o descargarlas a Excel/CSV.</p>
+    <div style="margin:-6px 0 14px"><button class="link" data-tasas>⤓ Descargar tabla de tasas BCV (Excel)</button></div>
+    <div class="rpbar">
+      <label class="rpsel"><input type="checkbox" id="selTodas"> Seleccionar todas</label>
+      <button class="rpdel" id="btnElimSel" disabled>Eliminar</button>
     </div>
-    <div class="editnote">Toca cualquier celda para corregirla. La Base se recalcula sola (Total − IVA).</div>
-    <div class="toolbar" style="margin-top:14px">
-      <label class="btn btn-ghost" for="file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Agregar más</label>
-    </div>
+    <div id="lista-reporte"></div>
   </div>
 </div>
 
@@ -130,129 +201,651 @@ const $=id=>document.getElementById(id);
 const COLS=['archivo','comercio','rif_comercio','cedula_rif','nombre_razon_social','fecha_hora','numero_factura','base','iva','monto_total','categoria'];
 const CATEGORIAS=['GASOLINA','ESTACIONAMIENTO / PEAJE','TAXI / ALQUILER / VEHÍCULO','BOLETO AVIÓN / FERRI','HOTELES / HABITACIÓN','COMIDA','TELÉFONO','MISCELÁNEOS DE VENTAS'];
 
+/* ---------- Base de datos de comercios (en el navegador) ---------- */
+// Se guarda en localStorage. Arranca con FARMATODO ya cargado.
+const SEED_COMERCIOS=[
+  {nombre:'FARMATODO, C.A.', rif:'J-00202001', direccion:'Av. Los Guayabitos, CC Expreso Baruta, Nivel 5 Of. Única, Urb. La Trinidad (Sector Piedra Azul), Caracas.'}
+];
+const normTxt=s=>(s||'').toUpperCase().normalize('NFD').replace(/[^A-Z0-9]/g,'');
+function cargarComercios(){
+  let arr=[];
+  try{ const s=localStorage.getItem('comercios'); if(s) arr=JSON.parse(s); }catch(e){}
+  if(!Array.isArray(arr)||!arr.length) arr=SEED_COMERCIOS.slice();
+  // asegura que el seed (FARMATODO) siempre esté disponible
+  for(const seed of SEED_COMERCIOS){
+    const dR=normTxt(seed.rif);
+    if(!arr.some(c=>normTxt(c.rif)===dR || normTxt(c.nombre)===normTxt(seed.nombre))) arr.push(seed);
+  }
+  return arr;
+}
+function guardarComercios(){ try{ localStorage.setItem('comercios', JSON.stringify(COMERCIOS)); }catch(e){} }
+let COMERCIOS=cargarComercios();
+
+// Busca en la base un comercio que coincida con el texto OCR o el RIF leído.
+function matchComercio(texto, rifParsed){
+  const tN=normTxt(texto);
+  const dParsed=(rifParsed||'').replace(/\D/g,'');
+  for(const c of COMERCIOS){
+    const nN=normTxt(c.nombre).replace(/(SACA|CA|SA|SRL)$/,'');   // núcleo del nombre (sin sufijo C.A./S.A.)
+    if(nN.length>=4 && tN.includes(nN)) return c;                 // el nombre aparece en el texto de la factura
+    const dRif=(c.rif||'').replace(/\D/g,'');
+    if(dRif.length>=6){
+      if(tN.includes(dRif)) return c;
+      if(dParsed.length>=6 && (dRif.includes(dParsed)||dParsed.includes(dRif))) return c;
+    }
+  }
+  return null;
+}
+
+// Busca un comercio en la base por su RIF (compara solo los dígitos, tolerante al OCR).
+function buscarComercioPorRif(rif){
+  const d=(rif||'').replace(/\D/g,''); if(d.length<6) return null;
+  return COMERCIOS.find(c=>{ const dc=(c.rif||'').replace(/\D/g,''); return dc.length>=6 && (dc===d || dc.includes(d) || d.includes(dc)); }) || null;
+}
+// Busca un comercio en la base por su nombre (núcleo, sin sufijo C.A./S.A.).
+function buscarComercioPorNombre(nombre){
+  const n=normTxt(nombre); if(n.length<4) return null;
+  return COMERCIOS.find(c=>{ const cn=normTxt(c.nombre).replace(/(SACA|CA|SA|SRL)$/,''); return cn.length>=4 && (n.includes(cn)||cn.includes(n)); }) || null;
+}
+
+// Guarda/actualiza un comercio en la base (para que se reconozca la próxima vez).
+function guardarComercioDeFila(f){
+  const nombre=(f.comercio||'').trim(), rif=(f.rif_comercio||'').trim(), direccion=(f.direccion_fiscal||'').trim();
+  if(!nombre && !rif) return false;
+  const dR=rif.replace(/\D/g,'');
+  const i=COMERCIOS.findIndex(c=> (dR && (c.rif||'').replace(/\D/g,'')===dR) || (nombre && normTxt(c.nombre)===normTxt(nombre)));
+  const entry={nombre,rif,direccion};
+  if(i>=0) COMERCIOS[i]=entry; else COMERCIOS.push(entry);
+  guardarComercios();
+  return true;
+}
+
+/* ---------- Base de datos de clientes (nombre + cédula/RIF, único) ----------
+   Igual que con el comercio: la cédula/RIF es un número ÚNICO que identifica al cliente.
+   Al reconocer un cliente (por su cédula, o por parecido de nombre) se sugiere el guardado,
+   tal como la app de cobranza sugiere el cliente de una cobranza. */
+const soloDig=s=>(s||'').replace(/\D/g,'');
+let CLIENTES_DB=(()=>{ try{ return JSON.parse(localStorage.getItem('clientesFacturas')||'[]'); }catch(e){ return []; } })();
+function guardarClientesDB(){ try{ localStorage.setItem('clientesFacturas', JSON.stringify(CLIENTES_DB)); }catch(e){} }
+// Palabras que no ayudan a distinguir un nombre (se ignoran al comparar).
+const STOP_NOMBRE=new Set(['de','del','la','el','los','las','y','e','ca','cia','sa','srl','rif','ci','cliente','razon','social']);
+function tokensNombre(s){
+  return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
+    .split(/[^a-z0-9]+/).filter(w=>w.length>=3 && !STOP_NOMBRE.has(w) && !/^\d+$/.test(w));
+}
+// Reconoce por la cédula/RIF (clave única): compara solo los dígitos, tolerante al OCR.
+function buscarClientePorCedula(ced){
+  const d=soloDig(ced); if(d.length<6) return null;
+  return CLIENTES_DB.find(c=>{ const dc=soloDig(c.cedula); return dc.length>=6 && (dc===d || dc.includes(d) || d.includes(dc)); }) || null;
+}
+// Sugiere por parecido de nombre (mismo método de puntaje que cobranza: cuántos tokens coinciden).
+function buscarClientePorNombre(nom){
+  const toks=tokensNombre(nom); if(!toks.length) return null;
+  let best=null;
+  for(const c of CLIENTES_DB){
+    const cn=tokensNombre(c.nombre);
+    let score=0, mlen=0;
+    for(const t of toks){ if(cn.includes(t)){ score++; mlen+=t.length; } }
+    if(score>0 && (!best || score>best.score || (score===best.score && mlen>best.mlen))) best={c,score,mlen};
+  }
+  return (best && (best.score>=2 || best.mlen>=6)) ? best.c : null;
+}
+// Guarda/actualiza un cliente en la base (clave = cédula/RIF). Requiere una cédula válida.
+function guardarClienteDeFila(f){
+  const nombre=(f.nombre_razon_social||'').trim(), cedula=(f.cedula_rif||'').trim();
+  const d=soloDig(cedula);
+  if(d.length<6 || !nombre) return false;         // sin cédula única o sin nombre no se guarda
+  const i=CLIENTES_DB.findIndex(c=>soloDig(c.cedula)===d);
+  const entry={cedula,nombre};
+  if(i>=0) CLIENTES_DB[i]=entry; else CLIENTES_DB.push(entry);
+  guardarClientesDB();
+  return true;
+}
+
+/* ---------- Tasa de cambio del BCV (misma lógica y repositorio que la app de cobranza) ----------
+   La base de datos diaria de tasas es la MISMA que usa https://boadar.github.io/reporte-cobranza/:
+     • Base diaria:  tasas.json del repo de cobranza  →  { "AAAA-MM-DD": [tasa$, tasa€], ... }
+     • Respaldo hoy: ve.dolarapi.com (campo 'promedio') guardado en localStorage 'tasasEnVivo'
+   Como ambas apps están en el mismo dominio (boadar.github.io), 'tasasEnVivo' se comparte entre
+   las dos: lo que una consulta en vivo, la otra lo aprovecha. Cada factura usa la tasa de SU fecha. */
+const TASA_API='https://ve.dolarapi.com/v1/dolares/oficial';
+const TASAS_URL='https://boadar.github.io/reporte-cobranza/tasas.json';
+const pad2=n=>String(n).padStart(2,'0');
+const hoyIso=()=>{const d=new Date();return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());};
+let TASAS={};   // iso -> [tasa$, tasa€]  (misma forma que la app de cobranza)
+
+// Recupera las tasas del día consultadas en vivo (compartidas con cobranza; mismo dominio).
+function cargarTasasVivoLocal(){
+  try{
+    const o=JSON.parse(localStorage.getItem('tasasEnVivo')||'{}');
+    for(const k in o){ if(/^\d{4}-\d{2}-\d{2}$/.test(k) && Array.isArray(o[k]) && o[k][0]!=null && !TASAS[k]) TASAS[k]=o[k]; }
+  }catch(e){}
+}
+// Guarda una tasa consultada en vivo (mismo formato y misma clave que cobranza: 'tasasEnVivo').
+function guardarTasaVivo(iso,usd,eur){
+  TASAS[iso]=[usd, eur!=null?eur:null];
+  try{ const o=JSON.parse(localStorage.getItem('tasasEnVivo')||'{}'); o[iso]=[usd, eur!=null?eur:null]; localStorage.setItem('tasasEnVivo',JSON.stringify(o)); }catch(e){}
+}
+// Baja la base diaria de tasas desde el repo de cobranza (misma fuente que la app de pagos).
+async function refrescarTasas(){
+  try{
+    const r=await fetch(TASAS_URL+'?t='+Date.now(),{cache:'no-store'});
+    if(!r.ok) throw 0;
+    const j=await r.json();
+    if(j&&typeof j==='object'){
+      for(const k in j){ if(!/^\d{4}-\d{2}-\d{2}$/.test(k))continue; const v=j[k]; if(Array.isArray(v)&&v[0]!=null) TASAS[k]=v; }
+    }
+  }catch(e){ /* sin señal: se usa lo que ya haya (tasas en vivo locales) */ }
+}
+// Respaldo: si la base no trae la tasa de HOY, se consulta en vivo (dolarapi) igual que cobranza.
+async function consultarTasaHoy(){
+  const iso=hoyIso();
+  if(TASAS[iso]&&TASAS[iso][0]!=null) return TASAS[iso][0];
+  try{
+    const r=await fetch(TASA_API+'?t='+Date.now(),{cache:'no-store'});
+    if(!r.ok) throw 0;
+    const usd=Number((await r.json()).promedio);
+    if(usd>0){ guardarTasaVivo(iso,usd,null); return usd; }
+  }catch(e){ /* sin internet: se usa lo que haya guardado */ }
+  return TASAS[iso]&&TASAS[iso][0]!=null?TASAS[iso][0]:null;
+}
+function isoDeFecha(fh){
+  const m=(fh||'').match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
+  if(!m) return null;
+  let d=m[1], mo=m[2], y=m[3]; if(y.length===2) y='20'+y;
+  return y+'-'+pad2(mo)+'-'+pad2(d);
+}
+// Tasa (Bs/$) para la fecha de la factura. Prioridad:
+//   1) la tasa exacta de esa fecha,
+//   2) la última tasa publicada EN O ANTES de esa fecha (la vigente ese día),
+//   3) si la factura es anterior a todo lo disponible, la más antigua.
+function tasaParaFecha(fh){
+  const iso=isoDeFecha(fh);
+  if(iso && TASAS[iso] && TASAS[iso][0]!=null) return TASAS[iso][0];
+  const ks=Object.keys(TASAS).filter(k=>TASAS[k]&&TASAS[k][0]!=null).sort();
+  if(!ks.length) return null;
+  if(iso){
+    let prev=null; for(const k of ks){ if(k<=iso) prev=k; else break; }
+    return prev!=null ? TASAS[prev][0] : TASAS[ks[0]][0];
+  }
+  return TASAS[ks[ks.length-1]][0];   // sin fecha legible: la más reciente
+}
+cargarTasasVivoLocal();   // al arrancar, recupera las tasas en vivo compartidas con cobranza
+refrescarTasas();         // y baja la base diaria del repo de cobranza (en segundo plano)
+
 /* ---------- Utilidades de números (formato venezolano) ---------- */
 function numVE(s){
   if(s==null) return null;
-  s=String(s).replace(/[^\d.,]/g,'');
+  if(typeof s==='number') return isNaN(s)?null:s;   // ya es número (p.ej. la tasa 36.5847): devolver tal cual
+  s=String(s).replace(/[^\d.,]/g,'');   // deja solo dígitos, puntos y comas (quita espacios, 'Bs', etc.)
   if(!s) return null;
-  // '.' como separador de miles, ',' como decimal
-  if(s.includes(',')) s=s.replace(/\./g,'').replace(',','.');
-  const n=parseFloat(s);
+  // El último separador seguido de exactamente 2 dígitos es el decimal; el resto son miles.
+  const m=s.match(/^(.*)[.,](\d{2})$/);
+  if(m){ const ent=m[1].replace(/[.,]/g,''); const n=parseFloat(ent+'.'+m[2]); return isNaN(n)?null:n; }
+  const n=parseFloat(s.replace(/[.,]/g,''));
   return isNaN(n)?null:n;
 }
-const fmt=n=> n==null||isNaN(n) ? '' : n.toFixed(2);
+// Formato venezolano: punto para miles, coma para decimales (ej. 21.947,26)
+function fmt(n){
+  if(n==null||isNaN(n)) return '';
+  const neg=n<0; let [ent,dec]=Math.abs(n).toFixed(2).split('.');
+  ent=ent.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  return (neg?'-':'')+ent+','+dec;
+}
 
 /* ---------- Parseo de la factura ---------- */
+function limpiaComercio(s){
+  return s.replace(/^[^A-Za-zÁÉÍÓÚÑ0-9]*/,'')   // basura inicial no alfanumérica
+          .replace(/^[A-Za-zÑ]\s+/,'')            // letra suelta inicial (logo ® leído como 'A'/'q')
+          .replace(/[.\s,]+$/,'')                 // puntuación/espacios finales
+          .trim();
+}
+
+// Normaliza una cédula/RIF: debe empezar por V, E, J, G o P. Corrige confusiones del OCR.
+function normalizaRif(s){
+  if(!s) return s;
+  s=s.toUpperCase().replace(/[\s.\-]/g,'');
+  const m=s.match(/^([A-Z]?)(\d{5,10})/);
+  if(!m) return s;
+  let letra=m[1];
+  const validas=['V','E','J','G','P'];
+  const conf={U:'V',Y:'V',W:'V',N:'V','0':'',I:'',L:'',T:''};  // OCR suele confundir la V con U/Y/W
+  if(!validas.includes(letra)) letra = conf[letra] || 'V';  // por defecto V (persona natural)
+  return letra + m[2];
+}
+
+// Mayor monto de la factura (el total suele ser el más grande) — robusto ante OCR ruidoso.
+function bestMonto(t){
+  // ignora porcentajes (16,00%) para no confundirlos con montos
+  const sin=t.replace(/[\d.,]+\s*%/g,' ');
+  const re=/(\d[\d.,\s]{0,14}?[.,]\d{2})(?!\d)/g; let m, mx=null;
+  while((m=re.exec(sin))){ const v=numVE(m[1]); if(v!=null && (mx==null || v>mx)) mx=v; }
+  return mx;
+}
+
 function parseFactura(text){
   const t=text.replace(/\r/g,'');
   const lines=t.split('\n').map(l=>l.trim()).filter(Boolean);
   const d={comercio:'',rif_comercio:'',cedula_rif:'',nombre_razon_social:'',fecha_hora:'',numero_factura:'',iva:null,monto_total:null,categoria:''};
 
-  // RIF del comercio/emisor (arriba, formato J-xxxxxxxx). Evita 'RIF/C.I.'
-  let mRif=t.match(/RIF\s+([JGVEP]-?\s?\d[\d\-]{5,})/i);
-  if(mRif) d.rif_comercio=mRif[1].replace(/\s/g,'').toUpperCase();
-
-  // Nombre del comercio: línea siguiente al RIF, o una que termine en C.A.
-  const idx=lines.findIndex(l=>/RIF\s+[JGVEP]-?\s?\d/i.test(l));
-  if(idx>=0){
-    for(let i=idx+1;i<Math.min(idx+3,lines.length);i++){
-      if(lines[i] && !/^RIF/i.test(lines[i]) && !/SENIAT/i.test(lines[i])){ d.comercio=lines[i]; break; }
+  // RIF del comercio/emisor: línea cerca del inicio con 'RIF' (NO 'RIF/C.I.' del cliente).
+  // El OCR a veces pierde la letra J (lee 'RIF 0020200') o la lee como dígito ('3-000...').
+  // Se acepta letra o dígito-suelto como prefijo, o solo números, y se normaliza (por defecto J).
+  let idx=-1;
+  for(let i=0;i<Math.min(12,lines.length);i++){
+    const l=lines[i];
+    if(/RIF\s*[\/|]/i.test(l) || /C\.?\s*[I1L]\.?/i.test(l)) continue;   // salta la línea del cliente
+    if(!/RIF/i.test(l)) continue;
+    const rest=l.replace(/^.*?RIF[\s.:=~]+/i,'').trim();
+    const m=rest.match(/^([A-Z0-9])[\s.=~\-]+(\d[\d.\s\-]{4,})/i)         // prefijo (letra o dígito) + sep + números
+          || rest.match(/^()(\d[\d.\s\-]{5,})/);                          // solo números
+    if(m){
+      let letra=(m[1]||'').toUpperCase(), dig=m[2].replace(/[^\d]/g,'');
+      if(!letra || !'JGVEP'.includes(letra)) letra='J';                  // RIF de empresa suele ser J
+      if(dig.length>=5){ d.rif_comercio=letra+'-'+dig; idx=i; break; }
     }
   }
-  if(!d.comercio){
-    const mCA=t.match(/([A-ZÑ0-9][A-Za-zÑ0-9.,&' ]{2,45}C\.?\s?A\.?)/);
-    if(mCA) d.comercio=mCA[1].trim();
+
+  // Nombre del comercio: preferimos una línea con sufijo de empresa (C.A., S.A., S.R.L., etc.)
+  // cerca del inicio; si no, la línea siguiente al RIF del comercio.
+  const esComercio=l=> /[A-Za-zÑ]{3}/.test(l) && !/^RIF/i.test(l) && !/SENIAT/i.test(l) && !/RAZ[OÓ0]N/i.test(l);
+  // Requiere el punto (C.A., S.A., S.R.L.) para no confundirse con 'ca' dentro de una palabra
+  const suf=/(?:^|[\s,])(C\.\s?A\.?|S\.\s?A\.?|S\.\s?R\.\s?L\.?|COMPA[NÑ][IÍ]A)/i;
+  let com=lines.slice(0,8).find(l=>esComercio(l) && suf.test(l));
+  if(!com && idx>=0){
+    for(let i=idx+1;i<Math.min(idx+3,lines.length);i++){ if(esComercio(lines[i])){ com=lines[i]; break; } }
+  }
+  if(com) d.comercio=limpiaComercio(com);
+
+  // Cédula o RIF del cliente: línea 'RIF/C.I.' (tolerante a 'C.1.', 'C.T.', 'RTF', etc.).
+  // También vale una línea con 'C.I' aunque el OCR dañe 'RIF'. Se prefiere un número con
+  // prefijo V/E/J/G/P (el del cliente), no el del comercio.
+  const lc=lines.find(l=>/RIF\s*[\/|]?\s*C\s*[.,\s]*[I1lLTt]/i.test(l) || /\bC\s*[.,\s]*[I1lLTt]\s*[.,\s]*[:._-]/i.test(l));
+  if(lc){ const m=lc.match(/([VEJGP]\s*-?\s*\d{6,10})/i) || lc.match(/([A-Za-z]?-?\d{6,10})/); if(m) d.cedula_rif=normalizaRif(m[1].replace(/\s/g,'')); }
+  // Respaldo: si no se pudo por la etiqueta, buscar directamente una cédula V/E + 7-9 dígitos
+  // (persona natural), evitando el RIF del comercio (empieza por J y suele estar arriba).
+  if(!d.cedula_rif){
+    for(const l of lines){
+      if(/FARMATODO|SENIAT|C\.\s?A\./i.test(l)) continue;
+      const m=l.match(/\b([VEve])\s*[-.]?\s*(\d{7,9})\b/);
+      if(m){ d.cedula_rif=normalizaRif(m[1]+m[2]); break; }
+    }
   }
 
-  // Cédula o RIF del cliente ('RIF/C.I.: V...')
-  const mCi=t.match(/RIF\s*\/?\s*C\.?\s*I\.?\s*[:\-]?\s*([VEJGP]-?\d{5,9})/i);
-  if(mCi) d.cedula_rif=mCi[1].replace(/\s/g,'').toUpperCase();
+  // Nombre / Razón social del cliente. Se busca por 'SOCIAL' (más fiable que 'RAZON', que el
+  // OCR suele leer como 'KAZON'). El nombre puede quedar en la misma línea o en la siguiente.
+  const ir=lines.findIndex(l=>/S[O0]CIAL\s*[:\-]/i.test(l) || /[RK]AZ[OÓ0]N\s+S[O0]CIAL/i.test(l));
+  if(ir>=0){
+    let rem=lines[ir].replace(/.*S[O0]CIAL\s*[:\-]?\s*/i,'').trim();
+    rem=rem.replace(/^cliente\s*:?\s*/i,'').trim();   // quita un 'Cliente:' que a veces precede al nombre
+    const palabras=rem.split(/\s+/).filter(w=>/[A-Za-zÁÉÍÓÚÑ]{2,}/.test(w));
+    if(palabras.length>=2){ d.nombre_razon_social=rem; }
+    else{
+      // busca en las siguientes líneas una secuencia de nombres (2+ palabras capitalizadas)
+      const nameRe=/([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+(?:De|Del|La|Los|Y|[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)){1,6})\s*$/;
+      for(let j=ir;j<Math.min(ir+4,lines.length);j++){ const m=lines[j].match(nameRe); if(m){ d.nombre_razon_social=m[1].trim(); break; } }
+      if(!d.nombre_razon_social) d.nombre_razon_social=rem;
+    }
+  }
 
-  // Nombre / Razón social del cliente
-  const mRs=t.match(/RAZ[OÓ]N\s+SOCIAL\s*[:\-]?\s*(.+)/i);
-  if(mRs) d.nombre_razon_social=mRs[1].trim();
+  // El OCR a veces lee dígitos como letras (0→O/o/Q, 1→I/l/L). Se normalizan a números.
+  const limpiaDig=s=>s.replace(/[OoQ]/g,'0').replace(/[IlL]/g,'1');
 
-  // Fecha y hora
-  const mF=t.match(/FECHA\s*[:\-]?\s*(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/i);
-  const mH=t.match(/HORA\s*[:\-]?\s*(\d{1,2}:\d{2})/i);
-  d.fecha_hora=[mF&&mF[1], mH&&mH[1]].filter(Boolean).join(' ');
+  // Fecha y hora. Tolerante a O/o/I/l por dígitos y a separadores . - /
+  const mF=t.match(/FECHA\s*[:\-.]?\s*([\dOoIlL]{1,2}\s*[-\/.]\s*-?\s*[\dOoIlL]{1,2}\s*[-\/.]\s*[\dOoIlL]{2,4})/i);
+  let fecha=mF? limpiaDig(mF[1]).replace(/\s+/g,'').replace(/[.\/]/g,'-').replace(/-+/g,'-') : null;
+  if(!fecha){                                   // respaldo: cualquier fecha dd-mm-aaaa en el texto
+    const m2=limpiaDig(t).match(/\b([0-3]?\d)[-\/.]([01]?\d)[-\/.]((?:20)?\d{2})\b/);
+    if(m2) fecha=m2[1]+'-'+m2[2]+'-'+m2[3];
+  }
+  const mH=t.match(/HORA\s*[:\-]?\s*([\dOoIlL]{1,2}\s*[:.]\s*[\dOoIlL]{2})/i);
+  const hora=mH? limpiaDig(mH[1]).replace(/\s+/g,'').replace('.',':') : null;
+  d.fecha_hora = fecha || '';   // solo la fecha; si el OCR no la lee, queda vacía (se elige con el calendario)
 
-  // Número de factura
-  const mNf=t.match(/FACTURA\s*[:\-]?\s*(\d{4,})/i);
-  if(mNf) d.numero_factura=mNf[1];
+  // Nº de factura. El OCR suele separarlo de 'FACTURA:' y dejarlo suelto (a veces junto a 'HORA:').
+  // Estrategias en orden: 1) en la línea 'FACTURA:'; 2) línea sola pegada a 'HORA:'/'FECHA:';
+  //                       3) número con ceros a la izquierda en su propia línea (típico: 00041077).
+  const numFactDe=str=>{
+    const ms=[...str.matchAll(/([A-Za-z-]?)\s*([\dOoQIlL]{4,})/g)];
+    for(let x=ms.length-1;x>=0;x--){            // de derecha a izquierda (el nº suele ir a la derecha)
+      if(ms[x][1]) continue;                     // saltar si viene tras letra/guion (RIF, códigos)
+      const n=limpiaDig(ms[x][2]);
+      if(/^\d{4,}$/.test(n)) return n;
+    }
+    return '';
+  };
+  const numSolo=l=>{ const m=l.match(/^\s*([\dOoQIlL]{5,9})\s*$/); if(!m) return ''; const n=limpiaDig(m[1]); return /^\d{5,9}$/.test(n)?n:''; };
+  let nf='';
+  const lFact=lines.find(l=>/FACT\w*\s*[:.]/i.test(l) && !/^\s*FACT\w*\s*$/i.test(l));
+  if(lFact) nf=numFactDe(lFact.replace(/^.*?FACT\w*\s*N?[°º]?\s*[:.]/i,''));   // 1)
+  if(!nf){                                                                     // 2) pegado a HORA/FECHA
+    const iHF=lines.findIndex(l=>/\b(HORA|FECHA)\b/i.test(l));
+    if(iHF>=0) for(const j of [iHF-1,iHF+1,iHF-2]){ if(j>=0&&j<lines.length){ const n=numSolo(lines[j]); if(n){ nf=n; break; } } }
+  }
+  if(!nf){                                                                     // 3) ceros a la izquierda, línea sola
+    for(const l of lines){ if(/REF|RIF/i.test(l)) continue; const n=numSolo(l); if(n && n[0]==='0'){ nf=n; break; } }
+  }
+  d.numero_factura=nf;
 
-  // IVA (monto tras 'IVA ... Bs')
-  const mIva=t.match(/IVA[^B\n]*Bs?\.?\s*([\d.]+,\d{2})/i);
-  if(mIva) d.iva=numVE(mIva[1]);
+  // Total: el total real está en las líneas de RESUMEN (TOTAL / EXENTO / A PAGAR), normalmente
+  // repetido varias veces; ahí se lee mucho mejor que agarrando el mayor monto suelto (que podría
+  // ser un ítem). Se toma el MAYOR monto de esas líneas. Si no hay, 'TOTAL … Bs'; y por último,
+  // el mayor monto de toda la factura.
+  const montosDe=l=>{
+    const sin=l.replace(/[\d.,]+\s*%/g,' ');            // quita porcentajes (16,00%)
+    return [...sin.matchAll(/(\d[\d.,\s]{0,14}?[.,]\d{2})(?!\d)/g)].map(m=>numVE(m[1])).filter(v=>v!=null);
+  };
+  const esResumen=l=> (/\bTOTAL\b/i.test(l) && !/SUB\s*[- ]?\s*TOTAL/i.test(l)) || /E[XKNM]ENT[O0A]/i.test(l) || /A\s+PAGAR/i.test(l);
+  let totResumen=null;
+  for(const l of lines){
+    if(!esResumen(l)) continue;
+    const ms=montosDe(l);
+    if(ms.length){ const mx=Math.max(...ms); if(totResumen==null || mx>totResumen) totResumen=mx; }
+  }
+  const mTot=t.match(/TOTAL[^\d\n]{0,15}Bs?\.?\s*([\d][\d.\s]*[.,]\d{2})/i);
+  d.monto_total = totResumen ?? (mTot? numVE(mTot[1]) : null) ?? bestMonto(t);
 
-  // Total (monto tras 'TOTAL ... Bs')
-  const mTot=t.match(/TOTAL[^\d\n]{0,15}Bs?\.?\s*([\d.]+,\d{2})/i);
-  if(mTot) d.monto_total=numVE(mTot[1]);
+  // IVA: en la línea de impuestos (BI ... IVA ...). El OCR a menudo daña el monto del IVA
+  // (p.ej. lee 'Bs 3.027,21' como 'Bs 027,21'). Truco robusto: la base imponible (el mayor
+  // monto de esa línea) sí se lee bien, así que IVA = Total − Base imponible.
+  const montosLinea=l=>{
+    const sin=l.replace(/[\d.,]+\s*%/g,' ');            // quita porcentajes (16,00%)
+    return [...sin.matchAll(/(\d[\d.,\s]{0,14}?[.,]\d{2})(?!\d)/g)].map(m=>numVE(m[1])).filter(v=>v!=null);
+  };
+
+  const lineaImp=lines.find(l=>/(\bBI\b|IVA|JUA|1VA|I\.?V\.?A|IMPUESTO)/i.test(l) && /%/.test(l))
+             || lines.find(l=>/%/.test(l) && (l.match(/Bs/gi)||[]).length>=2);
+
+  // EXENTO: parte de la factura que no paga IVA. Regla:
+  //   • Exento = Total  → factura 100% exenta → IVA = 0  (Base = Total).
+  //   • Exento < Total  → parcial → IVA = Total − Exento  (Base = Total − IVA = Exento).
+  //   Ambas se resumen en: IVA = Total − Exento (nunca negativo).
+  let exe=null;
+  const reExento=/E[XKNM]ENT[O0A]/i;   // EXENTO tolerante a fallos del OCR (EKENTO, ENENTO, EXENT0…)
+  const lineaEx=lines.find(l=>reExento.test(l));
+  if(lineaEx){
+    const msEx=montosLinea(lineaEx);
+    if(msEx.length) exe=Math.max(...msEx);               // monto exento leído en esa línea
+    if(d.monto_total==null && exe!=null) d.monto_total=exe;
+  }
+
+  if(lineaEx && exe!=null && exe>0 && d.monto_total!=null){
+    d.iva=Math.max(0, Math.round((d.monto_total-exe)*100)/100);   // IVA = Total − Exento
+  }else if(lineaEx && !lineaImp){
+    d.iva=0;                                             // hay EXENTO (sin monto legible) y sin línea de IVA
+  }else if(lineaImp){
+    const ms=montosLinea(lineaImp);
+    if(ms.length){
+      const bi=Math.max(...ms);                          // base imponible = mayor monto de la línea
+      if(d.monto_total!=null && bi>0 && bi<d.monto_total)
+        d.iva=Math.round((d.monto_total-bi)*100)/100;    // IVA = Total − Base imponible (robusto)
+      else
+        d.iva=ms[ms.length-1];                           // fallback: último monto de la línea
+    }
+  }
+
+  // Si no se pudo determinar el IVA y NO hay ninguna línea de impuesto (%) en la factura,
+  // se asume exenta: IVA = 0 y Base = Total. (Cubre recibos exentos aunque el OCR dañe 'EXENTO'.)
+  if(d.iva==null && d.monto_total!=null && !lineaImp) d.iva=0;
 
   return d;
 }
 
-/* ---------- Render de PDF/imagen a algo que OCR pueda leer ---------- */
+/* ---------- Render de PDF/imagen y limpieza previa al OCR ---------- */
+// Binariza (grises + umbral automático Otsu) para quitar marcas de agua y mejorar el OCR.
+function preprocesar(canvas){
+  const ctx=canvas.getContext('2d');
+  const im=ctx.getImageData(0,0,canvas.width,canvas.height);
+  const px=im.data, hist=new Array(256).fill(0), gris=new Uint8Array(px.length/4);
+  for(let i=0,j=0;i<px.length;i+=4,j++){
+    const g=(0.299*px[i]+0.587*px[i+1]+0.114*px[i+2])|0;
+    gris[j]=g; hist[g]++;
+  }
+  const total=gris.length;
+  let sum=0; for(let i=0;i<256;i++) sum+=i*hist[i];
+  let sumB=0,wB=0,mx=0,th=127;
+  for(let i=0;i<256;i++){
+    wB+=hist[i]; if(!wB) continue;
+    const wF=total-wB; if(!wF) break;
+    sumB+=i*hist[i];
+    const mB=sumB/wB, mF=(sum-sumB)/wF, between=wB*wF*(mB-mF)*(mB-mF);
+    if(between>mx){ mx=between; th=i; }
+  }
+  for(let i=0,j=0;i<px.length;i+=4,j++){
+    const v=gris[j]>th?255:0; px[i]=px[i+1]=px[i+2]=v;
+  }
+  ctx.putImageData(im,0,0);
+  return canvas;
+}
+
 async function fileToImage(file){
+  const canvas=document.createElement('canvas');
+  const ctx=canvas.getContext('2d');
   if(file.type==='application/pdf' || /\.pdf$/i.test(file.name)){
     const buf=await file.arrayBuffer();
     const pdf=await pdfjsLib.getDocument({data:buf}).promise;
     const page=await pdf.getPage(1);
-    const vp=page.getViewport({scale:2});
-    const canvas=document.createElement('canvas');
+    const vp=page.getViewport({scale:2.5});
     canvas.width=vp.width; canvas.height=vp.height;
-    await page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;
-    return canvas;
+    await page.render({canvasContext:ctx,viewport:vp}).promise;
+  }else{
+    const img=await new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=URL.createObjectURL(file); });
+    // Escala para que el lado mayor sea ~2000px (Tesseract lee mejor con buena resolución)
+    const escala=Math.min(2, Math.max(1, 2000/Math.max(img.width,img.height)));
+    canvas.width=Math.round(img.width*escala); canvas.height=Math.round(img.height*escala);
+    ctx.drawImage(img,0,0,canvas.width,canvas.height);
   }
-  return URL.createObjectURL(file);
+  return preprocesar(canvas);
 }
-async function ocr(img,onProg){
-  const res=await Tesseract.recognize(img,'spa',{logger:m=>{
-    if(m.status==='recognizing text'&&onProg) onProg(m.progress);
-  }});
+// Progreso actual del OCR (lo usa el logger del worker)
+let _onProg=null;
+async function crearWorker(){
+  const w=await Tesseract.createWorker('spa',1,{logger:m=>{ if(m.status==='recognizing text'&&_onProg) _onProg(m.progress); }});
+  // PSM 4 = columna única de texto: clave para leer bien recibos/facturas
+  await w.setParameters({tessedit_pageseg_mode:'4'});
+  return w;
+}
+async function ocr(worker,img,onProg){
+  _onProg=onProg;
+  const res=await worker.recognize(img);
+  _onProg=null;
   return res.data.text||'';
 }
 
 /* ---------- Estado y tabla ---------- */
-let filas=[]; // {archivo, ...campos}
+let filas=[]; // {archivo, ...campos} — lote actual (recién leído del OCR / en edición)
+
+/* ---------- Base de datos de facturas guardadas (en el navegador) ---------- */
+let GUARDADAS=(()=>{ try{ return JSON.parse(localStorage.getItem('facturasGuardadas')||'[]'); }catch(e){ return []; } })();
+function persistirGuardadas(){ try{ localStorage.setItem('facturasGuardadas', JSON.stringify(GUARDADAS)); }catch(e){} }
+function nuevoId(){ return 'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+// Fecha/hora legible del momento en que se guardó (ej. 24/7/2026 15:30)
+function fmtGuardado(ms){ const d=new Date(ms); return d.getDate()+'/'+(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad2(d.getHours())+':'+pad2(d.getMinutes()); }
+// Clave para identificar una factura de forma única: RIF del comercio + Nº de factura.
+// Sin número de factura no se puede afirmar que sea duplicada.
+function claveFactura(f){
+  const nf=(f.numero_factura||'').replace(/\D/g,'');
+  if(!nf) return null;
+  const rif=(f.rif_comercio||'').replace(/\D/g,'');
+  return rif+'|'+nf;
+}
+// ¿Ya existe esta factura entre las guardadas? (excluye la propia por id al editar)
+function facturaDuplicada(f, excluirId){
+  const k=claveFactura(f); if(!k) return null;
+  return GUARDADAS.find(g=>g.id!==excluirId && claveFactura(g)===k) || null;
+}
+// Guarda (o actualiza) el lote actual. Devuelve las facturas que NO se guardaron por ser duplicadas.
+function guardarLoteActual(){
+  const dups=[];
+  filas.forEach(f=>{
+    guardarClienteDeFila(f);                 // guarda el cliente (nombre + cédula/RIF) en la base
+    const dup=facturaDuplicada(f, f.id);
+    if(dup){ dups.push(f); return; }        // ya existe: no se guarda (evita duplicados)
+    if(f.id){ const i=GUARDADAS.findIndex(g=>g.id===f.id); if(i>=0){ GUARDADAS[i]={...f, guardadoEn:GUARDADAS[i].guardadoEn||Date.now()}; return; } }
+    f.id=nuevoId(); GUARDADAS.unshift({...f, guardadoEn:Date.now()});
+  });
+  persistirGuardadas();
+  return dups;
+}
 
 function baseDe(f){
   const iva=numVE(f.iva), tot=numVE(f.monto_total);
   return (iva!=null&&tot!=null)? Math.round((tot-iva)*100)/100 : null;
 }
-function pintarTabla(){
-  const tb=$('tbody'); tb.innerHTML='';
+function enUsd(vBs,f){
+  const tasa=numVE(f.tasa_cambio);
+  return (vBs!=null&&tasa>0)? Math.round((vBs/tasa)*100)/100 : null;
+}
+function totalUsd(f){ return enUsd(numVE(f.monto_total), f); }
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// Convierte la fecha guardada ('DD-MM-AAAA') al formato del input de calendario ('AAAA-MM-DD').
+function fhToDateInput(fh){ return isoDeFecha(fh)||''; }
+
+// Crea un campo con etiqueta e input, enlazado a filas[i][clave]
+function campo(i,clave,etiqueta,val,ph,opts){
+  opts=opts||{};
+  const fldCls='fld'+(opts.full?' full':'')+(opts.center?' c':'');
+  if(opts.date){   // campo de fecha con calendario nativo (se elige tocándolo)
+    return `<div class="${fldCls}"><label>${etiqueta}</label>`+
+      `<input type="date" class="fecha" data-i="${i}" data-k="${clave}" value="${esc(fhToDateInput(val))}"></div>`;
+  }
+  if(opts.select){   // lista desplegable (p. ej. CATEGORÍA)
+    const opciones='<option value=""></option>'+opts.select.map(o=>`<option${val===o?' selected':''}>${esc(o)}</option>`).join('');
+    return `<div class="${fldCls}"><label>${etiqueta}</label>`+
+      `<select data-i="${i}" data-k="${clave}">${opciones}</select></div>`;
+  }
+  const cls=(opts.num?'num ':'')+(opts.ro?'ro':'');
+  const attrs=(opts.ro?'readonly ':'')+(opts.num?'inputmode="decimal" ':'');
+  return `<div class="${fldCls}"><label>${etiqueta}</label>`+
+    `<input class="${cls.trim()}" data-i="${i}" data-k="${clave}" ${attrs}value="${esc(val)}" placeholder="${esc(ph||'')}"></div>`;
+}
+
+function pintarFormularios(){
+  const cont=$('lista-facturas'); cont.innerHTML='';
   filas.forEach((f,i)=>{
     const base=baseDe(f);
-    const tr=document.createElement('tr');
-    tr.innerHTML=
-      `<td class="cod">${esc(f.archivo)}</td>`+
-      `<td contenteditable data-k="comercio">${esc(f.comercio)}</td>`+
-      `<td contenteditable data-k="rif_comercio" class="cod">${esc(f.rif_comercio)}</td>`+
-      `<td contenteditable data-k="cedula_rif" class="cod">${esc(f.cedula_rif)}</td>`+
-      `<td contenteditable data-k="nombre_razon_social">${esc(f.nombre_razon_social)}</td>`+
-      `<td contenteditable data-k="fecha_hora">${esc(f.fecha_hora)}</td>`+
-      `<td contenteditable data-k="numero_factura" class="cod">${esc(f.numero_factura)}</td>`+
-      `<td class="num base" data-base>${fmt(base)}</td>`+
-      `<td contenteditable data-k="iva" class="num">${fmt(numVE(f.iva))}</td>`+
-      `<td contenteditable data-k="monto_total" class="num">${fmt(numVE(f.monto_total))}</td>`+
-      `<td><select class="cat" data-k="categoria"><option value=""></option>`+
-        CATEGORIAS.map(c=>`<option${f.categoria===c?' selected':''}>${esc(c)}</option>`).join('')+
-        `</select></td>`+
-      `<td class="del" title="Eliminar">✕</td>`;
-    tr.querySelectorAll('td[contenteditable]').forEach(td=>{
-      td.addEventListener('input',()=>{
-        filas[i][td.dataset.k]=td.textContent.trim();
-        tr.querySelector('[data-base]').textContent=fmt(baseDe(filas[i]));
-      });
+    const card=document.createElement('div');
+    card.className='fcard';
+    card.innerHTML=
+      `<div class="fhead"><div>`+
+        `<div class="ftitle">Factura ${i+1}</div>`+
+        `<div class="fsub">${esc(f.archivo)}</div>`+
+      `</div><button class="fx" title="Eliminar" data-del="${i}">✕</button></div>`+
+      (f.duplicada?`<div class="warn-box">⚠ Esta factura (Nº ${esc(f.numero_factura||'—')}) ya fue procesada. No se guardará para evitar duplicados.</div>`:'')+
+      `<div class="fsection">Información general${f.reconocido?'<span class="recon">✓ comercio reconocido</span>':''}${f.clienteReconocido?'<span class="recon">✓ cliente reconocido</span>':''}</div>`+
+      `<div class="fgrid">`+
+        campo(i,'nombre_razon_social','Nombre o Razón Social',f.nombre_razon_social,'Nombre del cliente')+
+        campo(i,'cedula_rif','Cédula o RIF',f.cedula_rif,'V-12345678')+
+        campo(i,'comercio','Comercio',f.comercio,'Nombre del comercio')+
+        campo(i,'rif_comercio','RIF del comercio',f.rif_comercio,'J-12345678-9')+
+        campo(i,'direccion_fiscal','Dirección fiscal del comercio',f.direccion_fiscal,'Dirección del comercio',{full:true})+
+      `</div>`+
+      `<div class="fgrid tres">`+
+        campo(i,'fecha_hora','Fecha',f.fecha_hora,'',{center:true,date:true})+
+        campo(i,'tasa_cambio','Tasa BCV (Bs/$)',fmt(numVE(f.tasa_cambio)),'0,00',{num:true,center:true})+
+        campo(i,'numero_factura','Nº de factura',f.numero_factura,'00000000',{center:true})+
+      `</div>`+
+      `<div class="fsection">Montos</div>`+
+      `<div class="fgrid tres">`+
+        campo(i,'base','BASE Bs.',fmt(base),'',{num:true,ro:true,center:true})+
+        campo(i,'iva','IVA Bs.',fmt(numVE(f.iva)),'0,00',{num:true,center:true})+
+        campo(i,'monto_total','TOTAL Bs.',fmt(numVE(f.monto_total)),'0,00',{num:true,center:true})+
+      `</div>`+
+      `<div class="fgrid tres">`+
+        campo(i,'base_usd','BASE $',fmt(enUsd(base,f)),'',{num:true,ro:true,center:true})+
+        campo(i,'iva_usd','IVA $',fmt(enUsd(numVE(f.iva),f)),'',{num:true,ro:true,center:true})+
+        campo(i,'total_usd','TOTAL $',fmt(totalUsd(f)),'',{num:true,ro:true,center:true})+
+      `</div>`+
+      `<div class="fgrid">`+
+        campo(i,'categoria','Categoría',f.categoria,'',{full:true,center:true,select:CATEGORIAS})+
+      `</div>`+
+      `<div class="flinks">`+
+        `<button type="button" class="link" data-ver>Ver texto leído</button>`+
+        `<button type="button" class="link" data-copiar>Copiar texto</button>`+
+        `<button type="button" class="link" data-guardar>Guardar comercio en base</button>`+
+        `<button type="button" class="link" data-guardar-cli>Guardar cliente en base</button>`+
+        `<span class="copiado" data-ok style="display:none">¡Copiado!</span>`+
+        `<span class="copiado" data-guardado style="display:none">¡Guardado!</span>`+
+        `<span class="copiado" data-guardado-cli style="display:none">¡Cliente guardado!</span>`+
+      `</div>`+
+      `<pre class="textobox" data-texto>${esc(f.texto||'(sin texto)')}</pre>`;
+    // Enlaces de edición
+    card.querySelectorAll('input:not([readonly]), select').forEach(inp=>{
+      const manejar=()=>{
+        const k=inp.dataset.k;
+        if(inp.type==='date'){                          // calendario: 'AAAA-MM-DD' -> 'DD-MM-AAAA'
+          const v=inp.value;
+          filas[i][k]= v ? v.split('-').reverse().join('-') : '';
+        }else{
+          filas[i][k]=inp.value.trim();
+        }
+        const f=filas[i];
+        const setTxt=(kk,v)=>{ f[kk]=v==null?'':v; const el=card.querySelector('input[data-k="'+kk+'"]'); if(el && el!==inp) el.value=f[kk]; };
+        const marcarRecon=texto=>{ const sec=card.querySelector('.fsection'); if(sec && !sec.innerHTML.includes(texto)) sec.insertAdjacentHTML('beforeend','<span class="recon">✓ '+texto+'</span>'); };
+        // Al corregir/incluir el RIF (o el nombre) del comercio, buscar en la base y autocompletar.
+        if(k==='rif_comercio' || k==='comercio'){
+          const c = k==='rif_comercio' ? buscarComercioPorRif(f.rif_comercio) : buscarComercioPorNombre(f.comercio);
+          if(c){
+            setTxt('comercio', c.nombre);                    // actualiza COMERCIO
+            setTxt('direccion_fiscal', c.direccion||'');     // actualiza DIRECCIÓN FISCAL
+            if(k!=='rif_comercio') setTxt('rif_comercio', c.rif);  // si buscó por nombre, completa el RIF
+            f.reconocido=true; marcarRecon('comercio reconocido');
+          }
+        }
+        // Al corregir/incluir la CÉDULA o el NOMBRE del cliente, buscar en la base y sugerir.
+        if(k==='cedula_rif'){
+          const cl=buscarClientePorCedula(f.cedula_rif);
+          if(cl){ setTxt('nombre_razon_social', cl.nombre); f.clienteReconocido=true; marcarRecon('cliente reconocido'); }
+        }else if(k==='nombre_razon_social'){
+          const cl=buscarClientePorNombre(f.nombre_razon_social);
+          if(cl){ if(!soloDig(f.cedula_rif)) setTxt('cedula_rif', cl.cedula); f.clienteReconocido=true; marcarRecon('cliente reconocido'); }
+        }
+        const set=(kk,v)=>{const el=card.querySelector('input[data-k="'+kk+'"]'); if(el) el.value=fmt(v);};
+        // Al corregir la FECHA, recalcular la tasa BCV de esa fecha desde la base de cobranza.
+        if(k==='fecha_hora'){
+          const t=tasaParaFecha(f.fecha_hora);
+          if(t!=null){ f.tasa_cambio=t; set('tasa_cambio',t); }
+        }
+        const bs=baseDe(f);
+        set('base',bs); set('base_usd',enUsd(bs,f));
+        set('iva_usd',enUsd(numVE(f.iva),f)); set('total_usd',totalUsd(f));
+      };
+      inp.addEventListener('input',manejar);
+      if(inp.type==='date') inp.addEventListener('change',manejar);   // el calendario emite 'change'
+      if(inp.tagName==='SELECT') inp.addEventListener('change',manejar);   // la lista desplegable emite 'change'
     });
-    tr.querySelector('select.cat').addEventListener('change',e=>{ filas[i].categoria=e.target.value; });
-    tr.querySelector('.del').addEventListener('click',()=>{ filas.splice(i,1); pintarTabla(); });
-    tb.appendChild(tr);
+    card.querySelector('[data-del]').addEventListener('click',()=>{ filas.splice(i,1); pintarFormularios(); });
+    // Ver / ocultar texto leído
+    const pre=card.querySelector('[data-texto]'), btnVer=card.querySelector('[data-ver]');
+    btnVer.addEventListener('click',()=>{
+      const abierto=pre.style.display==='block';
+      pre.style.display=abierto?'none':'block';
+      btnVer.textContent=abierto?'Ver texto leído':'Ocultar texto';
+    });
+    // Copiar texto
+    const btnCop=card.querySelector('[data-copiar]'), ok=card.querySelector('[data-ok]');
+    btnCop.addEventListener('click',async()=>{
+      const t=filas[i].texto||'';
+      try{ await navigator.clipboard.writeText(t); }
+      catch(e){ const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(_){} ta.remove(); }
+      ok.style.display='inline'; setTimeout(()=>{ok.style.display='none';},1500);
+    });
+    // Guardar comercio en la base de datos
+    const btnGuar=card.querySelector('[data-guardar]'), okG=card.querySelector('[data-guardado]');
+    btnGuar.addEventListener('click',()=>{
+      if(guardarComercioDeFila(filas[i])){ okG.style.display='inline'; setTimeout(()=>{okG.style.display='none';},1500); }
+    });
+    // Guardar cliente en la base de datos (nombre + cédula/RIF)
+    const btnGuarCli=card.querySelector('[data-guardar-cli]'), okGC=card.querySelector('[data-guardado-cli]');
+    btnGuarCli.addEventListener('click',()=>{
+      if(guardarClienteDeFila(filas[i])){ okGC.style.display='inline'; setTimeout(()=>{okGC.style.display='none';},1500); }
+      else alert('Para guardar el cliente hace falta el nombre y la cédula/RIF.');
+    });
+    cont.appendChild(card);
   });
   $('resBadge').textContent='✓ '+filas.length+' factura'+(filas.length!==1?'s':'');
 }
-const esc=s=>String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
 /* ---------- Flujo principal ---------- */
 async function procesar(files){
@@ -260,35 +853,126 @@ async function procesar(files){
   if(!files.length) return;
   $('scStart').style.display='none';
   $('scResult').style.display='none';
+  $('scReport').style.display='none';
   $('progress').style.display='block';
+  $('pmsg').textContent='Consultando tasas del BCV…';
+  await refrescarTasas();           // baja la base diaria de tasas del repo de cobranza
+  await consultarTasaHoy();         // respaldo: tasa de hoy en vivo si la base no la trae
+  $('pmsg').textContent='Preparando OCR…';
+  const worker=await crearWorker();
   for(let i=0;i<files.length;i++){
     const f=files[i];
     const cuenta=`(${i+1}/${files.length}) ${f.name}`;
     $('pmsg').textContent='Leyendo '+cuenta+'…';
     try{
       const img=await fileToImage(f);
-      const text=await ocr(img,p=>{
+      const text=await ocr(worker,img,p=>{
         $('pbar').style.width=Math.round(((i+p)/files.length)*100)+'%';
         $('pmsg').textContent='Reconociendo texto '+cuenta+' — '+Math.round(p*100)+'%';
       });
       const d=parseFactura(text);
-      filas.push({archivo:f.name, ...d});
+      d.direccion_fiscal='';
+      const c=matchComercio(text, d.rif_comercio);   // ¿lo reconoce la base de datos?
+      if(c){ d.comercio=c.nombre; d.rif_comercio=c.rif; d.direccion_fiscal=c.direccion||''; d.reconocido=true; }
+      // ¿reconoce al cliente? primero por cédula/RIF (único); si no, por parecido de nombre
+      let cli=buscarClientePorCedula(d.cedula_rif);
+      if(cli){ d.nombre_razon_social=cli.nombre; d.cedula_rif=cli.cedula; d.clienteReconocido=true; }
+      else{
+        cli=buscarClientePorNombre(d.nombre_razon_social);
+        if(cli){ d.nombre_razon_social=cli.nombre; if(!soloDig(d.cedula_rif)) d.cedula_rif=cli.cedula; d.clienteReconocido=true; }
+      }
+      d.tasa_cambio=tasaParaFecha(d.fecha_hora);      // tasa BCV de la fecha de la factura (base de cobranza)
+      if(facturaDuplicada(d)) d.duplicada=true;        // ¿ya está entre las facturas procesadas?
+      filas.push({archivo:f.name, texto:text, ...d});
     }catch(e){
       console.error(e);
-      filas.push({archivo:f.name, comercio:'', rif_comercio:'', cedula_rif:'', nombre_razon_social:'(no se pudo leer)', fecha_hora:'', numero_factura:'', iva:null, monto_total:null});
+      filas.push({archivo:f.name, texto:'', comercio:'', rif_comercio:'', cedula_rif:'', nombre_razon_social:'(no se pudo leer)', fecha_hora:'', numero_factura:'', iva:null, monto_total:null, direccion_fiscal:'', tasa_cambio:tasaParaFecha(''), categoria:''});
     }
   }
+  await worker.terminate();
   $('progress').style.display='none';
-  pintarTabla();
+  pintarFormularios();
   $('scResult').style.display='block';
+}
+
+/* ---------- Navegación entre pantallas ---------- */
+function mostrar(sc){
+  ['scStart','scResult','scReport'].forEach(id=>$(id).style.display='none');
+  $('progress').style.display='none';
+  $(sc).style.display='block';
+  if(sc==='scStart') refrescarInicio();
+  if(sc==='scReport') pintarReporte();
+  window.scrollTo(0,0);
+}
+function refrescarInicio(){
+  const n=GUARDADAS.length;
+  $('cntGuardadas').textContent=n;
+  $('btnVerGuardadas').style.display=n?'flex':'none';
+}
+
+/* ---------- Reporte de facturas guardadas ---------- */
+function pintarReporte(){
+  const cont=$('lista-reporte'); cont.innerHTML='';
+  if(!GUARDADAS.length){
+    cont.innerHTML='<div class="rpvacio">Aún no has guardado facturas.<br>Sube facturas y pulsa «Guardar facturas».</div>';
+  }
+  GUARDADAS.forEach(f=>{
+    const cliente=(f.nombre_razon_social||f.cedula_rif||'—').trim();
+    const meta=['Nº '+(f.numero_factura||'—'), (f.fecha_hora||'sin fecha'), cliente].join(' · ');
+    const usd=totalUsd(f);
+    const ref=['RIF '+(f.rif_comercio||'—'), 'IVA '+ (fmt(numVE(f.iva))||'0,00')+' Bs', (usd!=null?fmt(usd)+' $':'')].filter(Boolean).join(' · ');
+    const card=document.createElement('div');
+    card.className='rcard';
+    card.innerHTML=
+      `<input type="checkbox" class="chk" data-id="${esc(f.id)}">`+
+      `<div class="rbody">`+
+        `<div class="rtop">`+
+          `<div class="rname" data-edit="${esc(f.id)}">${esc(f.comercio||'(sin comercio)')}</div>`+
+          `<div class="ramount">${fmt(numVE(f.monto_total))||'0,00'} Bs</div>`+
+        `</div>`+
+        `<div class="rmeta">${esc(meta)}</div>`+
+        `<div class="rbadge">Guardado ${esc(fmtGuardado(f.guardadoEn))}</div>`+
+        `<div class="rbot">`+
+          `<div class="rref">${esc(ref)}</div>`+
+          `<div class="ractions"><button class="ed" data-edit="${esc(f.id)}">Editar</button><button class="el" data-del="${esc(f.id)}">Eliminar</button></div>`+
+        `</div>`+
+      `</div>`;
+    cont.appendChild(card);
+  });
+  // Editar
+  cont.querySelectorAll('[data-edit]').forEach(el=>el.addEventListener('click',()=>editarGuardada(el.dataset.edit)));
+  // Eliminar una
+  cont.querySelectorAll('[data-del]').forEach(el=>el.addEventListener('click',()=>{
+    const f=GUARDADAS.find(g=>g.id===el.dataset.del);
+    if(f && confirm('¿Eliminar la factura de '+(f.comercio||'este comercio')+'?')){
+      GUARDADAS=GUARDADAS.filter(g=>g.id!==el.dataset.del); persistirGuardadas(); pintarReporte();
+    }
+  }));
+  // Casillas de selección
+  cont.querySelectorAll('.chk').forEach(c=>c.addEventListener('change',actualizarBarraSel));
+  $('selTodas').checked=false;
+  actualizarBarraSel();
+}
+function seleccionadas(){ return [...document.querySelectorAll('#lista-reporte .chk:checked')].map(c=>c.dataset.id); }
+function actualizarBarraSel(){
+  const n=seleccionadas().length;
+  const b=$('btnElimSel');
+  b.disabled=!n; b.textContent=n?('Eliminar ('+n+')'):'Eliminar';
+}
+function editarGuardada(id){
+  const f=GUARDADAS.find(g=>g.id===id); if(!f) return;
+  filas=[{...f}];      // se edita una copia; al pulsar «Guardar facturas» se actualiza por su id
+  pintarFormularios();
+  mostrar('scResult');
 }
 
 /* ---------- Exportación ---------- */
 function matriz(){
-  const enc=['Archivo','Comercio','RIF comercio','Cédula o RIF','Nombre o Razón Social','Fecha y hora','Nº factura','Base','IVA','Total','Categoría'];
+  const enc=['Archivo','Comercio','RIF comercio','Dirección fiscal','Cédula o RIF','Nombre o Razón Social','Fecha y hora','Nº factura','Categoría','Tasa de cambio','BASE Bs.','IVA Bs.','TOTAL Bs.','BASE $','IVA $','TOTAL $'];
   const rows=[enc];
-  filas.forEach(f=>{
-    rows.push([f.archivo,f.comercio,f.rif_comercio,f.cedula_rif,f.nombre_razon_social,f.fecha_hora,f.numero_factura,baseDe(f),numVE(f.iva),numVE(f.monto_total),f.categoria||'']);
+  GUARDADAS.forEach(f=>{
+    const bs=baseDe(f);
+    rows.push([f.archivo,f.comercio,f.rif_comercio,f.direccion_fiscal||'',f.cedula_rif,f.nombre_razon_social,f.fecha_hora,f.numero_factura,f.categoria||'',fmt(numVE(f.tasa_cambio)),fmt(bs),fmt(numVE(f.iva)),fmt(numVE(f.monto_total)),fmt(enUsd(bs,f)),fmt(enUsd(numVE(f.iva),f)),fmt(totalUsd(f))]);
   });
   return rows;
 }
@@ -306,12 +990,66 @@ $('btnCsv').onclick=()=>{
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='facturas.csv'; a.click();
 };
 
+// Exporta a Excel toda la base de tasas BCV disponibles (una fila por fecha).
+function matrizTasas(){
+  const rows=[['Fecha','Tasa BCV (Bs/$)','Tasa (Bs/€)']];
+  Object.keys(TASAS).filter(k=>TASAS[k]&&TASAS[k][0]!=null).sort().forEach(iso=>{
+    const [y,m,d]=iso.split('-'); const v=TASAS[iso];
+    rows.push([d+'-'+m+'-'+y, fmt(numVE(v[0])), v[1]!=null?fmt(numVE(v[1])):'']);
+  });
+  return rows;
+}
+async function exportarTasas(){
+  if(!Object.keys(TASAS).length) await refrescarTasas();   // asegura tener la base al día
+  if(!Object.keys(TASAS).length){ alert('No se pudieron cargar las tasas. Revisa tu conexión a internet e intenta de nuevo.'); return; }
+  const ws=XLSX.utils.aoa_to_sheet(matrizTasas());
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Tasas BCV');
+  XLSX.writeFile(wb,'tasas_bcv.xlsx');
+}
+document.querySelectorAll('[data-tasas]').forEach(b=>b.addEventListener('click',exportarTasas));
+
+/* ---------- Guardar lote y navegación ---------- */
+$('btnGuardar').addEventListener('click',()=>{
+  if(!filas.length) return;
+  const dups=guardarLoteActual();
+  if(dups.length){
+    const lista=dups.map(f=>'•  Nº '+(f.numero_factura||'—')+'  —  '+(f.comercio||'comercio')).join('\n');
+    alert((dups.length===1
+        ? 'Esta factura ya fue procesada anteriormente y no se guardó para evitar duplicados:'
+        : 'Estas facturas ya fueron procesadas anteriormente y no se guardaron para evitar duplicados:')
+      +'\n\n'+lista);
+  }
+  filas=[];
+  mostrar('scReport');
+});
+$('btnSalir').addEventListener('click',()=>{
+  if(filas.length && !confirm('¿Salir sin guardar? Se perderán las facturas de este formulario que no hayas guardado.')) return;
+  filas=[];
+  mostrar(GUARDADAS.length?'scReport':'scStart');   // vuelve al reporte si hay guardadas; si no, al inicio
+});
+$('btnHome').addEventListener('click',()=>mostrar('scStart'));
+$('btnVerGuardadas').addEventListener('click',()=>mostrar('scReport'));
+$('selTodas').addEventListener('change',e=>{
+  document.querySelectorAll('#lista-reporte .chk').forEach(c=>{ c.checked=e.target.checked; });
+  actualizarBarraSel();
+});
+$('btnElimSel').addEventListener('click',()=>{
+  const ids=seleccionadas(); if(!ids.length) return;
+  if(confirm('¿Eliminar '+ids.length+' factura'+(ids.length!==1?'s':'')+' seleccionada'+(ids.length!==1?'s':'')+'?')){
+    const set=new Set(ids);
+    GUARDADAS=GUARDADAS.filter(g=>!set.has(g.id)); persistirGuardadas(); pintarReporte();
+  }
+});
+
 /* ---------- Entradas de archivo ---------- */
 $('file').addEventListener('change',e=>{ procesar(e.target.files); e.target.value=''; });
 const drop=$('drop');
 ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hover');}));
 ['dragleave','dragend'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hover');}));
 drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('hover'); if(e.dataTransfer.files.length) procesar(e.dataTransfer.files);});
+
+/* ---------- Inicio ---------- */
+refrescarInicio();
 </script>
 </body>
 </html>
