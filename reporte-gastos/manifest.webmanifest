@@ -1,7 +1,7 @@
 {
-  "name": "Procesador de Facturas",
-  "short_name": "Facturas",
-  "description": "Extrae datos de facturas (PDF/imagen) con OCR en el navegador.",
+  "name": "Reporte de Gastos",
+  "short_name": "Gastos",
+  "description": "Extrae datos de gastos (PDF/imagen) con OCR en el navegador y los clasifica por categoría.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
