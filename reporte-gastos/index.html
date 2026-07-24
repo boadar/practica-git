@@ -82,6 +82,7 @@ table.ftbl .del{color:var(--danger);cursor:pointer;text-align:center;font-weight
 .fld input.ro{background:#eef4f8;color:var(--mut);font-weight:600}
 .fld select{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px 13px;font-size:15px;font-family:inherit;background:#f7f9fb;color:var(--txt);text-align:center;transition:border-color .12s,box-shadow .12s;cursor:pointer;appearance:none;-webkit-appearance:none}
 .fld select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(0,157,220,.18);background:#fff}
+.fld select.falta{border-color:var(--danger);box-shadow:0 0 0 3px rgba(192,57,43,.18);background:#fdf1f0}
 .fld .num{font-variant-numeric:tabular-nums}
 .fgrid .full{grid-column:1/-1}
 .recon{display:inline-block;font-size:10px;font-weight:700;color:var(--ok);background:#e1f5ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:middle}
@@ -780,6 +781,7 @@ function pintarFormularios(){
         }else{
           filas[i][k]=inp.value.trim();
         }
+        if(inp.tagName==='SELECT' && k==='categoria') inp.classList.toggle('falta', !inp.value.trim());
         const f=filas[i];
         const setTxt=(kk,v)=>{ f[kk]=v==null?'':v; const el=card.querySelector('input[data-k="'+kk+'"]'); if(el && el!==inp) el.value=f[kk]; };
         const marcarRecon=texto=>{ const sec=card.querySelector('.fsection'); if(sec && !sec.innerHTML.includes(texto)) sec.insertAdjacentHTML('beforeend','<span class="recon">✓ '+texto+'</span>'); };
@@ -1011,6 +1013,16 @@ document.querySelectorAll('[data-tasas]').forEach(b=>b.addEventListener('click',
 /* ---------- Guardar lote y navegación ---------- */
 $('btnGuardar').addEventListener('click',()=>{
   if(!filas.length) return;
+  // Validación: cada gasto debe tener una CATEGORÍA seleccionada antes de guardar.
+  const cats=[...document.querySelectorAll('#lista-facturas select[data-k="categoria"]')];
+  const faltan=filas.map((f,i)=>i).filter(i=>!(filas[i].categoria||'').trim());
+  cats.forEach((s,i)=>s.classList.toggle('falta', !(filas[i] && (filas[i].categoria||'').trim())));
+  if(faltan.length){
+    const cuales=faltan.map(i=>'Gasto '+(i+1)).join(', ');
+    alert('Debes seleccionar una CATEGORÍA para poder guardar.\n\nFalta la categoría en: '+cuales+'.');
+    if(cats[faltan[0]]) cats[faltan[0]].scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
   const dups=guardarLoteActual();
   if(dups.length){
     const lista=dups.map(f=>'•  Nº '+(f.numero_factura||'—')+'  —  '+(f.comercio||'comercio')).join('\n');
