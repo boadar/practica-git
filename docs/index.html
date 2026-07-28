@@ -412,7 +412,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v122</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v123</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -776,9 +776,12 @@
   .ptmp-search{padding:10px 16px;border-bottom:1px solid var(--line)}
   .ptmp-search input{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:14px;background:var(--surface-2)}
   .ptmp-body{overflow:auto;padding:2px 0;flex:1 1 auto}
-  .ptmp-row{display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--line-2)}
+  .ptmp-row{display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--line-2);flex-wrap:wrap;row-gap:6px}
   .ptmp-row.has{background:var(--brand-tint)}
-  .ptmp-info{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .ptmp-info{flex:1 1 140px;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .ptmp-descwrap{flex:0 0 auto;display:flex;align-items:center;gap:3px;border:1px solid var(--line);border-radius:8px;padding:5px 8px;background:var(--surface)}
+  .ptmp-descwrap span{color:var(--ink-3);font-size:11px}
+  .ptmp-descwrap input{width:42px;border:none;outline:none;font-size:14px;font-weight:700;color:var(--brand-ink);text-align:right;background:transparent}
   .ptmp-code{font-size:11.5px;font-weight:800;color:var(--ink)}
   .ptmp-name{font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ptmp-base{flex:0 0 auto;font-size:9px;color:var(--ink-3);text-align:right;line-height:1.25;text-transform:uppercase}
@@ -840,7 +843,7 @@
 </style>
 <div class="modal" id="precioTmpModal">
   <div class="sheet ptmp-sheet">
-    <header><h2>Cambio de precio temporal</h2><button class="closex" id="ptmpClose">&times;</button></header>
+    <header><h2>Precio y descuento temporal</h2><button class="closex" id="ptmpClose">&times;</button></header>
     <div class="ptmp-hint">Fija precios <b>solo para este pedido</b>. No cambia la base de datos ni otros pedidos, y solo aplica en modo administrador.</div>
     <div class="ptmp-search"><input type="search" id="ptmpSearch" placeholder="Buscar producto o código…" autocomplete="off"></div>
     <div class="ptmp-body" id="ptmpBody"></div>
@@ -17334,7 +17337,7 @@ const esc = s=>String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt
 function factorGlobal(){const d1=+state.meta.desc1||0,d2=+state.meta.desc2||0,d3=+state.meta.desc3||0;return (1-d1)*(1-d2)*(1-d3);}
 // Precio unitario con los descuentos del cliente.
 // Se aplican todos los descuentos SIN redondeo intermedio y se redondea SOLO el resultado final a 2 decimales.
-var ptmpDraft={};
+var ptmpDraft={}, ptmpDescDraft={}, ptmpDescOrig={};
 function descResumenTexto(meta){
   meta = meta || state.meta;
   const parts=[];
@@ -17355,13 +17358,15 @@ function descDe(p){
   if(dp) return [+dp.d1||0, +dp.d2||0, +dp.d3||0];   // descuento por producto
   return [+state.meta.desc1||0, +state.meta.desc2||0, +state.meta.desc3||0];   // global (fallback)
 }
+function descCombPct(arr){ const a=+arr[0]||0,b=+arr[1]||0,c=+arr[2]||0; return Math.round((1-(1-a)*(1-b)*(1-c))*1000)/10; }
+function descGlobalPct(){ return descCombPct([+state.meta.desc1||0,+state.meta.desc2||0,+state.meta.desc3||0]); }
 function precioNeto(p){
   const d=descDe(p);
   const ov=precioTmpDe(p);
   const base=(ov!=null)?ov:(+(p&&p.precioUsd)||0);
   return round2(base*(1-d[0])*(1-d[1])*(1-d[2]));   // redondeo a 2 decimales solo al final
 }
-function openPrecioTmp(){ ptmpDraft=Object.assign({}, state.meta.precioTmp||{}); const s=$('#ptmpSearch'); if(s) s.value=''; ptmpRender(''); $('#precioTmpModal').classList.add('open'); }
+function openPrecioTmp(){ ptmpDraft=Object.assign({}, state.meta.precioTmp||{}); ptmpDescDraft={}; ptmpDescOrig=JSON.parse(JSON.stringify(state.meta.descProd||{})); const s=$('#ptmpSearch'); if(s) s.value=''; ptmpRender(''); $('#precioTmpModal').classList.add('open'); }
 function ptmpRender(q){
   q=(q||'').trim().toLowerCase();
   let list;
@@ -17374,34 +17379,64 @@ function ptmpRender(q){
   }
   let h='';
   if(!list.length){ h='<div class="ptmp-empty">'+(q?'Sin resultados':'El pedido no tiene productos. Usa el buscador para fijar un precio temporal.')+'</div>'; }
+  const gPct=descGlobalPct();
   list.forEach(p=>{
-    const base=(+p.precioUsd||0), tmp=ptmpDraft[p.codigo], has=tmp!=null;
+    const base=(+p.precioUsd||0), tmp=ptmpDraft[p.codigo], hasP=tmp!=null;
+    const dOrig=ptmpDescOrig[p.codigo];
+    const dEdited=ptmpDescDraft.hasOwnProperty(p.codigo);
+    const dShown=dEdited?ptmpDescDraft[p.codigo]:(dOrig?String(descCombPct([+dOrig.d1||0,+dOrig.d2||0,+dOrig.d3||0])):'');
+    const hasD=dEdited?(ptmpDescDraft[p.codigo]!==''):!!dOrig;
+    const has=hasP||hasD;
     h+='<div class="ptmp-row'+(has?' has':'')+'">'
       +'<div class="ptmp-info"><span class="ptmp-code">'+esc(p.codigo)+'</span><span class="ptmp-name">'+esc(p.nombre)+'</span></div>'
       +'<div class="ptmp-base">Base<br><b>'+fmt.format(base)+'</b></div>'
-      +'<div class="ptmp-inwrap"><span>$</span><input type="text" inputmode="decimal" data-ptmpcode="'+esc(p.codigo)+'" value="'+(has?(+tmp).toFixed(2):'')+'" placeholder="'+base.toFixed(2)+'" aria-label="Precio temporal de '+esc(p.codigo)+'"></div>'
+      +'<div class="ptmp-descwrap"><span>Desc</span><input type="text" inputmode="decimal" data-ptmpdesc="'+esc(p.codigo)+'" value="'+esc(dShown)+'" placeholder="'+gPct+'" aria-label="Descuento de '+esc(p.codigo)+'"><span>%</span></div>'
+      +'<div class="ptmp-inwrap"><span>$</span><input type="text" inputmode="decimal" data-ptmpcode="'+esc(p.codigo)+'" value="'+(hasP?(+tmp).toFixed(2):'')+'" placeholder="'+base.toFixed(2)+'" aria-label="Precio temporal de '+esc(p.codigo)+'"></div>'
       +'</div>';
   });
   $('#ptmpBody').innerHTML=h;
   ptmpUpdateCount();
 }
 function ptmpOnInput(e){
-  const inp=e.target.closest('[data-ptmpcode]'); if(!inp) return;
-  const code=inp.dataset.ptmpcode; const raw=String(inp.value).replace(',','.').trim();
-  if(raw===''){ delete ptmpDraft[code]; }
-  else { const v=parseFloat(raw); if(isFinite(v)&&v>=0) ptmpDraft[code]=round2(v); else delete ptmpDraft[code]; }
-  const row=inp.closest('.ptmp-row'); if(row) row.classList.toggle('has', ptmpDraft[code]!=null);
-  ptmpUpdateCount();
+  const inp=e.target.closest('[data-ptmpcode]');
+  if(inp){
+    const code=inp.dataset.ptmpcode; const raw=String(inp.value).replace(',','.').trim();
+    if(raw===''){ delete ptmpDraft[code]; }
+    else { const v=parseFloat(raw); if(isFinite(v)&&v>=0) ptmpDraft[code]=round2(v); else delete ptmpDraft[code]; }
+    const row=inp.closest('.ptmp-row'); if(row){ const hasD=(ptmpDescDraft.hasOwnProperty(code)?ptmpDescDraft[code]!=='':!!ptmpDescOrig[code]); row.classList.toggle('has', ptmpDraft[code]!=null||hasD); }
+    ptmpUpdateCount(); return;
+  }
+  const ind=e.target.closest('[data-ptmpdesc]');
+  if(ind){
+    const code=ind.dataset.ptmpdesc; ptmpDescDraft[code]=String(ind.value).trim();
+    const row=ind.closest('.ptmp-row'); if(row){ const hasD=ptmpDescDraft[code]!==''; row.classList.toggle('has', ptmpDraft[code]!=null||hasD); }
+    ptmpUpdateCount(); return;
+  }
 }
-function ptmpUpdateCount(){ const n=Object.keys(ptmpDraft).length; const el=$('#ptmpCount'); if(el) el.textContent=n+' precio'+(n===1?'':'s')+' temporal'+(n===1?'':'es'); }
+function ptmpUpdateCount(){
+  const nP=Object.keys(ptmpDraft).length;
+  const dset={}; Object.keys(ptmpDescOrig).forEach(c=>dset[c]=1);
+  Object.keys(ptmpDescDraft).forEach(c=>{ if(String(ptmpDescDraft[c]).trim()==='') delete dset[c]; else dset[c]=1; });
+  const nD=Object.keys(dset).length;
+  const el=$('#ptmpCount'); if(el) el.textContent=nP+' precio'+(nP===1?'':'s')+' · '+nD+' descuento'+(nD===1?'':'s')+' por producto';
+}
 function ptmpSave(){
   const clean={};
   Object.keys(ptmpDraft).forEach(code=>{ const p=byCode[code]; const v=+ptmpDraft[code]; if(p && isFinite(v) && v>=0 && round2(v)!==round2(+p.precioUsd||0)) clean[code]=round2(v); });
   if(Object.keys(clean).length) state.meta.precioTmp=clean; else delete state.meta.precioTmp;
+  // descuentos por producto: parte de los originales y aplica las ediciones
+  const nd=Object.assign({}, ptmpDescOrig);
+  Object.keys(ptmpDescDraft).forEach(code=>{
+    const raw=String(ptmpDescDraft[code]).replace(',','.').trim();
+    if(raw===''){ delete nd[code]; return; }
+    const pct=parseFloat(raw);
+    if(byCode[code] && isFinite(pct) && pct>=0 && pct<100){ nd[code]={d1:pct/100,d2:0,d3:0}; }
+  });
+  if(Object.keys(nd).length) state.meta.descProd=nd; else delete state.meta.descProd;
   save(); render(); updateTotals();
   $('#precioTmpModal').classList.remove('open');
-  const n=Object.keys(clean).length;
-  toast(n?(n+' precio'+(n===1?'':'s')+' temporal'+(n===1?'':'es')+' aplicado'+(n===1?'':'s')+' \u2713'):'Sin precios temporales');
+  const nP=Object.keys(clean).length, nD=Object.keys(nd).length;
+  toast('Aplicado: '+nP+' precio'+(nP===1?'':'s')+' temporal'+(nP===1?'':'es')+' \u00b7 '+nD+' descuento'+(nD===1?'':'s')+' por producto \u2713');
 }
 function descLabel(){const ds=[+state.meta.desc1||0,+state.meta.desc2||0,+state.meta.desc3||0];const p=ds.filter(d=>d>0).map(d=>Math.round(d*100)+'%');return p.length?p.join(' + '):'—';}
 // Texto "Descuentos X%+Y%+Z%" con los descuentos seleccionados en la ficha del cliente (vacío si no hay)
@@ -19885,7 +19920,7 @@ function wire(){
   $('#ptmpSearch').addEventListener('input',()=>ptmpRender($('#ptmpSearch').value));
   $('#ptmpBody').addEventListener('input',ptmpOnInput);
   $('#ptmpSave').addEventListener('click',ptmpSave);
-  $('#ptmpClear').addEventListener('click',()=>{ ptmpDraft={}; ptmpRender($('#ptmpSearch').value); });
+  $('#ptmpClear').addEventListener('click',()=>{ ptmpDraft={}; ptmpDescDraft={}; ptmpDescOrig={}; ptmpRender($('#ptmpSearch').value); });
   $('#btnDescuentos').addEventListener('click',administrarDescuentos);
     $('#btnOverInv').addEventListener('click',toggleOverInv);
   $('#fileRestaurar').addEventListener('change',e=>{
