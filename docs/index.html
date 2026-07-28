@@ -411,12 +411,16 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v119</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v120</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
         <span class="btnlabel">Cargar Pedido</span>
+      </button>
+      <button class="iconbtn cargartop" id="btnCargarOtro" type="button" style="display:none" title="Cargar el pedido que llegó por correo desde otro dispositivo (el Excel del pedido)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 8v6"/><path d="m9.5 11.5 2.5 2.5 2.5-2.5"/></svg>
+        <span class="btnlabel">Cargar Pedido de otro dispositivo</span>
       </button>
       <button class="iconbtn cargarinv" id="btnCargarInv" type="button" style="display:none" title="Actualizar inventario desde Excel">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7L9 18l-5-5"/><path d="M3 3h18v4H3z"/></svg>
@@ -472,6 +476,7 @@
     </div>
   </div>
   <input type="file" id="fileCargar" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
+  <input type="file" id="fileCargarOtro" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
   <input type="file" id="fileCargarInv" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
   <input type="file" id="fileNuevoProd" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
   <input type="file" id="fileRestaurar" accept=".json,application/json,text/plain" style="display:none">
@@ -18546,7 +18551,7 @@ function cerrarListaCliente(input){
 }
 
 async function toggleAdmin(){
-  const admBtns=['#btnCargar','#btnCargarInv','#btnNuevoProd','#btnPrecioTmp','#btnDescuentos','#btnOverInv','#btnRespaldo','#btnRestaurar','#btnReset'];
+  const admBtns=['#btnCargar','#btnCargarOtro','#btnCargarInv','#btnNuevoProd','#btnPrecioTmp','#btnDescuentos','#btnOverInv','#btnRespaldo','#btnRestaurar','#btnReset'];
   if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display='none'; }); filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
   const pass=await askPassword();
   if(pass==null) return;
@@ -19219,6 +19224,74 @@ function cargarPedidoDesdeXlsx(buf){
   toast('Pedido cargado: '+nref+' ref'+(nref===1?'':'s')+(missing.length?' · '+missing.length+' fuera de catálogo':''));
 }
 
+// ===== Cargar Pedido de OTRO DISPOSITIVO (Excel del correo: buildOrderXlsxStyled, hoja "Pedido") =====
+// Reconstruye el pedido usando el PRECIO FINAL (con descuento) de cada linea como precio temporal,
+// para que los montos queden identicos aunque el precio de lista del catalogo haya cambiado.
+function cargarPedidoDeCorreo(buf){
+  const zip=xlsxOpenZip(buf);
+  const shared=[]; const ssB=zip.get('xl/sharedStrings.xml');
+  if(ssB){ const xml=xlText(ssB); const si=/<si>([\s\S]*?)<\/si>/g; let m; while(m=si.exec(xml)){ const tr=/<t[^>]*>([\s\S]*?)<\/t>/g; let t,s=''; while(t=tr.exec(m[1])) s+=t[1]; shared.push(xlUnesc(s)); } }
+  const wbB=zip.get('xl/workbook.xml'); if(!wbB) throw new Error('Archivo no válido');
+  const wb=xlText(wbB); const relsB=zip.get('xl/_rels/workbook.xml.rels'); const rels=relsB?xlText(relsB):'';
+  const relMap={}; (rels.match(/<Relationship\b[^>]*\/?>/g)||[]).forEach(t=>{ const id=(t.match(/Id="([^"]+)"/)||[])[1]; const tg=(t.match(/Target="([^"]+)"/)||[])[1]; if(id&&tg) relMap[id]=tg; });
+  let sheetFile=null, firstRid=null;
+  (wb.match(/<sheet\b[^>]*\/?>/g)||[]).forEach(t=>{ const name=(t.match(/name="([^"]+)"/)||[])[1]; const rid=(t.match(/r:id="([^"]+)"/)||[])[1]; if(rid&&!firstRid) firstRid=rid; if(name&&rid&&name.trim().toUpperCase()==='PEDIDO'){ let tg=relMap[rid]||''; if(tg.charAt(0)==='/') tg=tg.slice(1); else if(!/^xl\//.test(tg)) tg='xl/'+tg; sheetFile=tg; } });
+  if(!sheetFile && firstRid && relMap[firstRid]){ let tg=relMap[firstRid]; if(tg.charAt(0)==='/') tg=tg.slice(1); else if(!/^xl\//.test(tg)) tg='xl/'+tg; sheetFile=tg; }
+  if(!sheetFile) sheetFile='xl/worksheets/sheet1.xml';
+  const shB=zip.get(sheetFile); if(!shB) throw new Error('No se pudo leer la hoja del pedido');
+  const sh=xlText(shB); const cells={}; let maxRow=0;
+  const cRe=/<c\s+([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g; let m;
+  while(m=cRe.exec(sh)){
+    const attrs=m[1], inner=m[2]||''; const ref=(attrs.match(/r="([A-Z]+\d+)"/)||[])[1]; if(!ref) continue;
+    const t=(attrs.match(/t="([^"]+)"/)||[])[1]; let val;
+    if(t==='s'){ const vi=(inner.match(/<v>([\s\S]*?)<\/v>/)||[])[1]; val=shared[parseInt(vi,10)]; }
+    else if(t==='inlineStr'){ const tt=inner.match(/<t[^>]*>([\s\S]*?)<\/t>/); val=tt?xlUnesc(tt[1]):''; }
+    else if(t==='str'){ const vv=(inner.match(/<v>([\s\S]*?)<\/v>/)||[])[1]; val=xlUnesc(vv||''); }
+    else { const vv=(inner.match(/<v>([\s\S]*?)<\/v>/)||[])[1]; val=(vv!=null&&vv!=='')?parseFloat(vv):undefined; }
+    if(val!==undefined){ cells[ref]=val; const rr=+ref.match(/\d+/)[0]; if(rr>maxRow) maxRow=rr; }
+  }
+  const norm=s=>String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9]/g,'').toUpperCase();
+  const colOf=ref=>ref.match(/[A-Z]+/)[0];
+  const rowOf=ref=>+ref.match(/\d+/)[0];
+  // localizar la fila de cabecera de la tabla ("CÓDIGO ARTÍCULO") y las columnas PEDIDO / PRECIO FINAL
+  let hdrRow=0, colCode='A', colQty='', colPrice='';
+  for(const k in cells){ if(norm(cells[k])==='CODIGOARTICULO'){ hdrRow=rowOf(k); colCode=colOf(k); break; } }
+  if(!hdrRow) throw new Error('El archivo no parece un pedido del correo (falta "CÓDIGO ARTÍCULO")');
+  for(const k in cells){ if(rowOf(k)!==hdrRow) continue; const nv=norm(cells[k]); if(nv==='PEDIDO') colQty=colOf(k); else if(nv==='PRECIOFINAL') colPrice=colOf(k); }
+  if(!colQty) throw new Error('El archivo no tiene la columna PEDIDO (cantidades)');
+  // cabecera (etiqueta en col A -> valor en col B)
+  const meta={cliente:'',cod:'',vendedor:'',condicion:'',obs:''};
+  for(let r=1;r<hdrRow;r++){
+    const lab=norm(cells['A'+r]||''); const val=cells['B'+r];
+    if(lab==='NOMBRECLIENTE') meta.cliente=val!=null?String(val).trim():'';
+    else if(lab==='CODIGOCLIENTE') meta.cod=val!=null?String(val).trim():'';
+    else if(lab==='VENDEDOR') meta.vendedor=val!=null?String(val).trim():'';
+    else if(lab==='CONDICIONDEPAGO') meta.condicion=val!=null?String(val).trim():'';
+    else if(lab==='OBSERVACIONES') meta.obs=val!=null?String(val):'';
+  }
+  // productos
+  const qty={}, ptmp={}, missing=[];
+  for(let r=hdrRow+1;r<=maxRow;r++){
+    const code=cells[colCode+r]; if(code==null) continue; const c=String(code).trim(); if(!c) continue;
+    const pv=parseFloat(cells[colQty+r]); if(!(pv>0)) continue;
+    if(byCode[c]){ qty[c]=Math.round(pv); const pr=colPrice?parseFloat(cells[colPrice+r]):NaN; if(isFinite(pr)&&pr>=0) ptmp[c]=round2(pr); }
+    else missing.push(c+' x'+Math.round(pv));
+  }
+  if(Object.keys(qty).length===0) throw new Error('El archivo no tiene productos del catálogo');
+  let obs=meta.obs||'';
+  if(missing.length){ obs=(obs.trim()?obs.trim()+'\n\n':'')+'No cargados (fuera de catálogo): '+missing.join('; '); }
+  // aplicar (reemplaza el pedido actual). Los precios finales van como precio temporal por producto.
+  state.qty=qty;
+  state.meta={cliente:meta.cliente,codcliente:meta.cod,vendedor:meta.vendedor,condicion:meta.condicion,numped:'',obs:obs,desc1:'0',desc2:'0',desc3:'0'};
+  if(Object.keys(ptmp).length) state.meta.precioTmp=ptmp;
+  const dt=new Date(); state.meta.fecha=dt.toISOString().slice(0,10);
+  currentOrderId=null; setLocked(false); save();
+  syncMetaFields();
+  filter.onlyOn=true; filter.cat=''; filter.q=''; const qi=$('#q'); if(qi) qi.value='';
+  syncChips(); render(); updateTotals(); updateReqLabels();
+  const nref=Object.keys(qty).length;
+  toast('Pedido de otro dispositivo cargado: '+nref+' ref'+(nref===1?'':'s')+(missing.length?' · '+missing.length+' fuera de catálogo':''));
+}
 // ===== Cargar Inventario desde .xlsx (hoja "Data Detalle": código en col B, inventario en col E) =====
 async function cargarInventarioDesdeXlsx(buf){
   const zip=xlsxOpenZip(buf);
@@ -19739,6 +19812,18 @@ function wire(){
     const f=e.target.files&&e.target.files[0]; if(!f) return;
     f.arrayBuffer().then(ab=>{
       try{ cargarPedidoDesdeXlsx(new Uint8Array(ab)); }
+      catch(err){ toast(err&&err.message?err.message:'No se pudo leer el archivo'); console.error(err); }
+      e.target.value='';
+    }).catch(err=>{ toast('No se pudo leer el archivo'); console.error(err); e.target.value=''; });
+  });
+  $('#btnCargarOtro').addEventListener('click',async ()=>{
+    if(totals().lineas>0){ const ok=await askConfirm('¿Reemplazar el pedido actual con el del archivo?','Sí','No'); if(!ok) return; }
+    $('#fileCargarOtro').click();
+  });
+  $('#fileCargarOtro').addEventListener('change',e=>{
+    const f=e.target.files&&e.target.files[0]; if(!f) return;
+    f.arrayBuffer().then(ab=>{
+      try{ cargarPedidoDeCorreo(new Uint8Array(ab)); }
       catch(err){ toast(err&&err.message?err.message:'No se pudo leer el archivo'); console.error(err); }
       e.target.value='';
     }).catch(err=>{ toast('No se pudo leer el archivo'); console.error(err); e.target.value=''; });
