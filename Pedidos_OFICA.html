@@ -408,7 +408,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v117</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v118</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -19242,7 +19242,7 @@ async function cargarInventarioDesdeXlsx(buf){
   const norm=s=>String(s).replace(/[^A-Za-z0-9]/g,'').toUpperCase();
   const normMap={}; CATALOGO.forEach(p=>{ normMap[norm(p.codigo)]=p.codigo; });
   const HEADERS={'CODIGO':1,'COD':1,'CODIGODEPRODUCTO':1,'CODIGOPRODUCTO':1,'REFERENCIA':1,'REF':1,'ITEM':1,'PRODUCTO':1,'DATADETALLE':1,'INVENTARIO':1,'EXISTENCIA':1};
-  const updated={}; const missing=[]; const foundSet={}; let count=0, dataRows=0;
+  const updated={}; const foundSet={}; let count=0, dataRows=0;
   for(let r=1;r<=maxRow;r++){
     const rawB=cells['B'+r]; if(rawB==null) continue;
     const codeStr=String(rawB).trim(); if(!codeStr) continue;
@@ -19251,7 +19251,9 @@ async function cargarInventarioDesdeXlsx(buf){
     const found = byCode[codeStr] ? codeStr : (normMap[nb] || null);
     const invNum=parseFloat(cells['E'+r]); const cant=isFinite(invNum)?invNum:0;
     if(found){ updated[found]=cant; foundSet[found]=1; count++; }
-    else if(cant>1){ const nombre=cells['C'+r]!=null?String(cells['C'+r]).trim():''; missing.push({code:codeStr,nombre:nombre,cant:cant}); }
+    // Las referencias que NO están en el catálogo (usos no comerciales: empaques, insertos, etc.)
+    // se ignoran. "Cargar Inventario" solo actualiza productos existentes; NUNCA crea productos
+    // (la creación de productos es aparte, con el botón "Cargar nuevo producto").
   }
   if(count===0 && dataRows===0){ throw new Error('La hoja "Data Detalle" no tiene datos de inventario (revisa columnas B y E)'); }
   if(count===0){
@@ -19266,15 +19268,7 @@ async function cargarInventarioDesdeXlsx(buf){
   if(!okInv){ toast('Carga de inventario cancelada'); return; }
   Object.keys(updated).forEach(c=>{ if(byCode[c]) byCode[c].inv=updated[c]; });
   saveInvOverrides(updated); render(); updateTotals();
-  if(missing.length){
-    // Excel de no encontradas: código (col origen B) | nombre (col origen C) | cantidad (col origen E)
-    // Solo se incluyen las que no están en el catálogo y tienen inventario > 1 unidad.
-    const rows=[['Código','Nombre','Cantidad'],...missing.map(x=>[x.code,x.nombre,x.cant])];
-    try{ download('Referencias-no-encontradas.xlsx', buildXlsx(rows), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); }catch(e){ console.error(e); }
-    await askConfirm('Inventario actualizado: '+count+' referencia'+(count===1?'':'s')+' del archivo'+(zeroed?(' · '+zeroed+' quedaron en 0'):'')+'. No se encontraron '+missing.length+' referencia'+(missing.length===1?'':'s')+' (con inventario > 1) en el catálogo; se descargó un Excel con el detalle.','Entendido','Cerrar');
-  } else {
-    toast('Inventario actualizado: '+count+' del archivo'+(zeroed?(' · '+zeroed+' en 0'):'')+' ✓');
-  }
+  toast('Inventario actualizado: '+count+' referencia'+(count===1?'':'s')+' del archivo'+(zeroed?(' · '+zeroed+' en 0'):'')+' ✓');
 }
 
 // ===== Cargar Producto Nuevo desde .xlsx =====
