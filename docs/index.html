@@ -412,7 +412,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v121</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v122</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -17568,6 +17568,7 @@ async function guardarPedido(){
   rec.status = 'PENDIENTE';
   rec.editado = prev ? true : false;
   rec.origen = state.meta.origen || (prev && prev.origen) || undefined;
+  rec.enviadoCentral = (state.meta.enviadoCentral!=null)?state.meta.enviadoCentral:(prev?prev.enviadoCentral:undefined);
   if(idx>=0) list[idx]=rec; else list.push(rec);
   storeOrders(list); currentOrderId=rec.id;
   toast(idx>=0?'Pedido actualizado':'Pedido guardado');
@@ -17620,8 +17621,11 @@ function openPedidos(){
 // etiqueta y clase de estatus del pedido
 function statusLabel(o){
   if(o && o.origen==='otro'){
-    if(o.status==='ENVIADO') return o.editado?'Pedido de Otro Dispositivo Editado Enviado':'Pedido de Otro Dispositivo Enviado';
-    return o.editado?'Pedido de Otro Dispositivo editado':'Pedido Enviado desde otro dispositivo';
+    let base = (o.status==='ENVIADO')
+      ? (o.editado?'Pedido de Otro Dispositivo Editado Enviado':'Pedido de Otro Dispositivo Enviado')
+      : (o.editado?'Pedido de Otro Dispositivo editado':'Pedido Enviado desde otro dispositivo');
+    if(o.enviadoCentral===false) base += ', No enviado a Pedidos@ofica.com';
+    return base;
   }
   const base=(o&&o.status==='ENVIADO')?'ENVIADO':'PENDIENTE';
   return (o&&o.editado?'EDITADO ':'')+base;
@@ -17874,7 +17878,7 @@ async function enviarPedidos(ids){
 
   // marca ENVIADO (conserva la marca EDITADO)
   const l2=loadOrders();
-  ids.forEach(id=>{ const o=l2.find(x=>x.id===id); if(o){ o.status='ENVIADO'; } });
+  ids.forEach(id=>{ const o=l2.find(x=>x.id===id); if(o){ o.status='ENVIADO'; o.enviadoCentral=true; } });
   storeOrders(l2);
   if($('#ordersModal').classList.contains('open')) openPedidos();
   const msg = modo==='eml' ? 'Correo con Excel adjunto generado: ábrelo para enviarlo'
@@ -19234,7 +19238,7 @@ function cargarPedidoDesdeXlsx(buf){
 // ===== Cargar Pedido de OTRO DISPOSITIVO (Excel del correo: buildOrderXlsxStyled, hoja "Pedido") =====
 // Reconstruye el pedido usando el PRECIO FINAL (con descuento) de cada linea como precio temporal,
 // para que los montos queden identicos aunque el precio de lista del catalogo haya cambiado.
-function cargarPedidoDeCorreo(buf){
+async function cargarPedidoDeCorreo(buf){
   const zip=xlsxOpenZip(buf);
   const shared=[]; const ssB=zip.get('xl/sharedStrings.xml');
   if(ssB){ const xml=xlText(ssB); const si=/<si>([\s\S]*?)<\/si>/g; let m; while(m=si.exec(xml)){ const tr=/<t[^>]*>([\s\S]*?)<\/t>/g; let t,s=''; while(t=tr.exec(m[1])) s+=t[1]; shared.push(xlUnesc(s)); } }
@@ -19294,10 +19298,13 @@ function cargarPedidoDeCorreo(buf){
   const dt=new Date(), p2=n=>String(n).padStart(2,'0');
   state.meta.fecha=dt.toISOString().slice(0,10);
   state.meta.numped=p2(dt.getDate())+p2(dt.getMonth()+1)+String(dt.getFullYear()).slice(-2)+'_'+p2(dt.getHours())+p2(dt.getMinutes())+' '+(meta.cliente||'');
+  // ¿el pedido ya fue enviado a pedidos@ofica.com desde el otro dispositivo?
+  const yaCentral = await askConfirm('¿El pedido fue enviado a pedidos@ofica.com?','Sí','No');
+  state.meta.enviadoCentral = yaCentral;
   const rec={ id:'P'+Date.now()+'-'+Math.floor(Math.random()*1000), nombre:meta.cliente, codcliente:meta.cod||'',
     fecha:state.meta.fecha, numped:state.meta.numped, total:totals().total, savedAt:new Date().toISOString(),
     meta:JSON.parse(JSON.stringify(state.meta)), qty:JSON.parse(JSON.stringify(state.qty)),
-    status:'PENDIENTE', editado:false, origen:'otro' };
+    status:'PENDIENTE', editado:false, origen:'otro', enviadoCentral:yaCentral };
   const list=loadOrders(); list.push(rec); storeOrders(list);
   currentOrderId=rec.id; setLocked(true); save();
   syncMetaFields();
@@ -19305,6 +19312,7 @@ function cargarPedidoDeCorreo(buf){
   syncChips(); render(); updateTotals(); updateReqLabels();
   const nref=Object.keys(qty).length;
   toast('Pedido de otro dispositivo cargado y guardado: '+nref+' ref'+(nref===1?'':'s')+(missing.length?' · '+missing.length+' fuera de catálogo':''));
+  if(!yaCentral){ await enviarPedidos([rec.id]); }   // No: entra en el ciclo de enviarlo a pedidos@ofica.com
 }
 // ===== Cargar Inventario desde .xlsx (hoja "Data Detalle": código en col B, inventario en col E) =====
 async function cargarInventarioDesdeXlsx(buf){
@@ -19836,8 +19844,8 @@ function wire(){
   });
   $('#fileCargarOtro').addEventListener('change',e=>{
     const f=e.target.files&&e.target.files[0]; if(!f) return;
-    f.arrayBuffer().then(ab=>{
-      try{ cargarPedidoDeCorreo(new Uint8Array(ab)); }
+    f.arrayBuffer().then(async ab=>{
+      try{ await cargarPedidoDeCorreo(new Uint8Array(ab)); }
       catch(err){ toast(err&&err.message?err.message:'No se pudo leer el archivo'); console.error(err); }
       e.target.value='';
     }).catch(err=>{ toast('No se pudo leer el archivo'); console.error(err); e.target.value=''; });
