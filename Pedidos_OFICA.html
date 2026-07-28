@@ -311,7 +311,8 @@
   .ordersempty{padding:26px 16px;text-align:center;color:var(--ink-3);font-size:13px}
   .orow .osel{flex:0 0 auto;align-self:center;width:20px;height:20px;margin:0}
   .orow .osel:disabled{opacity:.35;cursor:not-allowed}
-  .obadge{display:inline-block;width:fit-content;font-size:10px;font-weight:800;letter-spacing:.3px;padding:2px 7px;border-radius:999px;margin-top:2px}
+  .obadge{display:inline-block;width:fit-content;max-width:100%;white-space:normal;line-height:1.25;text-align:center;font-size:10px;font-weight:800;letter-spacing:.3px;padding:2px 7px;border-radius:999px;margin-top:2px}
+  .obadge.st-otro{background:#E6E1FF;color:#4a3ca8}
   .obadge.st-pend{background:#FFF1CC;color:#8a6d00}
   .obadge.st-env{background:#D6F0E3;color:#0a7d47}
   .obadge.st-edit{box-shadow:inset 0 0 0 1.5px currentColor}
@@ -408,7 +409,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v120</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v121</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -17563,6 +17564,7 @@ async function guardarPedido(){
   // estatus: al guardar (nuevo o editado) queda PENDIENTE; si se actualiza uno existente se marca EDITADO (permanece)
   rec.status = 'PENDIENTE';
   rec.editado = prev ? true : false;
+  rec.origen = state.meta.origen || (prev && prev.origen) || undefined;
   if(idx>=0) list[idx]=rec; else list.push(rec);
   storeOrders(list); currentOrderId=rec.id;
   toast(idx>=0?'Pedido actualizado':'Pedido guardado');
@@ -17614,10 +17616,15 @@ function openPedidos(){
 }
 // etiqueta y clase de estatus del pedido
 function statusLabel(o){
+  if(o && o.origen==='otro'){
+    if(o.status==='ENVIADO') return o.editado?'Pedido de Otro Dispositivo Editado Enviado':'Pedido de Otro Dispositivo Enviado';
+    return o.editado?'Pedido de Otro Dispositivo editado':'Pedido Enviado desde otro dispositivo';
+  }
   const base=(o&&o.status==='ENVIADO')?'ENVIADO':'PENDIENTE';
   return (o&&o.editado?'EDITADO ':'')+base;
 }
 function statusClass(o){
+  if(o && o.origen==='otro'){ return 'st-otro'+(o.editado?' st-edit':''); }
   const c=(o&&o.status==='ENVIADO')?'st-env':'st-pend';
   return c+(o&&o.editado?' st-edit':'');
 }
@@ -19277,17 +19284,24 @@ function cargarPedidoDeCorreo(buf){
   if(Object.keys(qty).length===0) throw new Error('El archivo no tiene productos del catálogo');
   let obs=meta.obs||'';
   if(missing.length){ obs=(obs.trim()?obs.trim()+'\n\n':'')+'No cargados (fuera de catálogo): '+missing.join('; '); }
-  // aplicar (reemplaza el pedido actual). Los precios finales van como precio temporal por producto.
+  // aplicar y GUARDAR automáticamente como "pedido de otro dispositivo".
   state.qty=qty;
-  state.meta={cliente:meta.cliente,codcliente:meta.cod,vendedor:meta.vendedor,condicion:meta.condicion,numped:'',obs:obs,desc1:'0',desc2:'0',desc3:'0'};
+  state.meta={cliente:meta.cliente,codcliente:meta.cod,vendedor:meta.vendedor,condicion:meta.condicion,numped:'',obs:obs,desc1:'0',desc2:'0',desc3:'0',origen:'otro'};
   if(Object.keys(ptmp).length) state.meta.precioTmp=ptmp;
-  const dt=new Date(); state.meta.fecha=dt.toISOString().slice(0,10);
-  currentOrderId=null; setLocked(false); save();
+  const dt=new Date(), p2=n=>String(n).padStart(2,'0');
+  state.meta.fecha=dt.toISOString().slice(0,10);
+  state.meta.numped=p2(dt.getDate())+p2(dt.getMonth()+1)+String(dt.getFullYear()).slice(-2)+'_'+p2(dt.getHours())+p2(dt.getMinutes())+' '+(meta.cliente||'');
+  const rec={ id:'P'+Date.now()+'-'+Math.floor(Math.random()*1000), nombre:meta.cliente, codcliente:meta.cod||'',
+    fecha:state.meta.fecha, numped:state.meta.numped, total:totals().total, savedAt:new Date().toISOString(),
+    meta:JSON.parse(JSON.stringify(state.meta)), qty:JSON.parse(JSON.stringify(state.qty)),
+    status:'PENDIENTE', editado:false, origen:'otro' };
+  const list=loadOrders(); list.push(rec); storeOrders(list);
+  currentOrderId=rec.id; setLocked(true); save();
   syncMetaFields();
   filter.onlyOn=true; filter.cat=''; filter.q=''; const qi=$('#q'); if(qi) qi.value='';
   syncChips(); render(); updateTotals(); updateReqLabels();
   const nref=Object.keys(qty).length;
-  toast('Pedido de otro dispositivo cargado: '+nref+' ref'+(nref===1?'':'s')+(missing.length?' · '+missing.length+' fuera de catálogo':''));
+  toast('Pedido de otro dispositivo cargado y guardado: '+nref+' ref'+(nref===1?'':'s')+(missing.length?' · '+missing.length+' fuera de catálogo':''));
 }
 // ===== Cargar Inventario desde .xlsx (hoja "Data Detalle": código en col B, inventario en col E) =====
 async function cargarInventarioDesdeXlsx(buf){
