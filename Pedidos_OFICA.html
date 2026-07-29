@@ -409,7 +409,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v123</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v124</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -17638,7 +17638,7 @@ function openPedidos(){
       <button class="oopen" data-open="${esc(o.id)}">
         <span class="oname">${esc(o.nombre||'(sin nombre)')}</span>
         ${o.numped?`<span class="ometa">Nº ${esc(o.numped)}</span>`:''}
-        <span class="ometa">${o.codcliente?esc(o.codcliente)+' · ':''}${o.fecha?esc(fechaFmt(o.fecha)):''} · ${fmt.format(o.total||0)}</span>
+        <span class="ometa">${o.codcliente?esc(o.codcliente)+' · ':''}${o.fecha?esc(fechaFmt(o.fecha)):''} · ${fmt.format(totalSinIvaDe(o))}</span>
         <span class="obadge ${statusClass(o)}">${statusLabel(o)}</span>
       </button>
       <button class="odel" data-del="${esc(o.id)}" aria-label="Eliminar pedido">
@@ -17651,6 +17651,12 @@ function openPedidos(){
   $('#ordersModal').classList.add('open');
 }
 // etiqueta y clase de estatus del pedido
+// total SIN IVA de un pedido guardado (para el resumen y la lista de pedidos)
+function totalSinIvaDe(o){
+  const sq=state.qty, sm=state.meta;
+  try{ state.qty=(o&&o.qty)||{}; state.meta=(o&&o.meta)||{}; const t=totals(); return t.total - t.iva; }
+  finally{ state.qty=sq; state.meta=sm; }
+}
 function statusLabel(o){
   if(o && o.origen==='otro'){
     let base = (o.status==='ENVIADO')
@@ -17782,7 +17788,7 @@ function resumenPedido(o){
   const m=o.meta||{}; const nref=Object.keys(o.qty||{}).length;
   let s='Pedido: '+(o.numped||'')+'\nCliente: '+(o.nombre||'')+(o.codcliente?' ('+o.codcliente+')':'')+
     '\nVendedor: '+(m.vendedor||'')+'\nCondición: '+(m.condicion||'')+'\nFecha: '+(o.fecha||'')+
-    '\nReferencias: '+nref+'\nTotal: '+fmt.format(o.total||0);
+    '\nReferencias: '+nref+'\nTotal sin IVA: '+fmt.format(totalSinIvaDe(o));
   if(m.nuevoCliente){
     const nc=m.nuevoCliente;
     s+='\n\n----- CLIENTE NUEVO -----'+
