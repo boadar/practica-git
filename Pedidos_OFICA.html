@@ -402,6 +402,10 @@
     #print table.pricelist tr.cat{page-break-inside:avoid;break-inside:avoid;page-break-after:avoid;break-after:avoid}
     #print table.pricelist td.imgc img{display:block;margin:0 auto}
   }
+  .admgroups{flex-basis:100%;flex-direction:column;gap:8px;margin-top:8px}
+  .admgroup{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap}
+  .admgroup-lbl{flex:0 0 auto;min-width:104px;padding-top:7px;color:#eaf6fd;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+  .admgroup-btns{display:flex;flex-wrap:wrap;gap:8px;flex:1 1 auto}
 </style>
 
 <div class="app">
@@ -409,49 +413,69 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v124</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v125</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
-      <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      <div class="admgroups" id="admGroups" style="display:none">
+      <div class="admgroup"><span class="admgroup-lbl">Importar pedido</span><div class="admgroup-btns">
+        <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
         <span class="btnlabel">Cargar Pedido</span>
       </button>
-      <button class="iconbtn cargartop" id="btnCargarOtro" type="button" style="display:none" title="Cargar el pedido que llegó por correo desde otro dispositivo (el Excel del pedido)">
+        <button class="iconbtn cargartop" id="btnCargarOtro" type="button" style="display:none" title="Cargar el pedido que llegó por correo desde otro dispositivo (el Excel del pedido)">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 8v6"/><path d="m9.5 11.5 2.5 2.5 2.5-2.5"/></svg>
         <span class="btnlabel">Cargar Pedido de otro dispositivo</span>
       </button>
-      <button class="iconbtn cargarinv" id="btnCargarInv" type="button" style="display:none" title="Actualizar inventario desde Excel">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7L9 18l-5-5"/><path d="M3 3h18v4H3z"/></svg>
-        <span class="btnlabel">Cargar Inventario</span>
-      </button>
-      <button class="iconbtn cargarinv" id="btnNuevoProd" type="button" style="display:none" title="Agregar productos nuevos desde Excel">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-        <span class="btnlabel">Cargar Producto Nuevo</span>
-      </button>
-      <button class="iconbtn cargarinv" id="btnRespaldo" type="button" style="display:none" title="Guardar un respaldo de productos e inventario cargados">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
-        <span class="btnlabel">Respaldo</span>
-      </button>
-      <button class="iconbtn cargarinv" id="btnRestaurar" type="button" style="display:none" title="Restaurar un respaldo guardado">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
-        <span class="btnlabel">Restaurar</span>
-      </button>
-      <button class="iconbtn cargarinv" id="btnPrecioTmp" type="button" style="display:none" title="Cambiar precios de forma temporal para este pedido (no afecta la base de datos)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-        <span class="btnlabel">Cambio de precio temporal</span>
-      </button>
-      <button class="iconbtn cargarinv" id="btnDescuentos" type="button" style="display:none" title="Agregar un descuento personalizado para este pedido (se coloca en Descuento 1 de la ficha del cliente)">
+      </div></div>
+      <div class="admgroup"><span class="admgroup-lbl">Este pedido</span><div class="admgroup-btns">
+        <button class="iconbtn cargarinv" id="btnDescuentos" type="button" style="display:none" title="Agregar un descuento personalizado para este pedido (se coloca en Descuento 1 de la ficha del cliente)">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
         <span class="btnlabel">Administrar descuentos</span>
       </button>
-      <button class="iconbtn cargarinv" id="btnOverInv" type="button" style="display:none" aria-pressed="false" title="Permitir tomar pedidos con cantidades mayores al inventario y habilitar las referencias sin stock (queda activo aunque se cierre el modo administrador)">
+        <button class="iconbtn cargarinv" id="btnPrecioTmp" type="button" style="display:none" title="Cambiar precios de forma temporal para este pedido (no afecta la base de datos)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        <span class="btnlabel">Cambio de precio temporal</span>
+      </button>
+        <button class="iconbtn cargarinv" id="btnOverInv" type="button" style="display:none" aria-pressed="false" title="Permitir tomar pedidos con cantidades mayores al inventario y habilitar las referencias sin stock (queda activo aunque se cierre el modo administrador)">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11V7a5 5 0 0 1 9.9-1"/><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/></svg>
         <span class="btnlabel">Permitir sobre-inventario</span>
       </button>
-      <button class="iconbtn cargarinv" id="btnReset" type="button" style="display:none" title="Volver a mostrar referencias ocultadas o eliminadas localmente">
+      </div></div>
+      <div class="admgroup"><span class="admgroup-lbl">Catálogo</span><div class="admgroup-btns">
+        <button class="iconbtn cargarinv" id="btnCargarInv" type="button" style="display:none" title="Actualizar inventario desde Excel">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7L9 18l-5-5"/><path d="M3 3h18v4H3z"/></svg>
+        <span class="btnlabel">Cargar Inventario</span>
+      </button>
+        <button class="iconbtn cargarinv" id="btnNuevoProd" type="button" style="display:none" title="Agregar productos nuevos desde Excel">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        <span class="btnlabel">Cargar Producto Nuevo</span>
+      </button>
+        <button class="iconbtn cargarinv" id="btnReset" type="button" style="display:none" title="Volver a mostrar referencias ocultadas o eliminadas localmente">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
         <span class="btnlabel">Restablecer</span>
       </button>
+      </div></div>
+      <div class="admgroup"><span class="admgroup-lbl">Respaldo</span><div class="admgroup-btns">
+        <button class="iconbtn cargarinv" id="btnRespaldo" type="button" style="display:none" title="Guardar un respaldo de productos e inventario cargados">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        <span class="btnlabel">Respaldo</span>
+      </button>
+        <button class="iconbtn cargarinv" id="btnRestaurar" type="button" style="display:none" title="Restaurar un respaldo guardado">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+        <span class="btnlabel">Restaurar</span>
+      </button>
+      </div></div>
+      </div>
     </div>
     <div class="appbtns">
       <button class="stocktoggle" id="btnHideNoStock" aria-pressed="true" title="Mostrar/ocultar referencias sin inventario">
@@ -18601,10 +18625,10 @@ function cerrarListaCliente(input){
 
 async function toggleAdmin(){
   const admBtns=['#btnCargar','#btnCargarOtro','#btnCargarInv','#btnNuevoProd','#btnPrecioTmp','#btnDescuentos','#btnOverInv','#btnRespaldo','#btnRestaurar','#btnReset'];
-  if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display='none'; }); filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
+  if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display='none'; }); { const ag=$('#admGroups'); if(ag) ag.style.display='none'; } filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
   const pass=await askPassword();
   if(pass==null) return;
-  if(pass===ADMIN_KEY){ adminMode=true; $('#btnAdmin').setAttribute('aria-pressed','true'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display=''; }); filter.hideNoStock=false; updateHideBtn(); render(); updateTotals(); toast('Modo administrador activado'); }
+  if(pass===ADMIN_KEY){ adminMode=true; $('#btnAdmin').setAttribute('aria-pressed','true'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display=''; }); { const ag=$('#admGroups'); if(ag) ag.style.display='flex'; } filter.hideNoStock=false; updateHideBtn(); render(); updateTotals(); toast('Modo administrador activado'); }
   else toast('Clave incorrecta');
 }
 
