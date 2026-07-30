@@ -416,7 +416,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v126</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v127</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       
@@ -17379,8 +17379,9 @@ function obsConDesc(meta){
 function precioTmpDe(p){ return (p && state.meta && state.meta.precioTmp && state.meta.precioTmp[p.codigo]!=null) ? +state.meta.precioTmp[p.codigo] : null; }
 function descDe(p){
   const dp = (p && state.meta && state.meta.descProd) ? state.meta.descProd[p.codigo] : null;
-  if(dp) return [+dp.d1||0, +dp.d2||0, +dp.d3||0];   // descuento por producto
-  return [+state.meta.desc1||0, +state.meta.desc2||0, +state.meta.desc3||0];   // global (fallback)
+  if(dp) return [+dp.d1||0, +dp.d2||0, +dp.d3||0];   // override por producto (Cambio de precio temporal): SIEMPRE aplica
+  if(p && String(p.descGlobal||'SI').toUpperCase()==='NO') return [0,0,0];   // producto marcado "DESCUENTO GLOBAL = NO": no recibe el descuento de la ficha
+  return [+state.meta.desc1||0, +state.meta.desc2||0, +state.meta.desc3||0];   // descuento global de la ficha del cliente
 }
 function descCombPct(arr){ const a=+arr[0]||0,b=+arr[1]||0,c=+arr[2]||0; return Math.round((1-(1-a)*(1-b)*(1-c))*1000)/10; }
 function descGlobalPct(){ return descCombPct([+state.meta.desc1||0,+state.meta.desc2||0,+state.meta.desc3||0]); }
@@ -17414,7 +17415,7 @@ function ptmpRender(q){
     h+='<div class="ptmp-row'+(has?' has':'')+'">'
       +'<div class="ptmp-info"><span class="ptmp-code">'+esc(p.codigo)+'</span><span class="ptmp-name">'+esc(p.nombre)+'</span></div>'
       +'<div class="ptmp-base">Base<br><b>'+fmt.format(base)+'</b></div>'
-      +'<div class="ptmp-descwrap"><span>Desc</span><input type="text" inputmode="decimal" data-ptmpdesc="'+esc(p.codigo)+'" value="'+esc(dShown)+'" placeholder="'+gPct+'" aria-label="Descuento de '+esc(p.codigo)+'"><span>%</span></div>'
+      +'<div class="ptmp-descwrap"><span>Desc</span><input type="text" inputmode="decimal" data-ptmpdesc="'+esc(p.codigo)+'" value="'+esc(dShown)+'" placeholder="'+(String(p.descGlobal||'SI').toUpperCase()==='NO'?0:gPct)+'" aria-label="Descuento de '+esc(p.codigo)+'"><span>%</span></div>'
       +'<div class="ptmp-inwrap"><span>$</span><input type="text" inputmode="decimal" data-ptmpcode="'+esc(p.codigo)+'" value="'+(hasP?(+tmp).toFixed(2):'')+'" placeholder="'+base.toFixed(2)+'" aria-label="Precio temporal de '+esc(p.codigo)+'"></div>'
       +'</div>';
   });
