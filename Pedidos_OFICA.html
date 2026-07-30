@@ -64,7 +64,8 @@
   }
   .titlewrap{min-width:90px;flex:1 1 90px}
   .appver{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:#009DDC;border-radius:999px;padding:2px 8px;margin-left:6px;vertical-align:middle;letter-spacing:.3px}
-  .cargartop{margin-left:auto;flex:0 0 auto;padding:7px 9px;font-size:12px}
+  .cargartop{flex:0 0 auto;padding:7px 9px;font-size:12px}
+  .admgroup-btns .cargartop{margin-left:0}
   .cargarinv{flex:0 0 auto;padding:7px 9px;font-size:12px}
   .appbar h1{font-size:17px;font-weight:700;margin:0;letter-spacing:.2px}
   .appbar .sub{font-size:14px;color:#fff;opacity:1;margin-top:2px;font-weight:700;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -403,9 +404,9 @@
     #print table.pricelist td.imgc img{display:block;margin:0 auto}
   }
   .admgroups{flex-basis:100%;flex-direction:column;gap:8px;margin-top:8px}
-  .admgroup{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap}
-  .admgroup-lbl{flex:0 0 auto;min-width:104px;padding-top:7px;color:#eaf6fd;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
-  .admgroup-btns{display:flex;flex-wrap:wrap;gap:8px;flex:1 1 auto}
+  .admgroup{display:flex;align-items:flex-start;gap:10px;flex-wrap:nowrap}
+  .admgroup-lbl{flex:0 0 118px;padding-top:7px;color:#eaf6fd;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+  .admgroup-btns{display:flex;flex-wrap:wrap;gap:8px;flex:1 1 0;min-width:0}
 </style>
 
 <div class="app">
@@ -413,7 +414,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v129</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v130</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       
