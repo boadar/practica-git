@@ -417,7 +417,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v134</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v135</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       
@@ -18621,7 +18621,7 @@ function visibleProducts(){
     if(p.off && !adminMode) return false;
     if(filter.cat && p.categoria!==filter.cat) return false;
     if(filter.onlyOn && !(state.qty[p.codigo]>0)) return false;
-    if(filter.hideNoStock && !overInvOn() && Math.round(+p.inv||0)<=0 && !(state.qty[p.codigo]>0)) return false;
+    if(filter.hideNoStock && !overInvCode(p.codigo) && Math.round(+p.inv||0)<=0 && !(state.qty[p.codigo]>0)) return false;
     if(q){
       const hay=(p.nombre+' '+p.codigo).toLowerCase();
       if(!hay.includes(q)) return false;
@@ -18683,7 +18683,7 @@ function render(){
     const inv=Math.round(+p.inv||0);
     let sc='ok'; if(inv<=0)sc='no'; else if(inv<(+p.bulto||0))sc='low';
     const agotado = inv<=0;
-    const dis = ((agotado && !adminMode && !overInvOn())||locked)?' disabled':'';
+    const dis = ((agotado && !adminMode && !overInvCode(p.codigo))||locked)?' disabled':'';
     const src = imgFor(p.codigo);
     const thumb = src
       ? `<div class="thumb"><img src="${src}" alt="" loading="lazy"></div>`
@@ -18739,9 +18739,14 @@ const VEND_SOBREINV = ['Gerencia de Ventas - Ronald','Gerencia de Ventas - Juan 
 function esVendedorSobreInv(){ return VEND_SOBREINV.indexOf((state.meta&&state.meta.vendedor||'').trim())>=0; }
 // sobre-inventario activo si lo activó el admin (botón) O si el vendedor es una Gerencia de Ventas
 function overInvOn(){ return allowOverInv || esVendedorSobreInv(); }
+// Referencias que SIEMPRE permiten sobre-inventario para TODOS los usuarios (por prefijo de código)
+const SOBREINV_PREFIJOS = ['SDP00','SPF00','STE0','SDM003','SPL00','SCA00','SCF00'];
+function refSobreInv(code){ code=String(code||''); for(var i=0;i<SOBREINV_PREFIJOS.length;i++){ if(code.indexOf(SOBREINV_PREFIJOS[i])===0) return true; } return false; }
+// sobre-inventario para una referencia concreta: global (admin/vendedor) O por prefijo de la referencia
+function overInvCode(code){ return overInvOn() || refSobreInv(code); }
 function toggleOverInv(){ allowOverInv=!allowOverInv; const b=$('#btnOverInv'); if(b) b.setAttribute('aria-pressed', allowOverInv?'true':'false'); render(); updateTotals(); toast(allowOverInv?'Sobre-inventario activo: se permiten cantidades mayores al stock y se habilitan las referencias sin inventario':'Cantidades limitadas al inventario'); }
 function inventarioExcedido(code,val){
-  if(overInvOn()) return false;
+  if(overInvCode(code)) return false;
   const p=byCode[code]; const inv=Math.floor(+(p&&p.inv)||0);
   return inv>0 && Math.floor(+val||0)>inv;
 }
