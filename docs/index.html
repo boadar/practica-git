@@ -417,7 +417,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v131</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v132</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       
@@ -17856,6 +17856,63 @@ async function guardarPedidoDividido(dias){
   if(enviar){ await enviarPedidos(nuevos.map(function(r){return r.id;})); }
   else { limpiarPedidoTodo(); toast('Guardado: '+nuevos.length+' pedido'+(nuevos.length===1?'':'s')+' ('+montos+')'); }
 }
+// ---- BackOrder: separa el pedido en lo cubierto por inventario y el faltante ----
+function calcBackOrderSplit(){
+  // Por referencia: disp = min(cantidad, inventario disponible); back = cantidad - disp.
+  var disp={}, back={}, hayDisp=false, hayBack=false;
+  CATALOGO.forEach(function(p){
+    var q=(+state.qty[p.codigo]||0); if(q<=0) return;
+    var inv=Math.round(+p.inv||0); if(inv<0) inv=0;
+    var d=Math.min(q, inv), b=q-d;
+    if(d>0){ disp[p.codigo]=d; hayDisp=true; }
+    if(b>0){ back[p.codigo]=b; hayBack=true; }
+  });
+  return {disp:disp, back:back, hayDisp:hayDisp, hayBack:hayBack};
+}
+async function guardarPedidoBackOrder(bo){
+  var savedQty=state.qty, savedMeta=state.meta;
+  var baseMeta=JSON.parse(JSON.stringify(state.meta));
+  var baseNumped=state.meta.numped||'';
+  var nombre=(state.meta.cliente||'').trim();
+  var stamp=Date.now();
+  // Pedido 1: inventario disponible (mismo formato y nombre actuales)
+  var m1=JSON.parse(JSON.stringify(baseMeta));
+  state.qty=bo.disp; state.meta=m1;
+  var to1=totals(); var t1=to1.total, s1=to1.total-to1.iva;
+  var rec1={
+    id:'P'+stamp+'-D-'+Math.floor(Math.random()*1000),
+    nombre:nombre, codcliente:baseMeta.codcliente||'', fecha:baseMeta.fecha||'',
+    numped:m1.numped||'', total:t1, savedAt:new Date().toISOString(),
+    meta:m1, qty:bo.disp, status:'PENDIENTE', editado:false,
+    origen: baseMeta.origen||undefined,
+    enviadoCentral: (baseMeta.enviadoCentral!=null?baseMeta.enviadoCentral:undefined)
+  };
+  // Pedido 2: BackOrder (mismo nombre + _BackOrder). Se marca para no volver a dividirlo.
+  var m2=JSON.parse(JSON.stringify(baseMeta));
+  m2.numped=baseNumped+'_BackOrder';
+  m2.esBackOrder=true;
+  state.qty=bo.back; state.meta=m2;
+  var to2=totals(); var t2=to2.total, s2=to2.total-to2.iva;
+  var rec2={
+    id:'P'+stamp+'-B-'+Math.floor(Math.random()*1000),
+    nombre:nombre, codcliente:baseMeta.codcliente||'', fecha:baseMeta.fecha||'',
+    numped:m2.numped, total:t2, savedAt:new Date().toISOString(),
+    meta:m2, qty:bo.back, status:'PENDIENTE', editado:false,
+    origen: baseMeta.origen||undefined,
+    enviadoCentral: (baseMeta.enviadoCentral!=null?baseMeta.enviadoCentral:undefined)
+  };
+  state.qty=savedQty; state.meta=savedMeta;   // restaurar el estado original
+  var list=loadOrders();
+  var filtered = currentOrderId ? list.filter(function(o){return o.id!==currentOrderId;}) : list;
+  filtered.push(rec1); filtered.push(rec2);
+  storeOrders(filtered); currentOrderId=null;
+  var enviar=await askConfirm(
+    'El pedido supera el inventario disponible. Se dividió en 2 pedidos:   '
+    +'Disponible '+fmt.format(s1)+'   ·   BackOrder '+fmt.format(s2)
+    +'.   ¿Deseas enviarlos ahora?','Sí, enviar','No');
+  if(enviar){ await enviarPedidos([rec1.id, rec2.id]); }
+  else { limpiarPedidoTodo(); toast('Guardado: pedido Disponible + BackOrder'); }
+}
 async function guardarPedido(){
   if(locked){ toast('Pulsa EDITAR PEDIDO para modificar'); return; }
   if(totals().lineas===0){ toast('Agrega productos primero'); return; }
@@ -17878,6 +17935,12 @@ async function guardarPedido(){
   }
   const _plan = condSplitPlan(condicion);
   if(_plan){ await guardarPedidoDividido(_plan); return; }
+  // BackOrder: si el pedido supera el inventario disponible (y NO es 30-60/30-60-90),
+  // se separa en 2: un pedido con lo disponible y otro con el faltante (mismo nombre + _BackOrder).
+  if(!(state.meta && state.meta.esBackOrder)){
+    const _bo = calcBackOrderSplit();
+    if(_bo.hayBack && _bo.hayDisp){ await guardarPedidoBackOrder(_bo); return; }
+  }
   const list=loadOrders();
   const rec={
     id: currentOrderId || ('P'+Date.now()+'-'+Math.floor(Math.random()*1000)),
