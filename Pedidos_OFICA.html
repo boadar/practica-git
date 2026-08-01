@@ -414,7 +414,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v132</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v133</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       
@@ -17860,7 +17860,11 @@ function calcBackOrderSplit(){
   CATALOGO.forEach(function(p){
     var q=(+state.qty[p.codigo]||0); if(q<=0) return;
     var inv=Math.round(+p.inv||0); if(inv<0) inv=0;
-    var d=Math.min(q, inv), b=q-d;
+    var umv=Math.round(+p.umv||0); if(umv<1) umv=1;
+    // lo disponible debe RESPETAR la UMV: máxima cantidad divisible por la UMV que
+    // cabe en el inventario (ej. inv 88, UMV 12 -> 84). Si el inventario cubre todo, va completo.
+    var d = (inv>=q) ? q : Math.floor(inv/umv)*umv;
+    var b=q-d;
     if(d>0){ disp[p.codigo]=d; hayDisp=true; }
     if(b>0){ back[p.codigo]=b; hayBack=true; }
   });
