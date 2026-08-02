@@ -51,6 +51,7 @@
   .appbar .row{display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap}
   .appbtns{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;margin-top:8px}
   .appbtns > button{flex:1 1 40%;justify-content:center;max-width:none;text-align:center}
+  .invdate{margin-left:auto;align-self:center;white-space:nowrap;font-size:12px;font-weight:800;color:#fff;background:rgba(0,0,0,.18);padding:4px 10px;border-radius:8px;letter-spacing:.3px}
   .stocktoggle{
     -webkit-appearance:none;appearance:none;border:1px solid rgba(255,255,255,.28);
     background:rgba(255,255,255,.12);color:#fff;border-radius:9px;padding:5px 7px;
@@ -417,9 +418,10 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v135</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v136</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
+      <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
       
       
       
@@ -18355,6 +18357,8 @@ function saveInvOverrides(map){
 // GitHub; cuando cambia, se borran los ajustes de inventario locales del dispositivo para que en
 // TODOS mande lo publicado (el escritorio es el maestro).
 const DATA_VERSION='2026-07-30';
+// Muestra la fecha del último inventario cargado (derivada de DATA_VERSION) arriba a la derecha
+(function(){ try{ const el=document.getElementById('invDate'); const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(DATA_VERSION||''); if(el&&m){ el.textContent='INV. '+m[3]+'/'+m[2]+'/'+m[1]; } }catch(e){} })();
 try{
   if(localStorage.getItem('ofica_dataver')!==DATA_VERSION){
     localStorage.removeItem(INV_KEY);
