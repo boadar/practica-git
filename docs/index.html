@@ -418,7 +418,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v136</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v137</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -18339,6 +18339,8 @@ function persistProdState(){
 loadProdState();
 // ---- inventario cargado desde Excel (persiste en el navegador) ----
 const INV_KEY='ofica_inventario_v1';
+const INVDATE_KEY='ofica_inv_fecha';   // fecha (YYYY-MM-DD) de la última carga LOCAL de inventario en este dispositivo
+function isoHoy(){ const d=new Date(), p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
 function loadInvOverrides(){
   try{
     const raw=localStorage.getItem(INV_KEY); if(!raw) return;
@@ -18357,14 +18359,18 @@ function saveInvOverrides(map){
 // GitHub; cuando cambia, se borran los ajustes de inventario locales del dispositivo para que en
 // TODOS mande lo publicado (el escritorio es el maestro).
 const DATA_VERSION='2026-07-30';
-// Muestra la fecha del último inventario cargado (derivada de DATA_VERSION) arriba a la derecha
-(function(){ try{ const el=document.getElementById('invDate'); const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(DATA_VERSION||''); if(el&&m){ el.textContent='INV. '+m[3]+'/'+m[2]+'/'+m[1]; } }catch(e){} })();
+// Fecha del último inventario que se muestra a la derecha: la MÁS RECIENTE entre la publicada
+// (DATA_VERSION) y la última carga LOCAL con "Cargar Inventario" en este dispositivo.
+function invDateActual(){ try{ const loc=localStorage.getItem(INVDATE_KEY); return (loc && loc>DATA_VERSION)?loc:DATA_VERSION; }catch(e){ return DATA_VERSION; } }
+function refreshInvDate(){ try{ const el=document.getElementById('invDate'); const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(invDateActual()||''); if(el&&m){ el.textContent='INV. '+m[3]+'/'+m[2]+'/'+m[1]; } }catch(e){} }
 try{
   if(localStorage.getItem('ofica_dataver')!==DATA_VERSION){
     localStorage.removeItem(INV_KEY);
+    localStorage.removeItem(INVDATE_KEY);   // el inventario publicado reemplaza al local -> la fecha vuelve a la publicada
     localStorage.setItem('ofica_dataver', DATA_VERSION);
   }
 }catch(e){}
+refreshInvDate();
 loadInvOverrides();
 const CATS = [...new Set(CATALOGO.map(p=>p.categoria))];
 
@@ -19777,6 +19783,8 @@ async function cargarInventarioDesdeXlsx(buf){
   if(!okInv){ toast('Carga de inventario cancelada'); return; }
   Object.keys(updated).forEach(c=>{ if(byCode[c]) byCode[c].inv=updated[c]; });
   saveInvOverrides(updated); render(); updateTotals();
+  try{ localStorage.setItem(INVDATE_KEY, isoHoy()); }catch(e){}
+  refreshInvDate();   // actualiza la fecha "INV. dd/mm/yyyy" del encabezado
   toast('Inventario actualizado: '+count+' referencia'+(count===1?'':'s')+' del archivo'+(zeroed?(' · '+zeroed+' en 0'):'')+' ✓');
 }
 
