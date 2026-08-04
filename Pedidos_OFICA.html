@@ -415,7 +415,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v140</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v141</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -18142,7 +18142,7 @@ function buildOrderXlsxStyled(o){
   const rels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
   const wb=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Pedido" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="PEDIDO VEND" sheetId="1" r:id="rId1"/></sheets></workbook>`;
   const wbr=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
   const files=[
@@ -19069,7 +19069,7 @@ function buildXlsx(rows){
   const rels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
   const wb=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Pedido" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="PEDIDO VEND" sheetId="1" r:id="rId1"/></sheets></workbook>`;
   const wbr=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`;
   const files=[
@@ -19674,7 +19674,7 @@ async function cargarPedidoDeCorreo(buf){
   const wb=xlText(wbB); const relsB=zip.get('xl/_rels/workbook.xml.rels'); const rels=relsB?xlText(relsB):'';
   const relMap={}; (rels.match(/<Relationship\b[^>]*\/?>/g)||[]).forEach(t=>{ const id=(t.match(/Id="([^"]+)"/)||[])[1]; const tg=(t.match(/Target="([^"]+)"/)||[])[1]; if(id&&tg) relMap[id]=tg; });
   let sheetFile=null, firstRid=null;
-  (wb.match(/<sheet\b[^>]*\/?>/g)||[]).forEach(t=>{ const name=(t.match(/name="([^"]+)"/)||[])[1]; const rid=(t.match(/r:id="([^"]+)"/)||[])[1]; if(rid&&!firstRid) firstRid=rid; if(name&&rid&&name.trim().toUpperCase()==='PEDIDO'){ let tg=relMap[rid]||''; if(tg.charAt(0)==='/') tg=tg.slice(1); else if(!/^xl\//.test(tg)) tg='xl/'+tg; sheetFile=tg; } });
+  (wb.match(/<sheet\b[^>]*\/?>/g)||[]).forEach(t=>{ const name=(t.match(/name="([^"]+)"/)||[])[1]; const rid=(t.match(/r:id="([^"]+)"/)||[])[1]; if(rid&&!firstRid) firstRid=rid; if(name&&rid&&name.trim().toUpperCase().indexOf('PEDIDO')===0){ let tg=relMap[rid]||''; if(tg.charAt(0)==='/') tg=tg.slice(1); else if(!/^xl\//.test(tg)) tg='xl/'+tg; sheetFile=tg; } });
   if(!sheetFile && firstRid && relMap[firstRid]){ let tg=relMap[firstRid]; if(tg.charAt(0)==='/') tg=tg.slice(1); else if(!/^xl\//.test(tg)) tg='xl/'+tg; sheetFile=tg; }
   if(!sheetFile) sheetFile='xl/worksheets/sheet1.xml';
   const shB=zip.get(sheetFile); if(!shB) throw new Error('No se pudo leer la hoja del pedido');
