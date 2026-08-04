@@ -415,7 +415,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v141</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v142</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -17985,7 +17985,9 @@ function limpiarPedidoTodo(){
 }
 
 function openPedidos(){
-  const list=loadOrders().slice().sort((a,b)=>String(a.nombre||'').localeCompare(String(b.nombre||''),'es',{sensitivity:'base'}));
+  // orden por fecha y hora DESCENDENTE: primero el último pedido, al final el más antiguo
+  const tsPed=o=>{ const d=new Date((o&&(o.savedAt||o.fecha))||0); const t=d.getTime(); return isFinite(t)?t:0; };
+  const list=loadOrders().slice().sort((a,b)=>tsPed(b)-tsPed(a));
   const box=$('#ordersList');
   if(!list.length){
     box.innerHTML='<div class="ordersempty">No hay pedidos guardados.</div>';
