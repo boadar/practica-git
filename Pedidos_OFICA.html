@@ -415,7 +415,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v142</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v143</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -501,7 +501,7 @@
     </div>
   </div>
   <input type="file" id="fileCargar" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
-  <input type="file" id="fileCargarOtro" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
+  <input type="file" id="fileCargarOtro" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple style="display:none">
   <input type="file" id="fileCargarInv" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
   <input type="file" id="fileNuevoProd" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
   <input type="file" id="fileRestaurar" accept=".json,application/json,text/plain" style="display:none">
@@ -19668,7 +19668,7 @@ function cargarPedidoDesdeXlsx(buf){
 // ===== Cargar Pedido de OTRO DISPOSITIVO (Excel del correo: buildOrderXlsxStyled, hoja "Pedido") =====
 // Reconstruye el pedido usando el PRECIO FINAL (con descuento) de cada linea como precio temporal,
 // para que los montos queden identicos aunque el precio de lista del catalogo haya cambiado.
-async function cargarPedidoDeCorreo(buf){
+async function cargarPedidoDeCorreo(buf, fileName, opts){ opts=opts||{};
   const zip=xlsxOpenZip(buf);
   const shared=[]; const ssB=zip.get('xl/sharedStrings.xml');
   if(ssB){ const xml=xlText(ssB); const si=/<si>([\s\S]*?)<\/si>/g; let m; while(m=si.exec(xml)){ const tr=/<t[^>]*>([\s\S]*?)<\/t>/g; let t,s=''; while(t=tr.exec(m[1])) s+=t[1]; shared.push(xlUnesc(s)); } }
@@ -19725,24 +19725,48 @@ async function cargarPedidoDeCorreo(buf){
   state.qty=qty;
   state.meta={cliente:meta.cliente,codcliente:meta.cod,vendedor:meta.vendedor,condicion:meta.condicion,numped:'',obs:obs,desc1:'0',desc2:'0',desc3:'0',origen:'otro'};
   if(Object.keys(ptmp).length) state.meta.precioTmp=ptmp;
-  const dt=new Date(), p2=n=>String(n).padStart(2,'0');
-  state.meta.fecha=dt.toISOString().slice(0,10);
-  state.meta.numped=p2(dt.getDate())+p2(dt.getMonth()+1)+String(dt.getFullYear()).slice(-2)+'_'+p2(dt.getHours())+p2(dt.getMinutes())+' '+(meta.cliente||'');
+  // El N° del pedido y su fecha/hora salen del NOMBRE del archivo cargado
+  // (ej. "310726_1702 Promotora Valca, C.A (1-3 - 30 dias).xlsx" -> N° ese; fecha 2026-07-31, hora 17:02)
+  const p2=n=>String(n).padStart(2,'0');
+  let savedAtOverride=null;
+  const nombreArch=(fileName||'').replace(/\.xlsx$/i,'').trim();
+  if(nombreArch){
+    state.meta.numped=nombreArch;
+  } else {
+    const dt=new Date();
+    state.meta.numped=p2(dt.getDate())+p2(dt.getMonth()+1)+String(dt.getFullYear()).slice(-2)+'_'+p2(dt.getHours())+p2(dt.getMinutes())+' '+(meta.cliente||'');
+  }
+  const mF=/^(\d{2})(\d{2})(\d{2})_(\d{2})(\d{2})/.exec(nombreArch);
+  if(mF){
+    const dd=+mF[1], mm=+mF[2], yy=+mF[3], hh=+mF[4], mi=+mF[5];
+    if(mm>=1&&mm<=12&&dd>=1&&dd<=31&&hh<=23&&mi<=59){
+      const yyyy=2000+yy;
+      state.meta.fecha=yyyy+'-'+p2(mm)+'-'+p2(dd);
+      savedAtOverride=new Date(yyyy, mm-1, dd, hh, mi, 0).toISOString();
+    }
+  }
+  if(!state.meta.fecha){ state.meta.fecha=new Date().toISOString().slice(0,10); }
   // ¿el pedido ya fue enviado a pedidos@ofica.com desde el otro dispositivo?
-  const yaCentral = await askConfirm('¿El pedido fue enviado a pedidos@ofica.com?','Sí','No');
+  // En carga múltiple la respuesta viene en opts.enviadoCentral (se pregunta UNA sola vez para todos).
+  const yaCentral = (opts.enviadoCentral!==undefined) ? !!opts.enviadoCentral
+    : await askConfirm('¿El pedido fue enviado a pedidos@ofica.com?','Sí','No');
   state.meta.enviadoCentral = yaCentral;
   const rec={ id:'P'+Date.now()+'-'+Math.floor(Math.random()*1000), nombre:meta.cliente, codcliente:meta.cod||'',
-    fecha:state.meta.fecha, numped:state.meta.numped, total:totals().total, savedAt:new Date().toISOString(),
+    fecha:state.meta.fecha, numped:state.meta.numped, total:totals().total, savedAt:savedAtOverride||new Date().toISOString(),
     meta:JSON.parse(JSON.stringify(state.meta)), qty:JSON.parse(JSON.stringify(state.qty)),
     status:'PENDIENTE', editado:false, origen:'otro', enviadoCentral:yaCentral };
   const list=loadOrders(); list.push(rec); storeOrders(list);
-  currentOrderId=rec.id; setLocked(true); save();
-  syncMetaFields();
-  filter.onlyOn=true; filter.cat=''; filter.q=''; const qi=$('#q'); if(qi) qi.value='';
-  syncChips(); render(); updateTotals(); updateReqLabels();
   const nref=Object.keys(qty).length;
-  toast('Pedido de otro dispositivo cargado y guardado: '+nref+' ref'+(nref===1?'':'s')+(missing.length?' · '+missing.length+' fuera de catálogo':''));
-  if(!yaCentral){ await enviarPedidos([rec.id]); }   // No: entra en el ciclo de enviarlo a pedidos@ofica.com
+  // foco en el pedido cargado SOLO en carga individual (en lote se abre "Ver pedidos" al final)
+  if(opts.focus!==false){
+    currentOrderId=rec.id; setLocked(true); save();
+    syncMetaFields();
+    filter.onlyOn=true; filter.cat=''; filter.q=''; const qi=$('#q'); if(qi) qi.value='';
+    syncChips(); render(); updateTotals(); updateReqLabels();
+    toast('Pedido de otro dispositivo cargado y guardado: '+nref+' ref'+(nref===1?'':'s')+(missing.length?' · '+missing.length+' fuera de catálogo':''));
+  }
+  // El envío (si no estaba enviado) lo decide el handler, igual para 1 o varios archivos.
+  return { id:rec.id, enviadoCentral:yaCentral, nref:nref, missing:missing.length };
 }
 // ===== Cargar Inventario desde .xlsx (hoja "Data Detalle": código en col B, inventario en col E) =====
 async function cargarInventarioDesdeXlsx(buf){
@@ -20274,13 +20298,32 @@ function wire(){
     if(totals().lineas>0){ const ok=await askConfirm('¿Reemplazar el pedido actual con el del archivo?','Sí','No'); if(!ok) return; }
     $('#fileCargarOtro').click();
   });
-  $('#fileCargarOtro').addEventListener('change',e=>{
-    const f=e.target.files&&e.target.files[0]; if(!f) return;
-    f.arrayBuffer().then(async ab=>{
-      try{ await cargarPedidoDeCorreo(new Uint8Array(ab)); }
-      catch(err){ toast(err&&err.message?err.message:'No se pudo leer el archivo'); console.error(err); }
-      e.target.value='';
-    }).catch(err=>{ toast('No se pudo leer el archivo'); console.error(err); e.target.value=''; });
+  $('#fileCargarOtro').addEventListener('change',async e=>{
+    const files=e.target.files?[].slice.call(e.target.files):[];
+    if(!files.length) return;
+    try{
+      if(files.length===1){
+        const ab=await files[0].arrayBuffer();
+        const res=await cargarPedidoDeCorreo(new Uint8Array(ab), files[0].name);   // pregunta y enfoca
+        if(res && res.enviadoCentral===false){ await enviarPedidos([res.id]); }
+      } else {
+        // varios archivos: se pregunta UNA sola vez para todo el lote
+        const ec=await askConfirm('¿Estos '+files.length+' pedidos ya fueron enviados a pedidos@ofica.com?','Sí','No');
+        const ids=[]; let ok=0, err=0;
+        for(const f of files){
+          try{
+            const ab=await f.arrayBuffer();
+            const res=await cargarPedidoDeCorreo(new Uint8Array(ab), f.name, {enviadoCentral:ec, focus:false});
+            if(res && res.id){ ids.push(res.id); ok++; }
+          }catch(e2){ err++; console.error('Error cargando '+f.name, e2); }
+        }
+        limpiarPedidoTodo();
+        if(!ec && ids.length){ await enviarPedidos(ids); }   // No: entra al ciclo de enviarlos a pedidos@ofica.com
+        toast('Cargados '+ok+' de '+files.length+' pedidos'+(err?(' · '+err+' con error'):'')+(ec?'':' · enviados'));
+        openPedidos();
+      }
+    }catch(err){ toast(err&&err.message?err.message:'No se pudo leer el archivo'); console.error(err); }
+    e.target.value='';
   });
   // cargar inventario desde xlsx (admin)
   $('#btnCargarInv').addEventListener('click',()=>{ $('#fileCargarInv').click(); });
