@@ -283,6 +283,8 @@
   .btn:active{background:var(--surface-2)}
   .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
   .btn.primary:active{background:var(--brand-ink)}
+  .btn.danger{background:#C0392B;border-color:#C0392B;color:#fff}
+  .btn.danger:active{background:#a5321f}
   .btn.ghost{color:var(--crit)}
   .btn[disabled]{opacity:.45;pointer-events:none}
 
@@ -418,7 +420,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v143</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v144</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -648,6 +650,7 @@
     <div class="body" id="ordersList"></div>
     <div class="ofooter" id="ordersFooter" hidden>
       <button class="btn" id="btnSelAll" type="button">Seleccionar todos</button>
+      <button class="btn danger" id="btnEliminarSel" type="button">Eliminar</button>
       <button class="btn primary" id="btnEnviarPedidos" type="button">ENVIAR PEDIDO</button>
     </div>
   </div>
@@ -17996,7 +17999,7 @@ function openPedidos(){
     box.innerHTML='<div class="ordersempty">No hay pedidos guardados.</div>';
   } else {
     box.innerHTML=list.map(o=>`<div class="orow">
-      <input type="checkbox" class="osel" data-sel="${esc(o.id)}" aria-label="Seleccionar pedido"${o.status==='ENVIADO'?' disabled title="Ya enviado"':''}>
+      <input type="checkbox" class="osel" data-sel="${esc(o.id)}" aria-label="Seleccionar pedido">
       <button class="oopen" data-open="${esc(o.id)}">
         <span class="oname">${esc(o.nombre||'(sin nombre)')}</span>
         ${o.numped?`<span class="ometa">Nº ${esc(o.numped)}</span>`:''}
@@ -19672,6 +19675,11 @@ function cargarPedidoDesdeXlsx(buf){
 // Reconstruye el pedido usando el PRECIO FINAL (con descuento) de cada linea como precio temporal,
 // para que los montos queden identicos aunque el precio de lista del catalogo haya cambiado.
 async function cargarPedidoDeCorreo(buf, fileName, opts){ opts=opts||{};
+  // Evitar cargar dos veces el mismo pedido: el N° = nombre del archivo (sin .xlsx).
+  const _numpedArch=(fileName||'').replace(/\.xlsx$/i,'').trim();
+  if(_numpedArch && loadOrders().some(o=> String(o.numped||'').trim()===_numpedArch)){
+    return { id:null, duplicate:true, numped:_numpedArch };
+  }
   const zip=xlsxOpenZip(buf);
   const shared=[]; const ssB=zip.get('xl/sharedStrings.xml');
   if(ssB){ const xml=xlText(ssB); const si=/<si>([\s\S]*?)<\/si>/g; let m; while(m=si.exec(xml)){ const tr=/<t[^>]*>([\s\S]*?)<\/t>/g; let t,s=''; while(t=tr.exec(m[1])) s+=t[1]; shared.push(xlUnesc(s)); } }
@@ -20308,21 +20316,23 @@ function wire(){
       if(files.length===1){
         const ab=await files[0].arrayBuffer();
         const res=await cargarPedidoDeCorreo(new Uint8Array(ab), files[0].name);   // pregunta y enfoca
-        if(res && res.enviadoCentral===false){ await enviarPedidos([res.id]); }
+        if(res && res.duplicate){ toast('El pedido ya estaba cargado y no se procesó: '+res.numped); }
+        else if(res && res.enviadoCentral===false){ await enviarPedidos([res.id]); }
       } else {
         // varios archivos: se pregunta UNA sola vez para todo el lote
         const ec=await askConfirm('¿Estos '+files.length+' pedidos ya fueron enviados a pedidos@ofica.com?','Sí','No');
-        const ids=[]; let ok=0, err=0;
+        const ids=[]; let ok=0, err=0, dup=0;
         for(const f of files){
           try{
             const ab=await f.arrayBuffer();
             const res=await cargarPedidoDeCorreo(new Uint8Array(ab), f.name, {enviadoCentral:ec, focus:false});
-            if(res && res.id){ ids.push(res.id); ok++; }
+            if(res && res.duplicate){ dup++; }
+            else if(res && res.id){ ids.push(res.id); ok++; }
           }catch(e2){ err++; console.error('Error cargando '+f.name, e2); }
         }
         limpiarPedidoTodo();
         if(!ec && ids.length){ await enviarPedidos(ids); }   // No: entra al ciclo de enviarlos a pedidos@ofica.com
-        toast('Cargados '+ok+' de '+files.length+' pedidos'+(err?(' · '+err+' con error'):'')+(ec?'':' · enviados'));
+        toast('Cargados '+ok+' de '+files.length+' pedidos'+(dup?(' · '+dup+' ya estaban cargados'):'')+(err?(' · '+err+' con error'):'')+(ec?'':' · enviados'));
         openPedidos();
       }
     }catch(err){ toast(err&&err.message?err.message:'No se pudo leer el archivo'); console.error(err); }
@@ -20383,9 +20393,24 @@ function wire(){
   });
   // enviar pedidos seleccionados por correo
   $('#btnEnviarPedidos').addEventListener('click',()=>{
+    const all=[...document.querySelectorAll('#ordersList .osel:checked')].map(c=>c.dataset.sel);
+    if(!all.length){ toast('Selecciona al menos un pedido'); return; }
+    const orders=loadOrders();
+    const ids=all.filter(id=>{ const o=orders.find(x=>x.id===id); return o && o.status!=='ENVIADO'; });
+    if(!ids.length){ toast('Los pedidos seleccionados ya fueron enviados'); return; }
+    enviarPedidos(ids);
+  });
+  // eliminar los pedidos seleccionados (con confirmación)
+  $('#btnEliminarSel').addEventListener('click',async ()=>{
     const ids=[...document.querySelectorAll('#ordersList .osel:checked')].map(c=>c.dataset.sel);
     if(!ids.length){ toast('Selecciona al menos un pedido'); return; }
-    enviarPedidos(ids);
+    const ok=await askConfirm('¿Eliminar '+ids.length+' pedido'+(ids.length===1?'':'s')+' seleccionado'+(ids.length===1?'':'s')+'? Esta acción no se puede deshacer.','Sí, eliminar','No');
+    if(!ok) return;
+    const set=new Set(ids);
+    storeOrders(loadOrders().filter(o=>!set.has(o.id)));
+    if(currentOrderId && set.has(currentOrderId)){ limpiarPedidoTodo(); }
+    openPedidos();
+    toast('Eliminado'+(ids.length===1?'':'s')+' '+ids.length+' pedido'+(ids.length===1?'':'s'));
   });
   $('#btnSelAll').addEventListener('click',()=>{
     const boxes=[...document.querySelectorAll('#ordersList .osel:not(:disabled)')];
