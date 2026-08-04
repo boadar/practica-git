@@ -415,7 +415,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v138</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v139</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -18065,8 +18065,13 @@ function buildOrderXlsxStyled(o){
     const ordenados=sel.filter(p=>ivaRateOf(p)===0).concat(sel.filter(p=>ivaRateOf(p)!==0));
     ordenados.forEach(p=>{
       const qty=state.qty[p.codigo];
-      const net=round2(precioNeto(p));   // precio final (con descuento)
-      prods.push({codigo:p.codigo, nombre:String(p.nombre||''), inv:(+p.inv||0), precio:net, umv:(+p.umv||0), bulto:(+p.bulto||0), pedido:qty, total:round2(net*qty)});
+      const dsc=descDe(p);                                      // [d1,d2,d3] fracciones (override/ficha; 0 si descGlobal=NO)
+      const ov=precioTmpDe(p);
+      const base=round2((ov!=null)?ov:(+(p&&p.precioUsd)||0));  // PRECIO UNIT $ = precio original (base del descuento)
+      const net=round2(precioNeto(p));                          // PRECIO FINAL $ = con descuento
+      prods.push({codigo:p.codigo, nombre:String(p.nombre||''), inv:(+p.inv||0),
+        precioUnit:base, d1:dsc[0], d2:dsc[1], d3:dsc[2], precio:net,
+        umv:(+p.umv||0), bulto:(+p.bulto||0), pedido:qty, total:round2(net*qty)});
     });
     data={ m, t,
       fecha: fechaDMY((o&&o.fecha)||m.fecha||''),
@@ -18094,29 +18099,38 @@ function buildOrderXlsxStyled(o){
     const cells=[
       {ci:0,v:leftLbl[i],s:1},
       {ci:1,v:leftVal[i],s:2},{ci:2,v:'',s:2},{ci:3,v:'',s:2},{ci:4,v:'',s:2},{ci:5,v:'',s:2},
-      {ci:6,v:sumLbl[i],s:(i===4?5:1)},
-      {ci:7,v:sumVal[i],s:sumSty[i]}
+      {ci:9,v:sumLbl[i],s:(i===4?5:1)},
+      {ci:15,v:sumVal[i],s:sumSty[i]}
     ];
     body+=rowXml(r,cells, i===4?42:18);
   }
   // --- fila de fecha (cian) — solo A7 ---
   body+=rowXml(7,[{ci:0,v:data.fecha,s:7}],18);
-  // --- encabezado de tabla ---
-  const heads=['CÓDIGO ARTÍCULO','NOMBRE DEL PRODUCTO','INV','PRECIO FINAL $','UMV','BULTO','PEDIDO','TOTAL CON DESCUENTO'];
-  body+=rowXml(8, heads.map((h,ci)=>({ci,v:h,s:8})), 32);
-  // --- filas de producto ---
+  // --- encabezado de tabla (las columnas C, E, M y N quedan ocultas y vacías) ---
+  const headCells=[
+    {ci:0,v:'CÓDIGO ARTÍCULO',s:8},{ci:1,v:'NOMBRE DEL PRODUCTO',s:8},
+    {ci:3,v:'INV',s:8},
+    {ci:5,v:'PRECIO UNIT $',s:8},{ci:6,v:'Desc 1',s:8},{ci:7,v:'Desc 2',s:8},{ci:8,v:'Desc 3',s:8},
+    {ci:9,v:'PRECIO FINAL $',s:8},{ci:10,v:'UMV',s:8},{ci:11,v:'BULTO',s:8},
+    {ci:14,v:'PEDIDO',s:8},{ci:15,v:'TOTAL CON DESCUENTO',s:8}
+  ];
+  body+=rowXml(8, headCells, 32);
+  // --- filas de producto (C, E, M, N quedan sin datos: columnas ocultas) ---
+  const pct=x=>{ const v=Math.round((+x||0)*1000)/10; return v+'%'; };
   prods.forEach((p,i)=>{
     const r=9+i;
     body+=rowXml(r,[
-      {ci:0,v:p.codigo,s:9},{ci:1,v:p.nombre,s:10},{ci:2,v:p.inv,s:9},
-      {ci:3,v:p.precio,s:11},{ci:4,v:p.umv,s:9},{ci:5,v:p.bulto,s:9},
-      {ci:6,v:p.pedido,s:9},{ci:7,v:p.total,s:11}
+      {ci:0,v:p.codigo,s:9},{ci:1,v:p.nombre,s:10},
+      {ci:3,v:p.inv,s:9},
+      {ci:5,v:p.precioUnit,s:11},{ci:6,v:pct(p.d1),s:9},{ci:7,v:pct(p.d2),s:9},{ci:8,v:pct(p.d3),s:9},
+      {ci:9,v:p.precio,s:11},{ci:10,v:p.umv,s:9},{ci:11,v:p.bulto,s:9},
+      {ci:14,v:p.pedido,s:9},{ci:15,v:p.total,s:11}
     ]);
   });
 
-  const merges=['B2:F2','B3:F3','B4:F4','B5:F5','B6:F6'];
+  const merges=['B2:F2','B3:F3','B4:F4','B5:F5','B6:F6','J2:O2','J3:O3','J4:O4','J5:O5','J6:O6'];
   const mergeXml=`<mergeCells count="${merges.length}">`+merges.map(x=>`<mergeCell ref="${x}"/>`).join('')+`</mergeCells>`;
-  const cols=`<cols><col min="1" max="1" width="22" customWidth="1"/><col min="2" max="2" width="46" customWidth="1"/><col min="3" max="3" width="8" customWidth="1"/><col min="4" max="4" width="13" customWidth="1"/><col min="5" max="5" width="7" customWidth="1"/><col min="6" max="6" width="8" customWidth="1"/><col min="7" max="7" width="14" customWidth="1"/><col min="8" max="8" width="18" customWidth="1"/></cols>`;
+  const cols=`<cols><col min="1" max="1" width="22" customWidth="1"/><col min="2" max="2" width="46" customWidth="1"/><col min="3" max="3" width="3" hidden="1" customWidth="1"/><col min="4" max="4" width="8" customWidth="1"/><col min="5" max="5" width="3" hidden="1" customWidth="1"/><col min="6" max="6" width="13" customWidth="1"/><col min="7" max="7" width="9" customWidth="1"/><col min="8" max="8" width="9" customWidth="1"/><col min="9" max="9" width="9" customWidth="1"/><col min="10" max="10" width="13" customWidth="1"/><col min="11" max="11" width="7" customWidth="1"/><col min="12" max="12" width="8" customWidth="1"/><col min="13" max="13" width="3" hidden="1" customWidth="1"/><col min="14" max="14" width="3" hidden="1" customWidth="1"/><col min="15" max="15" width="10" customWidth="1"/><col min="16" max="16" width="18" customWidth="1"/></cols>`;
   const views=`<sheetViews><sheetView workbookViewId="0"><pane ySplit="8" topLeftCell="A9" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A9" sqref="A9"/></sheetView></sheetViews>`;
   const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${views}${cols}<sheetData>${body}</sheetData>${mergeXml}<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup orientation="landscape"/></worksheet>`;
