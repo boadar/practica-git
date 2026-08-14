@@ -446,7 +446,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v152</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v153</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -18987,7 +18987,7 @@ function render(){
             <span class="bplbl">BULTOS PEDIDO</span>
             <div class="stepper bstep">
               <button class="minus" data-bact="dec" aria-label="Quitar un bulto (${fmtN.format(+p.bulto)} und)"${dis}>−</button>
-              <input type="text" inputmode="numeric" class="bpval" data-binp value="${(qty/(+p.bulto)).toFixed(2)}" aria-label="Bultos de ${esc(p.codigo)}"${dis}>
+              <input type="text" inputmode="decimal" class="bpval" data-binp value="${(qty/(+p.bulto)).toFixed(2)}" aria-label="Bultos de ${esc(p.codigo)}"${dis}>
               <button class="plus" data-bact="inc" aria-label="Agregar un bulto (${fmtN.format(+p.bulto)} und)"${dis}>+</button>
             </div>
           </div>`:'<div></div>'}
@@ -20374,22 +20374,27 @@ function wire(){
   $('#list').addEventListener('focusin',e=>{
     const bi=e.target.closest('input[data-binp]'); if(!bi) return;
     const code=bi.closest('.prod').dataset.code; const p=byCode[code]; const bulto=(p&&+p.bulto>0)?+p.bulto:0;
-    const n = bulto>0 ? Math.floor((+state.qty[code]||0)/bulto) : 0;
-    bi.value=String(n); bi.dataset.bprev=String(n); bi.select();
+    const n = bulto>0 ? (+state.qty[code]||0)/bulto : 0;
+    const s = String(Math.round(n*1000)/1000);   // permite fracción de bulto
+    bi.value=s; bi.dataset.bprev=s; bi.select();
   });
   $('#list').addEventListener('input',e=>{
     const bi=e.target.closest('input[data-binp]'); if(!bi) return;
-    bi.value=bi.value.replace(/\D/g,'');
+    let v=bi.value.replace(/[^\d.,]/g,'');          // solo dígitos y separador decimal
+    const i=v.search(/[.,]/);                         // deja solo el primer separador
+    if(i>=0) v=v.slice(0,i+1)+v.slice(i+1).replace(/[.,]/g,'');
+    bi.value=v;
   });
   $('#list').addEventListener('change',e=>{
     const bi=e.target.closest('input[data-binp]'); if(!bi) return;
     const row=bi.closest('.prod'); const code=row.dataset.code;
     const p=byCode[code]; const bulto=(p&&+p.bulto>0)?+p.bulto:0;
     if(!bulto || bi.value===bi.dataset.bprev){ refreshRow(row); return; }
-    const n=Math.max(0,parseInt(bi.value,10)||0);
-    const nprev=Math.max(0,parseInt(bi.dataset.bprev,10)||0);
-    if(validarInventario(code,n*bulto,row,nprev*bulto)){ bi.value=String(nprev); bi.dataset.bprev=String(nprev); return; }
-    setQty(code,n*bulto); row.classList.toggle('on',n>0);
+    const n=Math.max(0, parseFloat(String(bi.value).replace(',','.'))||0);
+    const nprev=Math.max(0, parseFloat(String(bi.dataset.bprev).replace(',','.'))||0);
+    const units=Math.round(n*bulto*1000)/1000;                 // fracción de bulto -> unidades
+    if(validarInventario(code,units,row,Math.round(nprev*bulto*1000)/1000)){ bi.value=String(nprev); bi.dataset.bprev=String(nprev); return; }
+    setQty(code,units); row.classList.toggle('on',n>0);
     refreshRow(row); updateTotals();
     if(filter.onlyOn && !(state.qty[code]>0)) render();
   });
