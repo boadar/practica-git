@@ -444,7 +444,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v147</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v148</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -509,6 +509,12 @@
         <button class="iconbtn cargarinv" id="btnRestaurar" type="button" style="display:none" title="Restaurar un respaldo guardado">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
         <span class="btnlabel">Restaurar</span>
+      </button>
+      </div></div>
+      <div class="admgroup"><span class="admgroup-lbl">Publicar</span><div class="admgroup-btns">
+        <button class="iconbtn cargarinv" id="btnActualizarApp" type="button" style="display:none" title="Publicar a GitHub los cambios de este dispositivo (inventario, catálogo, fotos) para todos los usuarios. Pide un token que no se guarda.">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+        <span class="btnlabel">Actualizar App</span>
       </button>
       </div></div>
       </div>
@@ -695,6 +701,20 @@
     <div class="body catedit-list" id="catEditList"></div>
     <datalist id="catEditCats"></datalist>
     <input type="file" id="catImgFile" accept="image/*" style="display:none">
+  </div>
+</div>
+
+<div class="modal" id="tokenModal">
+  <div class="sheet">
+    <header><h2>Actualizar App</h2><button class="closex" id="tokNo">×</button></header>
+    <div class="cfbody">
+      <p>Pega tu <b>token de GitHub</b> (fine-grained, con permiso <i>Contents: Read and write</i> en el repositorio). Solo se usa para esta publicación y <b>no se guarda</b> en ningún lado.</p>
+      <input type="password" id="tokInput" placeholder="github_pat_..." autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div class="cfbtns">
+        <button class="btn" id="tokCancel">Cancelar</button>
+        <button class="btn primary" id="tokOk">Publicar</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -18537,6 +18557,96 @@ function procesarImagenArchivo(file, cb){
   }catch(e){ cb(null); }
 }
 function catEditRefresh(){ const s=$('#catEditSearch'); catEditRender(s?s.value:''); }
+// ===== ACTUALIZAR APP: publica los cambios locales a GitHub (token temporal, NO se guarda) =====
+const GH_OWNER='boadar', GH_REPO='practica-git', GH_BRANCH='claude/artifact-modifications-fw94c4';
+const GH_API='https://api.github.com/repos/'+GH_OWNER+'/'+GH_REPO;
+const CAT_CAMPOS=['codigo','codigoBarra','nombre','categoria','exento','inv','precioUsd','desc1','desc2','desc3','umv','bulto','descGlobal','marca'];
+function catalogoLimpio(){ return CATALOGO.map(p=>{ const o={}; CAT_CAMPOS.forEach(k=>{ if(p[k]!==undefined) o[k]=p[k]; }); return o; }); }
+function pimgConOverrides(){ const data=PIMG.data.slice(), map=Object.assign({},PIMG.map);
+  Object.keys(IMG_OVR).forEach(code=>{ const v=IMG_OVR[code]; if(v){ data.push(v); map[code]=data.length-1; } else { delete map[code]; } });
+  return {data:data, map:map}; }
+// reemplaza el bloque `const NAME = <open ... close>;` con matching consciente de strings JSON
+function ghReemplazarBloque(txt, decl, open, close, nuevo){
+  const i=txt.indexOf(decl); if(i<0) return null;
+  let j=txt.indexOf(open, i); if(j<0) return null;
+  let depth=0, end=-1, inStr=false, esc=false;
+  for(let k=j;k<txt.length;k++){ const c=txt[k];
+    if(inStr){ if(esc)esc=false; else if(c==='\\')esc=true; else if(c==='"')inStr=false; continue; }
+    if(c==='"'){ inStr=true; continue; }
+    if(c===open) depth++; else if(c===close){ depth--; if(depth===0){ end=k+1; break; } }
+  }
+  if(end<0) return null;
+  return txt.slice(0,j)+nuevo+txt.slice(end);
+}
+function ghHornear(txt, ver, dataVer){
+  let out=ghReemplazarBloque(txt,'const CATALOGO','[',']', JSON.stringify(catalogoLimpio(),null,1)); if(out==null) throw new Error('no se encontró CATALOGO');
+  out=ghReemplazarBloque(out,'const PIMG','{','}', JSON.stringify(pimgConOverrides())); if(out==null) throw new Error('no se encontró PIMG');
+  out=out.replace(/(<span class="appver" id="appver">)[^<]*(<\/span>)/, '$1v'+ver+'$2');
+  out=out.replace(/(const DATA_VERSION=')[^']*(')/, '$1'+dataVer+'$2');
+  return out;
+}
+function ghValidar(txt){
+  const m=/const CATALOGO\s*=\s*\[/.exec(txt); if(!m) throw new Error('validación: falta CATALOGO');
+  let k=m.index+m[0].length-1, depth=0, end=-1, inStr=false, esc=false;
+  for(;k<txt.length;k++){ const c=txt[k]; if(inStr){ if(esc)esc=false; else if(c==='\\')esc=true; else if(c==='"')inStr=false; continue;} if(c==='"'){inStr=true;continue;} if(c==='[')depth++; else if(c===']'){depth--; if(depth===0){end=k+1;break;}} }
+  if(end<0) throw new Error('validación: CATALOGO mal cerrado');
+  const arr=JSON.parse(txt.slice(m.index+m[0].length-1, end));
+  if(!Array.isArray(arr)||arr.length<100) throw new Error('validación: CATALOGO inválido');
+  if(txt.indexOf('id="appver"')<0) throw new Error('validación: falta appver');
+}
+function ghDecodeB64(b64){ b64=(b64||'').replace(/\s/g,''); const bin=atob(b64); const by=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) by[i]=bin.charCodeAt(i); return new TextDecoder('utf-8').decode(by); }
+function ghEncodeB64(str){ const by=new TextEncoder().encode(str); let bin=''; const CH=0x8000; for(let i=0;i<by.length;i+=CH){ bin+=String.fromCharCode.apply(null, by.subarray(i,i+CH)); } return btoa(bin); }
+async function ghFetch(url, opts){ const r=await fetch(url, opts); if(!r.ok){ let m=''; try{ m=(await r.json()).message||''; }catch(e){} throw new Error('GitHub '+r.status+(m?' — '+m:'')); } return r.json(); }
+async function actualizarApp(){
+  const rd=k=>{ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):null; }catch(e){ return null; } };
+  const nInv=rd(INV_KEY)?Object.keys(rd(INV_KEY)).length:0, nCat=rd(CATEDIT_KEY)?Object.keys(rd(CATEDIT_KEY)).length:0, nImg=rd(IMG_KEY)?Object.keys(rd(IMG_KEY)).length:0;
+  const ok0=await askConfirm('Se publicarán a GitHub los cambios de este dispositivo para TODOS los usuarios:\n\n· Inventario: '+nInv+' referencia(s)\n· Catálogo (precio/nombre/etc.): '+nCat+' referencia(s)\n· Fotos: '+nImg+'\n\nNecesitarás un token de GitHub (no se guarda). ¿Continuar?','Sí, continuar','Cancelar');
+  if(!ok0) return;
+  const token=await pedirToken();
+  if(!token) return;
+  const H={ 'Authorization':'Bearer '+token, 'Accept':'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28' };
+  try{
+    toast('Preparando publicación…');
+    const ref=await ghFetch(GH_API+'/git/ref/heads/'+GH_BRANCH, {headers:H});
+    const commitSha=ref.object.sha;
+    const commit=await ghFetch(GH_API+'/git/commits/'+commitSha, {headers:H});
+    const baseTree=commit.tree.sha;
+    async function getFile(path){ const r=await fetch(GH_API+'/contents/'+path+'?ref='+encodeURIComponent(GH_BRANCH), {headers:Object.assign({},H,{'Accept':'application/vnd.github.raw'})}); if(!r.ok){ let mm=''; try{ mm=(await r.json()).message||''; }catch(e){} throw new Error('GitHub '+r.status+' al leer '+path+(mm?' — '+mm:'')); } return r.text(); }
+    const srcTxt=await getFile('Pedidos_OFICA.html');
+    const docsTxt=await getFile('docs/index.html');
+    const swTxt=await getFile('docs/sw.js');
+    const mv=/pedidos-ofica-v(\d+)/.exec(swTxt); if(!mv) throw new Error('sw.js sin versión');
+    const ver=parseInt(mv[1],10)+1, dataVer=isoHoy();
+    const newSrc=ghHornear(srcTxt, ver, dataVer);
+    const newDocs=ghHornear(docsTxt, ver, dataVer);
+    const newSw=swTxt.replace(/pedidos-ofica-v\d+/g, 'pedidos-ofica-v'+ver);
+    ghValidar(newSrc); ghValidar(newDocs);
+    toast('Publicando a GitHub…');
+    async function blob(content){ const d=await ghFetch(GH_API+'/git/blobs',{method:'POST',headers:H,body:JSON.stringify({content:ghEncodeB64(content),encoding:'base64'})}); return d.sha; }
+    const b1=await blob(newSrc), b2=await blob(newDocs), b3=await blob(newSw);
+    const tree=await ghFetch(GH_API+'/git/trees',{method:'POST',headers:H,body:JSON.stringify({base_tree:baseTree,tree:[
+      {path:'Pedidos_OFICA.html',mode:'100644',type:'blob',sha:b1},
+      {path:'docs/index.html',mode:'100644',type:'blob',sha:b2},
+      {path:'docs/sw.js',mode:'100644',type:'blob',sha:b3}
+    ]})});
+    const newCommit=await ghFetch(GH_API+'/git/commits',{method:'POST',headers:H,body:JSON.stringify({message:'Actualizar app desde el dispositivo (v'+ver+')',tree:tree.sha,parents:[commitSha]})});
+    await ghFetch(GH_API+'/git/refs/heads/'+GH_BRANCH,{method:'PATCH',headers:H,body:JSON.stringify({sha:newCommit.sha,force:false})});
+    await askConfirm('¡Publicado! La app quedó en la versión v'+ver+' en GitHub. Todos los dispositivos la tomarán al reabrirla (puede tardar 1-2 minutos en estar disponible).','Entendido','Cerrar');
+  }catch(err){
+    await askConfirm('No se pudo publicar: '+(err&&err.message?err.message:err)+'\n\nNo se realizó ningún cambio en GitHub. Verifica el token (permiso Contents: Read and write en el repositorio) y tu conexión.','Entendido','Cerrar');
+  }
+}
+function pedirToken(){
+  return new Promise(res=>{
+    const m=$('#tokenModal'), inp=$('#tokInput'), ok=$('#tokOk'), cancel=$('#tokCancel'), x=$('#tokNo');
+    function done(v){ m.classList.remove('open'); inp.value=''; ok.removeEventListener('click',fOk); cancel.removeEventListener('click',fNo); x.removeEventListener('click',fNo); inp.removeEventListener('keydown',fKey); res(v); }
+    function fOk(){ const v=(inp.value||'').trim(); done(v||null); }
+    function fNo(){ done(null); }
+    function fKey(e){ if(e.key==='Enter') fOk(); }
+    ok.addEventListener('click',fOk); cancel.addEventListener('click',fNo); x.addEventListener('click',fNo); inp.addEventListener('keydown',fKey);
+    m.classList.add('open'); setTimeout(()=>{ try{ inp.focus(); }catch(e){} },60);
+  });
+}
 // Versión de los datos publicados (inventario). Se incrementa al publicar un inventario nuevo a
 // GitHub; cuando cambia, se borran los ajustes de inventario locales del dispositivo para que en
 // TODOS mande lo publicado (el escritorio es el maestro).
@@ -19163,7 +19273,7 @@ function cerrarListaCliente(input){
 }
 
 async function toggleAdmin(){
-  const admBtns=['#btnCargar','#btnCargarOtro','#btnCargarInv','#btnNuevoProd','#btnPrecioTmp','#btnDescuentos','#btnOverInv','#btnRespaldo','#btnRestaurar','#btnReset','#btnEditarCat'];
+  const admBtns=['#btnCargar','#btnCargarOtro','#btnCargarInv','#btnNuevoProd','#btnPrecioTmp','#btnDescuentos','#btnOverInv','#btnRespaldo','#btnRestaurar','#btnReset','#btnEditarCat','#btnActualizarApp'];
   if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display='none'; }); { const ag=$('#admGroups'); if(ag) ag.style.display='none'; } filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
   const pass=await askPassword();
   if(pass==null) return;
@@ -20535,6 +20645,7 @@ function wire(){
   $('#btnReset').addEventListener('click',()=>{ restablecerDatosLocales(); });
   // ---- Editor de catálogo ----
   $('#btnEditarCat').addEventListener('click',openCatEdit);
+  $('#btnActualizarApp').addEventListener('click',actualizarApp);
   $('#catEditClose').addEventListener('click',cerrarCatEdit);
   $('#catEditModal').addEventListener('click',e=>{ if(e.target===$('#catEditModal')) cerrarCatEdit(); });
   $('#catEditSearch').addEventListener('input',e=>catEditRender(e.target.value));
@@ -20626,6 +20737,7 @@ function wire(){
     if($('#regCliModal').classList.contains('open')){ cerrarRegistroCliente(); return; }
     if($('#catModal').classList.contains('open')){ $('#catNo').click(); return; }
     if($('#confirmModal').classList.contains('open')){ $('#cfNo').click(); return; }
+    if($('#tokenModal').classList.contains('open')){ $('#tokNo').click(); return; }
     if($('#catEditModal').classList.contains('open')){ cerrarCatEdit(); return; }
     if($('#ordersModal').classList.contains('open')){ cerrarPedidos(); return; }
     if($('#modal').classList.contains('open')){ $('#modal').classList.remove('open'); return; }
