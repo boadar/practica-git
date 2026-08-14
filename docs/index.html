@@ -444,7 +444,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v149</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v150</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -18096,7 +18096,7 @@ function buildOrderXlsxStyled(o){
 
   const merges=['B2:F2','B3:F3','B4:F4','B5:F5','B6:F6','J2:O2','J3:O3','J4:O4','J5:O5','J6:O6'];
   const mergeXml=`<mergeCells count="${merges.length}">`+merges.map(x=>`<mergeCell ref="${x}"/>`).join('')+`</mergeCells>`;
-  const cols=`<cols><col min="1" max="1" width="22" customWidth="1"/><col min="2" max="2" width="46" customWidth="1"/><col min="3" max="3" width="3" hidden="1" customWidth="1"/><col min="4" max="4" width="8" customWidth="1"/><col min="5" max="5" width="3" hidden="1" customWidth="1"/><col min="6" max="6" width="13" customWidth="1"/><col min="7" max="7" width="9" hidden="1" customWidth="1"/><col min="8" max="8" width="9" hidden="1" customWidth="1"/><col min="9" max="9" width="9" hidden="1" customWidth="1"/><col min="10" max="10" width="13" customWidth="1"/><col min="11" max="11" width="7" customWidth="1"/><col min="12" max="12" width="8" customWidth="1"/><col min="13" max="13" width="3" hidden="1" customWidth="1"/><col min="14" max="14" width="3" hidden="1" customWidth="1"/><col min="15" max="15" width="10" customWidth="1"/><col min="16" max="16" width="18" customWidth="1"/></cols>`;
+  const cols=`<cols><col min="1" max="1" width="22" customWidth="1"/><col min="2" max="2" width="46" customWidth="1"/><col min="3" max="3" width="3" hidden="1" customWidth="1"/><col min="4" max="4" width="8" customWidth="1"/><col min="5" max="5" width="3" hidden="1" customWidth="1"/><col min="6" max="6" width="13" hidden="1" customWidth="1"/><col min="7" max="7" width="9" hidden="1" customWidth="1"/><col min="8" max="8" width="9" hidden="1" customWidth="1"/><col min="9" max="9" width="9" hidden="1" customWidth="1"/><col min="10" max="10" width="13" customWidth="1"/><col min="11" max="11" width="7" customWidth="1"/><col min="12" max="12" width="8" customWidth="1"/><col min="13" max="13" width="3" hidden="1" customWidth="1"/><col min="14" max="14" width="3" hidden="1" customWidth="1"/><col min="15" max="15" width="10" customWidth="1"/><col min="16" max="16" width="18" customWidth="1"/></cols>`;
   const views=`<sheetViews><sheetView workbookViewId="0"><pane ySplit="8" topLeftCell="A9" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A9" sqref="A9"/></sheetView></sheetViews>`;
   const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${views}${cols}<sheetData>${body}</sheetData>${mergeXml}<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup orientation="landscape"/></worksheet>`;
@@ -20137,17 +20137,17 @@ function buildPrint(){
   lines.forEach(p=>{
     
     const qty=state.qty[p.codigo],net=precioNeto(p),importe=net*qty;
-    rowsHtml+=`<tr><td>${esc(p.codigo)}</td><td>${esc(p.nombre)}</td><td class="n">${fmtN.format(qty)}</td><td class="n">${fmt.format(p.precioUsd)}</td><td class="n">${fmt.format(net)}</td><td class="n imp">${fmt.format(importe)}</td></tr>`;
+    rowsHtml+=`<tr><td>${esc(p.codigo)}</td><td>${esc(p.nombre)}</td><td class="n">${fmtN.format(qty)}</td><td class="n">${fmt.format(net)}</td><td class="n imp">${fmt.format(importe)}</td></tr>`;
   });
   const dl=descLabel();
-  const foot=(label,val,cls)=>`<tr${cls?' class="'+cls+'"':''}><td colspan="5" class="n">${label}</td><td class="n imp">${val}</td></tr>`;
+  const foot=(label,val,cls)=>`<tr${cls?' class="'+cls+'"':''}><td colspan="4" class="n">${label}</td><td class="n imp">${val}</td></tr>`;
   $('#print').innerHTML=`
     <div class="ph" style="align-items:center"><div style="display:flex;align-items:center;gap:16px"><img src="${OFICA_LOGO}" alt="OFICA" style="height:52px;width:auto"><div><h1>Pedido — OFICA</h1><div>${lines.length} productos · ${fmtN.format(t.unidades)} unidades · Desc ${dl}</div></div></div>
     <div style="text-align:right;font-size:12px"><b>Fecha:</b> ${esc(m.fecha||'')}<br>${m.numped?'<b>Pedido #:</b> '+esc(m.numped):''}</div></div>
     <div class="pmeta"><b>Cliente:</b> ${esc(m.cliente||'—')} ${m.codcliente?'('+esc(m.codcliente)+')':''}<br>
     <b>Vendedor:</b> ${esc(m.vendedor||'—')}<br><b>Condición de pago:</b> ${esc(m.condicion||'—')}
     ${obsConDesc(m)?'<br><b>Observaciones:</b> '+esc(obsConDesc(m)).replace(/\n/g,'<br>'):''}</div>
-    <table><colgroup><col style="width:11%"><col><col style="width:8%"><col style="width:12%"><col style="width:9%"><col style="width:16%"></colgroup><thead><tr><th>Código</th><th>Producto</th><th class="ch">Cant.</th><th class="ch">Precio<br>Unit $</th><th class="ch">Precio c/desc</th><th class="ch imp">Importe</th></tr></thead>
+    <table><colgroup><col style="width:11%"><col><col style="width:8%"><col style="width:11%"><col style="width:16%"></colgroup><thead><tr><th>Código</th><th>Producto</th><th class="ch">Cant.</th><th class="ch">Precio c/desc</th><th class="ch imp">Importe</th></tr></thead>
     <tbody>${rowsHtml}</tbody>
     <tfoot>
       ${foot('Base exenta',fmt.format(t.baseEx))}
