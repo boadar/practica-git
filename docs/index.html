@@ -446,7 +446,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v153</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v154</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -17730,6 +17730,7 @@ function syncMetaFields(){
     if(id==='f_desc1'||id==='f_desc2'||id==='f_desc3') descAsegurarOpcion(e, v);   // descuentos personalizados
     e.value = v;
   }
+  descOtroToggle();
 }
 
 // activa/desactiva el modo solo lectura (no re-renderiza; el llamador lo hace)
@@ -19108,13 +19109,16 @@ function initMeta(){
   for(const id in map){
     const e=document.getElementById(id);
     e.addEventListener('input',()=>{
+      if((id==='f_desc1'||id==='f_desc2'||id==='f_desc3') && e.value===DESC_OTRO){ descElegirOtro(id); return; }   // descuento libre (Gerencia)
       state.meta[map[id]]=e.value; save();
-      // el vendedor puede activar/desactivar sobre-inventario (Gerencias de Ventas) -> re-render
+      // el vendedor puede activar/desactivar sobre-inventario y descuentos libres (Gerencias de Ventas)
       if(id==='f_desc1'||id==='f_desc2'||id==='f_desc3'||id==='f_vendedor') render();
+      if(id==='f_vendedor') descOtroToggle();
       updateTotals(); updateReqLabels();
     });
     e.addEventListener('change',updateReqLabels);
   }
+  descOtroToggle();
 }
 
 // ---- toast ----
@@ -19161,8 +19165,37 @@ function descAsegurarOpcion(sel, val){
   const opt=document.createElement('option');
   opt.value=v; opt.textContent=descFmtPct(num);
   let ref=null;
-  for(let i=0;i<sel.options.length;i++){ if(+sel.options[i].value>num){ ref=sel.options[i]; break; } }
+  for(let i=0;i<sel.options.length;i++){ const ov=+sel.options[i].value; if(isFinite(ov) && ov>num){ ref=sel.options[i]; break; } }
   sel.insertBefore(opt, ref);
+}
+// ---- Descuentos LIBRES para Gerencia de Ventas: opción "Otro…" en Descuento 1/2/3 ----
+const DESC_OTRO='__otro__';
+function descOtroToggle(){
+  const on=esVendedorSobreInv();   // solo las 2 Gerencias de Ventas
+  ['f_desc1','f_desc2','f_desc3'].forEach(id=>{
+    const sel=document.getElementById(id); if(!sel) return;
+    let opt=null; for(let i=0;i<sel.options.length;i++){ if(sel.options[i].value===DESC_OTRO){ opt=sel.options[i]; break; } }
+    if(on && !opt){ const o=document.createElement('option'); o.value=DESC_OTRO; o.textContent='Otro…'; sel.appendChild(o); }
+    else if(!on && opt){ sel.removeChild(opt); }
+  });
+}
+async function descElegirOtro(id){
+  const sel=document.getElementById(id); if(!sel) return;
+  const key=id.replace('f_','');   // desc1 / desc2 / desc3
+  const lbl=(id==='f_desc1'?'Descuento 1':id==='f_desc2'?'Descuento 2':'Descuento 3');
+  const prev=String(+state.meta[key]||0);
+  const actual=(+state.meta[key]||0)*100;
+  const txt=await askDescuento('Descuento personalizado para '+lbl+' (%):', actual?String(Math.round(actual*100)/100).replace('.',','):'');
+  if(txt==null){ sel.value=prev; return; }
+  const pct=parseFloat(String(txt).replace('%','').replace(',','.').trim());
+  if(!isFinite(pct)||pct<0||pct>100){ toast('Descuento inválido: escribe un número entre 0 y 100'); sel.value=prev; return; }
+  const frac=Math.round(pct*100)/10000;   // 12,5 -> 0.125
+  descAsegurarOpcion(sel, frac);
+  let otro=null; for(let i=0;i<sel.options.length;i++){ if(sel.options[i].value===DESC_OTRO){ otro=sel.options[i]; break; } }
+  if(otro) sel.appendChild(otro);   // "Otro…" siempre al final
+  sel.value=String(frac);
+  state.meta[key]=String(frac);
+  save(); render(); updateTotals(); updateReqLabels();
 }
 // Pide un porcentaje reutilizando el modal generico
 function askDescuento(msg, initial){
