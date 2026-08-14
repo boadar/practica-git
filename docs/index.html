@@ -346,6 +346,7 @@
   .obadge.st-otro{background:#E6E1FF;color:#4a3ca8}
   .obadge.st-pend{background:#FFF1CC;color:#8a6d00}
   .obadge.st-env{background:#D6F0E3;color:#0a7d47}
+  .obadge.st-ref{background:#E3E7EC;color:#334}
   .obadge.st-edit{box-shadow:inset 0 0 0 1.5px currentColor}
   #ordersModal .body{flex:1 1 auto;min-height:0}
   .ofooter{flex:0 0 auto;display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line-2)}
@@ -444,7 +445,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v150</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v151</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -17785,6 +17786,18 @@ function dividirPedido(dias){
   for(var i=0;i<N;i++){ if(buckets[i].length){ buckets[i].sort(function(a,b){return (a.tier-b.tier)||(b.val-a.val);}); res.push({dias:dias[i], codes:buckets[i].map(function(x){return x.code;})}); } }
   return res;
 }
+// Respaldo REFERENCIAL del pedido completo original (cuando se divide): solo revisar/imprimir, NO se envía.
+function crearRefOriginal(fullQty, baseMeta, baseNumped, nombre, stamp){
+  var sq=state.qty, sm=state.meta;
+  var mo=JSON.parse(JSON.stringify(baseMeta)); mo.numped=(baseNumped||'')+' (ORIGINAL)'; mo.referencial=true;
+  state.qty=fullQty; state.meta=mo;
+  var tot=totals().total;
+  state.qty=sq; state.meta=sm;
+  return { id:'P'+stamp+'-O-'+Math.floor(Math.random()*1000),
+    nombre:nombre, codcliente:(baseMeta.codcliente||''), fecha:(baseMeta.fecha||''),
+    numped:mo.numped, total:tot, savedAt:new Date().toISOString(),
+    meta:mo, qty:JSON.parse(JSON.stringify(fullQty)), status:'PENDIENTE', editado:false, referencial:true };
+}
 async function guardarPedidoDividido(dias){
   var grupos=dividirPedido(dias);
   var savedQty=state.qty, savedMeta=state.meta;
@@ -17810,6 +17823,7 @@ async function guardarPedidoDividido(dias){
   var list=loadOrders();
   var filtered = currentOrderId ? list.filter(function(o){return o.id!==currentOrderId;}) : list;
   nuevos.forEach(function(r){ filtered.push(r); });
+  filtered.push(crearRefOriginal(savedQty, baseMeta, baseNumped, nombre, stamp));   // respaldo referencial del pedido completo
   storeOrders(filtered); currentOrderId=null;
   var montos=nuevos.map(function(r){return fmt.format(r.total);}).join(' · ');
   var enviar=await askConfirm(
@@ -17872,6 +17886,7 @@ async function guardarPedidoBackOrder(bo){
   var list=loadOrders();
   var filtered = currentOrderId ? list.filter(function(o){return o.id!==currentOrderId;}) : list;
   filtered.push(rec1); filtered.push(rec2);
+  filtered.push(crearRefOriginal(savedQty, baseMeta, baseNumped, nombre, stamp));   // respaldo referencial del pedido completo
   storeOrders(filtered); currentOrderId=null;
   var enviar=await askConfirm(
     'El pedido supera el inventario disponible. Se dividió en 2 pedidos:   '
@@ -17929,7 +17944,7 @@ async function guardarPedido(){
   const enviar=await askConfirm('Pedido guardado. ¿Deseas enviarlo ahora?','Sí, enviar','No');
   if(enviar){
     // ¿hay otros pedidos pendientes por enviar (distintos a este)?
-    const pendientes=loadOrders().filter(o=>o.status!=='ENVIADO' && o.id!==rec.id);
+    const pendientes=loadOrders().filter(o=>o.status!=='ENVIADO' && o.id!==rec.id && !o.referencial);
     if(pendientes.length){
       const otros=await askConfirm('Hay '+pendientes.length+' pedido'+(pendientes.length===1?'':'s')+' más pendiente'+(pendientes.length===1?'':'s')+' por enviar. ¿Deseas enviarlos también?','Sí, ver pedidos','No, solo este');
       if(otros){ limpiarPedidoTodo(); openPedidos(); return; }
@@ -17957,7 +17972,7 @@ function openPedidos(){
     box.innerHTML='<div class="ordersempty">No hay pedidos guardados.</div>';
   } else {
     box.innerHTML=list.map(o=>`<div class="orow">
-      <input type="checkbox" class="osel" data-sel="${esc(o.id)}" aria-label="Seleccionar pedido">
+      <input type="checkbox" class="osel" data-sel="${esc(o.id)}" aria-label="Seleccionar pedido"${o.referencial?' disabled title="Pedido original referencial: no se puede enviar, solo revisar e imprimir"':''}>
       <button class="oopen" data-open="${esc(o.id)}">
         <span class="oname">${esc(o.nombre||'(sin nombre)')}</span>
         ${o.numped?`<span class="ometa">Nº ${esc(o.numped)}</span>`:''}
@@ -17981,6 +17996,7 @@ function totalSinIvaDe(o){
   finally{ state.qty=sq; state.meta=sm; }
 }
 function statusLabel(o){
+  if(o && o.referencial){ return 'PEDIDO ORIGINAL (solo referencia)'; }
   if(o && o.origen==='otro'){
     let base = (o.status==='ENVIADO')
       ? (o.editado?'Pedido de Otro Dispositivo Editado Enviado':'Pedido de Otro Dispositivo Enviado')
@@ -17992,6 +18008,7 @@ function statusLabel(o){
   return (o&&o.editado?'EDITADO ':'')+base;
 }
 function statusClass(o){
+  if(o && o.referencial){ return 'st-ref'; }
   if(o && o.origen==='otro'){ return 'st-otro'+(o.editado?' st-edit':''); }
   const c=(o&&o.status==='ENVIADO')?'st-env':'st-pend';
   return c+(o&&o.editado?' st-edit':'');
@@ -18477,7 +18494,7 @@ function ghHornear(txt, ver, dataVer){
   let out=ghReemplazarBloque(txt,'const CATALOGO','[',']', JSON.stringify(catalogoLimpio(),null,1)); if(out==null) throw new Error('no se encontró CATALOGO');
   out=ghReemplazarBloque(out,'const PIMG','{','}', JSON.stringify(pimgConOverrides())); if(out==null) throw new Error('no se encontró PIMG');
   out=out.replace(/(<span class="appver" id="appver">)[^<]*(<\/span>)/, '$1v'+ver+'$2');
-  out=out.replace(/(const DATA_VERSION='2026-08-14']*(')/, '$1'+dataVer+'$2');
+  out=out.replace(/(const DATA_VERSION=')\d{4}-\d{2}-\d{2}(')/, '$1'+dataVer+'$2');
   return out;
 }
 function ghValidar(txt){
@@ -20602,7 +20619,7 @@ function wire(){
     const all=[...document.querySelectorAll('#ordersList .osel:checked')].map(c=>c.dataset.sel);
     if(!all.length){ toast('Selecciona al menos un pedido'); return; }
     const orders=loadOrders();
-    const ids=all.filter(id=>{ const o=orders.find(x=>x.id===id); return o && o.status!=='ENVIADO'; });
+    const ids=all.filter(id=>{ const o=orders.find(x=>x.id===id); return o && o.status!=='ENVIADO' && !o.referencial; });
     if(!ids.length){ toast('Los pedidos seleccionados ya fueron enviados'); return; }
     enviarPedidos(ids);
   });
