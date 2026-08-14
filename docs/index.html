@@ -446,7 +446,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v155</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v156</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -17719,7 +17719,29 @@ let locked=false;          // true = modo solo lectura (pedido guardado abierto)
 let adminMode=false;       // true = edición de precios (clave de administrador)
 const ADMIN_KEY='Solita.2026';
 function loadOrders(){ try{const raw=localStorage.getItem(ORDERS_KEY);return raw?JSON.parse(raw):[];}catch(e){return [];} }
-function storeOrders(list){ try{localStorage.setItem(ORDERS_KEY,JSON.stringify(list));}catch(e){} }
+function storeOrders(list){ try{localStorage.setItem(ORDERS_KEY,JSON.stringify(list)); return true;}catch(e){ console.error('storeOrders', e); return false; } }
+// ---- Documentos del cliente nuevo (RIF, cédula, etc.) en IndexedDB: localStorage es muy chico para PDFs/imágenes ----
+const IDB_NAME='ofica_docs', IDB_STORE='docs'; let _idbP=null;
+function idbOpen(){ if(_idbP) return _idbP; _idbP=new Promise((res,rej)=>{ try{ const r=indexedDB.open(IDB_NAME,1); r.onupgradeneeded=()=>{ try{ r.result.createObjectStore(IDB_STORE); }catch(e){} }; r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }catch(e){ rej(e); } }); return _idbP; }
+function idbPut(key,val){ return idbOpen().then(db=>new Promise((res,rej)=>{ const tx=db.transaction(IDB_STORE,'readwrite'); tx.objectStore(IDB_STORE).put(val,key); tx.oncomplete=()=>res(true); tx.onerror=()=>rej(tx.error); })); }
+function idbGet(key){ return idbOpen().then(db=>new Promise((res,rej)=>{ const tx=db.transaction(IDB_STORE,'readonly'); const rq=tx.objectStore(IDB_STORE).get(key); rq.onsuccess=()=>res(rq.result); rq.onerror=()=>rej(rq.error); })); }
+// mueve los documentos pesados (dataUri) de cada pedido a IndexedDB; en localStorage queda solo el nombre
+async function persistirDocsDePedidos(list){
+  for(const o of (list||[])){
+    const nc=o&&o.meta&&o.meta.nuevoCliente; if(!nc||!nc.docs) continue;
+    const claves=Object.keys(nc.docs).filter(k=>nc.docs[k]&&nc.docs[k].dataUri);
+    if(!claves.length) continue;
+    try{ await idbPut('docs:'+o.id, JSON.parse(JSON.stringify(nc.docs)));
+      const liviano={}; Object.keys(nc.docs).forEach(k=>{ const d=nc.docs[k]; if(d) liviano[k]={name:d.name}; });
+      nc.docs=liviano; nc.docsEnIdb=true;
+    }catch(e){ console.error('IDB docs put', e); }   // si IDB falla, se dejan los docs (mejor que perderlos)
+  }
+}
+// recupera los documentos desde IndexedDB (para adjuntarlos al correo)
+async function hidratarDocsIdb(o){
+  const nc=o&&o.meta&&o.meta.nuevoCliente; if(!nc||!nc.docsEnIdb) return;
+  try{ const docs=await idbGet('docs:'+o.id); if(docs) nc.docs=docs; }catch(e){ console.error('IDB docs get', e); }
+}
 
 // refleja state.meta en los campos del detalle
 function syncMetaFields(){
@@ -17835,7 +17857,7 @@ async function guardarPedidoDividido(dias){
   var filtered = currentOrderId ? list.filter(function(o){return o.id!==currentOrderId;}) : list;
   nuevos.forEach(function(r){ filtered.push(r); });
   filtered.push(crearRefOriginal(savedQty, baseMeta, baseNumped, nombre, stamp));   // respaldo referencial del pedido completo
-  storeOrders(filtered); currentOrderId=null;
+  await persistirDocsDePedidos(filtered); storeOrders(filtered); currentOrderId=null;
   var montos=nuevos.map(function(r){return fmt.format(r.total);}).join(' · ');
   var enviar=await askConfirm(
     (nuevos.length<dias.length ? ('Solo había referencias para '+nuevos.length+' pedido'+(nuevos.length===1?'':'s')+'. ') : ('El pedido se dividió en '+nuevos.length+' pedidos. '))
@@ -17898,7 +17920,7 @@ async function guardarPedidoBackOrder(bo){
   var filtered = currentOrderId ? list.filter(function(o){return o.id!==currentOrderId;}) : list;
   filtered.push(rec1); filtered.push(rec2);
   filtered.push(crearRefOriginal(savedQty, baseMeta, baseNumped, nombre, stamp));   // respaldo referencial del pedido completo
-  storeOrders(filtered); currentOrderId=null;
+  await persistirDocsDePedidos(filtered); storeOrders(filtered); currentOrderId=null;
   var enviar=await askConfirm(
     'El pedido supera el inventario disponible. Se dividió en 2 pedidos:   '
     +'Disponible '+fmt.format(s1)+'   ·   BackOrder '+fmt.format(s2)
@@ -17949,7 +17971,9 @@ async function guardarPedido(){
   rec.origen = state.meta.origen || (prev && prev.origen) || undefined;
   rec.enviadoCentral = (state.meta.enviadoCentral!=null)?state.meta.enviadoCentral:(prev?prev.enviadoCentral:undefined);
   if(idx>=0) list[idx]=rec; else list.push(rec);
-  storeOrders(list); currentOrderId=rec.id;
+  await persistirDocsDePedidos([rec]);                 // documentos pesados -> IndexedDB
+  const okSave=storeOrders(list); currentOrderId=rec.id;
+  if(!okSave){ await askConfirm('No se pudo guardar el pedido: la memoria del dispositivo está llena. Envía y elimina pedidos antiguos para liberar espacio.','Entendido','Cerrar'); }
   toast(idx>=0?'Pedido actualizado':'Pedido guardado');
   // preguntar si se envía de una vez
   const enviar=await askConfirm('Pedido guardado. ¿Deseas enviarlo ahora?','Sí, enviar','No');
@@ -18228,6 +18252,7 @@ async function enviarPedidos(ids){
   const mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
   const items=[];
   for(const o of sel){
+    await hidratarDocsIdb(o);   // recupera los documentos del cliente nuevo desde IndexedDB
     try{ items.push({name:safeNameFor(o), bytes:buildOrderXlsxFor(o), mime:mime}); }catch(e){ console.error(e); }
     // adjuntos del cliente nuevo (RIF y cédula)
     const nc=(o.meta||{}).nuevoCliente;
