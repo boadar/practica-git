@@ -290,6 +290,7 @@
   .cehdr-actions{display:flex;align-items:center;gap:10px}
   .catedit-save{padding:8px 12px;font-size:13px;white-space:nowrap}
   .catedit-save:disabled{opacity:.5}
+  .catedit-add{padding:8px 12px;font-size:13px;white-space:nowrap}
   .cerow{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;background:var(--card,#fff)}
   .cerow.modif{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand) inset}
   .cehdr{display:flex;align-items:center;gap:10px;margin-bottom:8px}
@@ -442,7 +443,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v151</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v152</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -690,7 +691,7 @@
 
 <div class="modal" id="catEditModal">
   <div class="sheet">
-    <header><h2>Editar catálogo</h2><div class="cehdr-actions"><button class="btn primary catedit-save" id="catEditSave" type="button" disabled>Guardar cambios</button><button class="closex" id="catEditClose">×</button></div></header>
+    <header><h2>Editar catálogo</h2><div class="cehdr-actions"><button class="btn catedit-add" id="catEditAdd" type="button">Agregar Producto</button><button class="btn primary catedit-save" id="catEditSave" type="button" disabled>Guardar cambios</button><button class="closex" id="catEditClose">×</button></div></header>
     <div class="catedit-bar">
       <input id="catEditSearch" type="search" placeholder="Filtrar por código o nombre…" autocomplete="off">
       <span class="catedit-count" id="catEditCount"></span>
@@ -699,6 +700,14 @@
     <div class="body catedit-list" id="catEditList"></div>
     <datalist id="catEditCats"></datalist>
     <input type="file" id="catImgFile" accept="image/*" style="display:none">
+  </div>
+</div>
+
+<div class="modal" id="nuevoProdModal">
+  <div class="sheet">
+    <header><h2>Agregar producto</h2><div class="cehdr-actions"><button class="btn primary" id="npGuardar" type="button">Guardar producto</button><button class="closex" id="npClose">×</button></div></header>
+    <div class="body catedit-list" id="nuevoProdBody"></div>
+    <input type="file" id="npImgFile" accept="image/*" style="display:none">
   </div>
 </div>
 
@@ -18416,6 +18425,54 @@ function openCatEdit(){
 }
 // ESC / X / clic afuera: descarta el borrador y sale SIN aplicar nada
 function cerrarCatEdit(){ catEditDraft={}; catImgDraft={}; updateSaveBtn(); $('#catEditModal').classList.remove('open'); }
+// ---- Agregar producto nuevo (manual): formulario con todos los campos ----
+let nuevoProdImg=null;
+function npFldHtml(f, val){
+  val = (val!=null?val:'');
+  if(f.type==='sel'){ const cur=String(val||f.opts[0]).toUpperCase(); return `<label class="cefld"><span>${f.label}</span><select data-npfield="${f.k}">`+f.opts.map(o=>`<option value="${o}"${o===cur?' selected':''}>${o}</option>`).join('')+`</select></label>`; }
+  let type=f.type==='num'?'number':'text', extra='';
+  if(f.k==='precioUsd'){ type='text'; extra=' inputmode="decimal"'; } else if(f.type==='num'){ extra=' step="1"'; }
+  const list=f.list?` list="${f.list}"`:'';
+  return `<label class="cefld${f.k==='nombre'?' wide':''}"><span>${f.label}</span><input type="${type}"${extra}${list} data-npfield="${f.k}" value="${esc(String(val))}"></label>`;
+}
+function openNuevoProd(){
+  nuevoProdImg=null;
+  const dl=$('#catEditCats'); if(dl && !dl.innerHTML) dl.innerHTML=[...new Set(CATALOGO.map(p=>p.categoria))].sort().map(c=>`<option value="${esc(c)}"></option>`).join('');
+  const foto=`<div class="ceimgbox"><div class="ceimg ph" id="npImgPrev">Sin foto</div><div class="ceimgbtns"><button type="button" class="ceimgbtn" id="npImgLoad">Cargar foto</button><button type="button" class="ceimgbtn del" id="npImgDel">Quitar</button></div></div>`;
+  $('#nuevoProdBody').innerHTML = `<div class="cerow"><div class="cehdr"><label class="cefld" style="flex:0 0 170px"><span>Código *</span><input type="text" data-npfield="codigo" placeholder="Ej. SLC099" autocomplete="off"></label>${foto}</div><div class="cegrid">`+
+    CATEDIT_FIELDS.map(f=>npFldHtml(f, (f.k==='inv'||f.k==='umv'||f.k==='bulto'||f.k==='precioUsd')?0:'')).join('')+`</div></div>`;
+  $('#nuevoProdModal').classList.add('open');
+  setTimeout(()=>{ const c=$('#nuevoProdBody input[data-npfield="codigo"]'); if(c) c.focus(); }, 60);
+}
+function cerrarNuevoProd(){ $('#nuevoProdModal').classList.remove('open'); }
+function npGuardarProducto(){
+  const body=$('#nuevoProdBody');
+  const get=k=>{ const el=body.querySelector('[data-npfield="'+k+'"]'); return el?el.value:''; };
+  const codigo=(get('codigo')||'').trim();
+  if(!codigo){ toast('El código del producto es obligatorio'); return; }
+  if(byCode[codigo]){ toast('Ya existe un producto con el código '+codigo); return; }
+  let umv=Math.round(parseFloat(get('umv'))||0); if(umv<1) umv=1;
+  const nombre=(get('nombre')||'').trim();
+  const prod={
+    codigo:codigo, codigoBarra:(get('codigoBarra')||'').trim(),
+    nombre:nombre||codigo, categoria:(get('categoria')||'').trim(),
+    exento:(String(get('exento')||'NO').toUpperCase()==='SI'?'SI':'NO'),
+    inv:Math.round(parseFloat(get('inv'))||0),
+    precioUsd:parseFloat(String(get('precioUsd')).replace(',','.'))||0,
+    desc1:0, desc2:0, desc3:0, umv:umv, bulto:Math.round(parseFloat(get('bulto'))||0),
+    marca:(get('marca')||'').trim(),
+    descGlobal:(String(get('descGlobal')||'SI').toUpperCase()==='NO'?'NO':'SI'),
+    nuevo:true
+  };
+  CATALOGO.push(prod); byCode[codigo]=prod; if(prod.categoria && CATS.indexOf(prod.categoria)<0) CATS.push(prod.categoria);
+  saveNewProducts([prod]);
+  if(nuevoProdImg){ setImgOverride(codigo, nuevoProdImg); }
+  try{ buildChips(); }catch(e){}
+  render(); updateTotals();
+  if($('#catEditModal').classList.contains('open')) catEditRefresh();
+  cerrarNuevoProd();
+  toast('Producto '+codigo+' agregado ✓');
+}
 // cuántos productos tienen cambios pendientes (para el botón Guardar)
 function catEditPendientes(){ const s=new Set(); Object.keys(catEditDraft).forEach(c=>{ if(catEditDraft[c]&&Object.keys(catEditDraft[c]).length) s.add(c); }); Object.keys(catImgDraft).forEach(c=>s.add(c)); return s.size; }
 function updateSaveBtn(){ const b=$('#catEditSave'); if(!b) return; const n=catEditPendientes(); b.disabled=!n; b.textContent = n? ('Guardar cambios ('+n+')') : 'Guardar cambios'; }
@@ -20535,7 +20592,11 @@ function wire(){
     }).catch(err=>{ toast('No se pudo leer el archivo'); console.error(err); e.target.value=''; });
   });
   // cargar productos nuevos desde xlsx (admin): primero el archivo, luego categoría por línea
-  $('#btnNuevoProd').addEventListener('click',()=>{ $('#fileNuevoProd').click(); });
+  $('#btnNuevoProd').addEventListener('click',async ()=>{
+    const desdeArchivo=await askConfirm('¿Cómo quieres agregar productos nuevos?','Desde un archivo (varios)','Manualmente (uno)');
+    if(desdeArchivo){ $('#fileNuevoProd').click(); }
+    else { openCatEdit(); openNuevoProd(); }   // manual: abre el editor de catálogo y el formulario de agregar
+  });
   $('#fileNuevoProd').addEventListener('change',e=>{
     const f=e.target.files&&e.target.files[0];
     if(!f){ e.target.value=''; return; }
@@ -20586,6 +20647,20 @@ function wire(){
     updateSaveBtn();
   });
   $('#catEditSave').addEventListener('click',catEditGuardar);
+  // ---- Agregar producto nuevo (manual) ----
+  $('#catEditAdd').addEventListener('click',openNuevoProd);
+  $('#npGuardar').addEventListener('click',npGuardarProducto);
+  $('#npClose').addEventListener('click',cerrarNuevoProd);
+  $('#nuevoProdModal').addEventListener('click',e=>{ if(e.target===$('#nuevoProdModal')) cerrarNuevoProd(); });
+  $('#nuevoProdBody').addEventListener('click',e=>{
+    if(e.target.closest('#npImgLoad')){ const fi=$('#npImgFile'); if(fi){ fi.value=''; fi.click(); } return; }
+    if(e.target.closest('#npImgDel')){ nuevoProdImg=null; const pv=$('#npImgPrev'); if(pv){ pv.className='ceimg ph'; pv.textContent='Sin foto'; } return; }
+  });
+  $('#npImgFile').addEventListener('change',e=>{
+    const f=e.target.files&&e.target.files[0]; if(!f){ e.target.value=''; return; }
+    procesarImagenArchivo(f, uri=>{ if(!uri){ toast('No se pudo procesar la imagen'); return; } nuevoProdImg=uri; const pv=$('#npImgPrev'); if(pv){ pv.className='ceimg'; pv.innerHTML='<img src="'+uri+'" alt="">'; } });
+    e.target.value='';
+  });
   $('#btnPrecioTmp').addEventListener('click',openPrecioTmp);
   $('#ptmpClose').addEventListener('click',()=>$('#precioTmpModal').classList.remove('open'));
   $('#ptmpCancel').addEventListener('click',()=>$('#precioTmpModal').classList.remove('open'));
@@ -20647,6 +20722,7 @@ function wire(){
     if($('#catModal').classList.contains('open')){ $('#catNo').click(); return; }
     if($('#confirmModal').classList.contains('open')){ $('#cfNo').click(); return; }
     if($('#tokenModal').classList.contains('open')){ $('#tokNo').click(); return; }
+    if($('#nuevoProdModal').classList.contains('open')){ cerrarNuevoProd(); return; }
     if($('#catEditModal').classList.contains('open')){ cerrarCatEdit(); return; }
     if($('#ordersModal').classList.contains('open')){ cerrarPedidos(); return; }
     if($('#modal').classList.contains('open')){ $('#modal').classList.remove('open'); return; }
