@@ -443,7 +443,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v154</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v155</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -17725,6 +17725,7 @@ function syncMetaFields(){
     const e=document.getElementById(id); if(!e) continue;
     const v = state.meta[map[id]]!=null ? state.meta[map[id]] : '';
     if(id==='f_desc1'||id==='f_desc2'||id==='f_desc3') descAsegurarOpcion(e, v);   // descuentos personalizados
+    if(id==='f_condicion' && v) condAsegurarOpcion(e, v);                          // condición personalizada
     e.value = v;
   }
   descOtroToggle();
@@ -19107,6 +19108,7 @@ function initMeta(){
     const e=document.getElementById(id);
     e.addEventListener('input',()=>{
       if((id==='f_desc1'||id==='f_desc2'||id==='f_desc3') && e.value===DESC_OTRO){ descElegirOtro(id); return; }   // descuento libre (Gerencia)
+      if(id==='f_condicion' && e.value===DESC_OTRO){ condElegirOtro(); return; }   // condición libre (Gerencia)
       state.meta[map[id]]=e.value; save();
       // el vendedor puede activar/desactivar sobre-inventario y descuentos libres (Gerencias de Ventas)
       if(id==='f_desc1'||id==='f_desc2'||id==='f_desc3'||id==='f_vendedor') render();
@@ -19169,7 +19171,7 @@ function descAsegurarOpcion(sel, val){
 const DESC_OTRO='__otro__';
 function descOtroToggle(){
   const on=esVendedorSobreInv();   // solo las 2 Gerencias de Ventas
-  ['f_desc1','f_desc2','f_desc3'].forEach(id=>{
+  ['f_desc1','f_desc2','f_desc3','f_condicion'].forEach(id=>{
     const sel=document.getElementById(id); if(!sel) return;
     let opt=null; for(let i=0;i<sel.options.length;i++){ if(sel.options[i].value===DESC_OTRO){ opt=sel.options[i]; break; } }
     if(on && !opt){ const o=document.createElement('option'); o.value=DESC_OTRO; o.textContent='Otro…'; sel.appendChild(o); }
@@ -19193,6 +19195,39 @@ async function descElegirOtro(id){
   sel.value=String(frac);
   state.meta[key]=String(frac);
   save(); render(); updateTotals(); updateReqLabels();
+}
+// prompt de texto libre reutilizando el modal genérico (para la condición personalizada)
+function askTexto(msg, initial, sugerencias){
+  return new Promise(res=>{
+    const m=$('#catModal'), inp=$('#catInput'), dl=$('#catInputList'), ok=$('#catOk'), cancel=$('#catCancel'), x=$('#catNo');
+    if(msg!=null) $('#catMsg').textContent=msg;
+    dl.innerHTML=(sugerencias||[]).map(c=>'<option value="'+esc(c)+'"></option>').join('');
+    inp.value=initial||'';
+    function done(v){ m.classList.remove('open'); dl.innerHTML=''; ok.removeEventListener('click',fOk); cancel.removeEventListener('click',fNo); x.removeEventListener('click',fNo); inp.removeEventListener('keydown',fKey); res(v); }
+    function fOk(){ const val=String(inp.value||'').trim(); if(!val){ inp.focus(); return; } done(val); }
+    function fNo(){ done(null); }
+    function fKey(ev){ if(ev.key==='Enter'){ev.preventDefault();fOk();} else if(ev.key==='Escape'){ev.preventDefault();fNo();} }
+    ok.addEventListener('click',fOk); cancel.addEventListener('click',fNo); x.addEventListener('click',fNo); inp.addEventListener('keydown',fKey);
+    m.classList.add('open'); setTimeout(()=>{inp.focus(); if(inp.select) inp.select();},50);
+  });
+}
+// inserta una opción de texto en el select de condición (si no existe), antes de "Otro…"
+function condAsegurarOpcion(sel, val){
+  if(!sel||!val) return;
+  for(let i=0;i<sel.options.length;i++){ if(sel.options[i].value===val || sel.options[i].text===val) return; }
+  const opt=document.createElement('option'); opt.value=val; opt.textContent=val;
+  let otro=null; for(let i=0;i<sel.options.length;i++){ if(sel.options[i].value===DESC_OTRO){ otro=sel.options[i]; break; } }
+  sel.insertBefore(opt, otro);
+}
+async function condElegirOtro(){
+  const sel=$('#f_condicion'); if(!sel) return;
+  const prev=state.meta.condicion||'';
+  const txt=await askTexto('Condición de pago personalizada:', prev, []);
+  if(txt==null){ sel.value=prev; return; }
+  const val=String(txt).trim(); if(!val){ sel.value=prev; return; }
+  condAsegurarOpcion(sel, val);
+  sel.value=val;
+  state.meta.condicion=val; save(); updateTotals(); updateReqLabels();
 }
 // Pide un porcentaje reutilizando el modal generico
 function askDescuento(msg, initial){
