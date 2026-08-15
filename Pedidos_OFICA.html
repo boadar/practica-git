@@ -466,7 +466,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v163</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v164</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -19053,17 +19053,25 @@ function totals(){
 // sigue funcionando igual: simplemente no muestra pistas.
 let HIST=null, HIST_TRIED=false, HIST_LOADING=false;
 const HIST_MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+// Intenta primero el archivo relativo (funciona en GitHub Pages y queda cacheado
+// offline por el Service Worker). Si falla —p. ej. al abrir el HTML como archivo
+// local, donde no hay archivo al lado— lo baja del servidor por URL absoluta
+// (GitHub Pages envía Access-Control-Allow-Origin: * , así que la carga cruzada
+// está permitida). Así el histórico funciona tanto en línea como en local.
+const HIST_URLS=['historico_ventas.json','https://boadar.github.io/practica-git/historico_ventas.json'];
 async function cargarHistorico(){
   if(HIST || HIST_LOADING || HIST_TRIED) return;
   HIST_LOADING=true;
-  try{
-    const r=await fetch('historico_ventas.json',{cache:'force-cache'});
-    if(!r.ok) throw new Error('http '+r.status);
-    HIST=await r.json();
-    render();                 // re-pinta para mostrar las pistas ya con datos
-  }catch(e){
-    HIST_TRIED=true;          // no disponible -> silencioso, no reintentar
-  }finally{ HIST_LOADING=false; }
+  for(let i=0;i<HIST_URLS.length;i++){
+    try{
+      const r=await fetch(HIST_URLS[i],{cache:'force-cache'});
+      if(!r.ok) continue;
+      const data=await r.json();
+      if(data && typeof data==='object'){ HIST=data; HIST_LOADING=false; render(); return; }
+    }catch(e){ /* prueba la siguiente URL */ }
+  }
+  HIST_TRIED=true;            // ninguna funcionó -> silencioso, no reintentar
+  HIST_LOADING=false;
 }
 function histCli(){ const c=state.meta&&state.meta.codcliente; return (HIST && c && HIST[c]) ? HIST[c] : null; }
 function histHintHtml(code){
