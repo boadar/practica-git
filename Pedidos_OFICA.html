@@ -183,8 +183,13 @@
   .name{font-size:14px;font-weight:600;color:var(--ink);margin:0;line-height:1.3}
   .name .pcode{font-weight:700;color:var(--ink);letter-spacing:.3px}
   .sub{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:baseline;font-size:15px;color:var(--ink-2)}
-  .histhint{margin:5px 0 0;font-size:11.5px;font-weight:700;color:#1D4ED8;background:#EAF1FE;border:1px solid #D3E1FB;border-radius:7px;padding:3px 8px;display:inline-block;line-height:1.35}
-  .histhint b{font-weight:800}
+  .histhint{margin:5px 0 0;display:flex;flex-wrap:wrap;align-items:flex-start;gap:6px;font-size:11px;color:#1D4ED8;line-height:1.3}
+  .histhint .hh-lead{align-self:center;font-size:13px}
+  .histhint .hh-col{background:#EAF1FE;border:1px solid #D3E1FB;border-radius:7px;padding:3px 8px}
+  .histhint .hh-yr{font-weight:800;white-space:nowrap;margin-bottom:2px}
+  .histhint .hh-yr b{font-weight:800}
+  .histhint .hh-mos{display:flex;flex-wrap:wrap;gap:1px 8px}
+  .histhint .hh-mo{font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
   .plabel{font-weight:700;color:var(--ink)}
   .price{font-weight:700;color:#1D4ED8}
   .sep{color:var(--ink-3);font-weight:700}
@@ -461,7 +466,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v161</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v162</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -19064,13 +19069,24 @@ function histCli(){ const c=state.meta&&state.meta.codcliente; return (HIST && c
 function histHintHtml(code){
   const hc=histCli(); if(!hc) return '';
   const ms=hc[code]; if(!ms) return '';
-  let total=0, lastYm='', añoAct=0; const yAct=String(new Date().getFullYear());
-  for(const ym in ms){ const q=+ms[ym]||0; total+=q; if(ym>lastYm) lastYm=ym; if(ym.slice(0,4)===yAct) añoAct+=q; }
-  if(total<=0) return '';
-  const parts=['<b>'+fmtN.format(Math.round(total))+'</b> total'];
-  if(añoAct>0) parts.push(fmtN.format(Math.round(añoAct))+' en '+yAct);
-  if(lastYm){ const y=lastYm.slice(0,4), m=+lastYm.slice(5,7); parts.push('últ. '+HIST_MESES[m-1]+' '+y); }
-  return '<div class="histhint" title="Compras históricas de este cliente (desde 2022)">🕘 Cliente: '+parts.join(' · ')+'</div>';
+  // agrupa por año -> total del año y cantidad por mes
+  const years={};
+  for(const ym in ms){
+    const q=+ms[ym]||0; if(q<=0) continue;
+    const y=ym.slice(0,4), m=+ym.slice(5,7);
+    if(!years[y]) years[y]={tot:0, mos:[]};
+    years[y].tot+=q; years[y].mos.push([m,q]);
+  }
+  const ys=Object.keys(years).sort();   // años ascendentes
+  if(!ys.length) return '';
+  let cols='';
+  ys.forEach(function(y){
+    const yr=years[y];
+    yr.mos.sort(function(a,b){return a[0]-b[0];});
+    const mos=yr.mos.map(function(mq){ return '<span class="hh-mo">'+HIST_MESES[mq[0]-1]+': '+fmtN.format(Math.round(mq[1]))+'</span>'; }).join('');
+    cols+='<div class="hh-col"><div class="hh-yr">'+y+': <b>'+fmtN.format(Math.round(yr.tot))+'</b> und</div><div class="hh-mos">'+mos+'</div></div>';
+  });
+  return '<div class="histhint" title="Compras de este cliente por año y mes (desde 2022)"><span class="hh-lead">🕘</span>'+cols+'</div>';
 }
 
 // ---- render lista ----
