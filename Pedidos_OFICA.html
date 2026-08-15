@@ -322,14 +322,26 @@
   @media (prefers-reduced-motion:reduce){.sheet{animation:none}}
   .sheet header{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid var(--line)}
   .sheet header h2{margin:0;font-size:16px;font-weight:800}
-  .rtotals{display:grid;grid-template-columns:1fr 82px 82px;gap:10px;align-items:end;padding:8px 16px 10px;border-bottom:2px solid var(--line);background:var(--surface-2)}
-  .rtotals .lt-lbl{color:var(--ink-2);font-size:9px}
-  .rtotals .lt-val{font-size:15px;color:var(--brand-ink)}
+  .rtotals{padding:8px 16px 10px;border-bottom:2px solid var(--line);background:var(--surface-2)}
+  .rtotals .rt-head,.rtotals .rt-row{display:grid;grid-template-columns:1fr 84px 84px;gap:8px;align-items:center}
+  .rtotals .rt-head span{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-3);text-align:right;padding-bottom:1px}
+  .rtotals .rt-row{padding:2px 0}
+  .rtotals .rt-lbl{font-size:12px;font-weight:700;color:var(--ink-2)}
+  .rtotals .rt-v{font-size:14px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .rtotals .rt-imm .rt-lbl,.rtotals .rt-imm .rt-v{color:#0a7d47}
+  .rtotals .rt-bo .rt-lbl,.rtotals .rt-bo .rt-v{color:#C0392B}
+  .rtotals .rt-bo.off{display:none}
+  .rtotals .rt-tot{border-top:1px solid var(--line);margin-top:3px;padding-top:4px}
+  .rtotals .rt-tot .rt-lbl{color:var(--ink);font-weight:800}
+  .rtotals .rt-tot .rt-v{color:var(--brand-ink);font-size:15px}
   .sheet .body{overflow:auto;padding:8px 0 16px}
   .sumrow{display:grid;grid-template-columns:1fr 82px 82px;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line-2);background:var(--surface)}
   .sumrow .sinfo{min-width:0}
   .sumrow .name{font-size:13.5px;line-height:1.25}
   .sumrow small{color:var(--ink-3);font-size:11.5px}
+  .sumrow .bo-note{color:#C0392B;font-weight:700}
+  .sumrow.noinv{background:var(--surface-2)}
+  .sumrow.noinv .name,.sumrow.noinv small,.sumrow.noinv .lt-val,.sumrow.noinv .lt-lbl{color:var(--ink-3)}
   .closex{border:none;background:var(--surface);width:34px;height:34px;border-radius:8px;font-size:18px;cursor:pointer;color:var(--ink-2)}
 
   /* ===== Pedidos guardados ===== */
@@ -447,7 +459,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v159</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v160</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -674,9 +686,10 @@
   <div class="sheet">
     <header><h2>Resumen del pedido</h2><button class="closex" id="mClose">×</button></header>
     <div class="rtotals">
-      <div class="rt-sp"></div>
-      <div class="linetot"><span class="lt-lbl">Total s/IVA</span><span class="lt-val" id="rTotSin"></span></div>
-      <div class="linetot"><span class="lt-lbl">Total c/IVA</span><span class="lt-val" id="rTotCon"></span></div>
+      <div class="rt-head"><span></span><span>s/IVA</span><span>c/IVA</span></div>
+      <div class="rt-row rt-imm"><span class="rt-lbl">⚡ Inmediato</span><span class="rt-v" id="rDispSin"></span><span class="rt-v" id="rDispCon"></span></div>
+      <div class="rt-row rt-bo" id="rRowBO"><span class="rt-lbl">⏳ BackOrder</span><span class="rt-v" id="rBackSin"></span><span class="rt-v" id="rBackCon"></span></div>
+      <div class="rt-row rt-tot"><span class="rt-lbl">TOTAL</span><span class="rt-v" id="rTotSin"></span><span class="rt-v" id="rTotCon"></span></div>
     </div>
     <div class="body" id="mBody"></div>
   </div>
@@ -19155,18 +19168,26 @@ function refreshRow(row){
 // Mismo criterio que calcBackOrderSplit (respeta UMV). Montos SIN IVA para
 // que sumen exactamente el total mostrado en la barra (t.total - t.iva).
 function splitMontos(){
-  var dispM=0, backM=0, dispU=0, backU=0;
+  var dispM=0, backM=0, dispU=0, backU=0, dispCon=0, backCon=0;
   CATALOGO.forEach(function(p){
     var q=(+state.qty[p.codigo]||0); if(q<=0) return;
     var inv=Math.round(+p.inv||0); if(inv<0) inv=0;
     var umv=Math.round(+p.umv||0); if(umv<1) umv=1;
     var d = (inv>=q) ? q : Math.floor(inv/umv)*umv;
     var b = q-d;
-    var net=precioNeto(p);
-    if(d>0){ dispM+=net*d; dispU+=d; }
-    if(b>0){ backM+=net*b; backU+=b; }
+    var net=precioNeto(p); var con=net*(1+ivaRateOf(p));
+    if(d>0){ dispM+=net*d; dispCon+=con*d; dispU+=d; }
+    if(b>0){ backM+=net*b; backCon+=con*b; backU+=b; }
   });
-  return {dispM:round2(dispM), backM:round2(backM), dispU:dispU, backU:backU};
+  return {dispM:round2(dispM), backM:round2(backM), dispCon:round2(dispCon), backCon:round2(backCon), dispU:dispU, backU:backU};
+}
+// disp/back por referencia (mismo criterio, respeta UMV)
+function splitRef(p){
+  var q=(+state.qty[p.codigo]||0);
+  var inv=Math.round(+p.inv||0); if(inv<0) inv=0;
+  var umv=Math.round(+p.umv||0); if(umv<1) umv=1;
+  var d = (inv>=q) ? q : Math.floor(inv/umv)*umv;
+  return {disp:d, back:q-d};
 }
 // ---- totales UI ----
 function updateTotals(){
@@ -19452,18 +19473,32 @@ async function toggleAdmin(){
 function openResumen(){
   const lines=CATALOGO.filter(p=>state.qty[p.codigo]>0);
   const _t=totals();
+  const sp=splitMontos();
   $('#rTotSin').textContent = fmt.format(_t.baseExD + _t.baseImpD);
   $('#rTotCon').textContent = fmt.format(_t.total);
+  $('#rDispSin').textContent = fmt.format(sp.dispM);
+  $('#rDispCon').textContent = fmt.format(sp.dispCon);
+  $('#rBackSin').textContent = fmt.format(sp.backM);
+  $('#rBackCon').textContent = fmt.format(sp.backCon);
+  $('#rRowBO').classList.toggle('off', sp.backU<=0);   // oculta la fila BackOrder si no hay faltante
   const body=$('#mBody');
   if(!lines.length){body.innerHTML='<div class="empty">Aún no has agregado productos.</div>';}
   else{
     let h='';
     lines.forEach(p=>{
-      const qty=state.qty[p.codigo]; const net=precioNeto(p); const exento=ivaRateOf(p)===0;
-      h+=`<div class="sumrow">
-        <div class="sinfo"><div class="name">${esc(p.nombre)}</div><small>${esc(p.codigo)} · ×${fmtN.format(qty)} · ${fmt.format(net)} c/u</small></div>
+      const qty=state.qty[p.codigo]; const net=precioNeto(p); const rate=ivaRateOf(p);
+      const s=splitRef(p);
+      let cls='sumrow'; if(s.disp<=0) cls+=' noinv';
+      let boNote='';
+      if(s.back>0){
+        boNote = s.disp>0
+          ? ` · <span class="bo-note">${fmtN.format(s.disp)} disp / ${fmtN.format(s.back)} BackOrder</span>`
+          : ` · <span class="bo-note">Sin inventario · ${fmtN.format(s.back)} BackOrder</span>`;
+      }
+      h+=`<div class="${cls}">
+        <div class="sinfo"><div class="name">${esc(p.nombre)}</div><small>${esc(p.codigo)} · ×${fmtN.format(qty)} · ${fmt.format(net)} c/u${boNote}</small></div>
         <div class="linetot lt-sin"><span class="lt-lbl">Subtotal</span><span class="lt-val">${fmt.format(net*qty)}</span></div>
-        <div class="linetot lt-con"><span class="lt-lbl">+ IVA</span><span class="lt-val">${fmt.format(net*(1+ivaRateOf(p))*qty)}</span></div>
+        <div class="linetot lt-con"><span class="lt-lbl">+ IVA</span><span class="lt-val">${fmt.format(net*(1+rate)*qty)}</span></div>
       </div>`;
     });
     body.innerHTML=h;
