@@ -261,6 +261,10 @@
   .totline .big{font-size:18px;font-weight:800;letter-spacing:-.3px;line-height:1.1}
   .totline .meta2{font-size:11px;color:var(--ink-2);font-weight:600}
   .totline .toggle{border:none;background:none;color:var(--brand);font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px}
+  .tsplit{display:flex;gap:8px 14px;flex-wrap:wrap;margin-top:4px;font-size:11.5px;font-weight:700}
+  .tsplit .tspl-imm{color:#0a7d47}
+  .tsplit .tspl-bo{color:#C0392B}
+  .tsplit .u{font-weight:600;opacity:.75}
   .breakdown{display:none;margin:10px 0 4px;border:1px solid var(--line-2);border-radius:10px;overflow:hidden}
   .breakdown.open{display:block}
   .breakdown .r{display:flex;justify-content:space-between;padding:7px 12px;font-size:13px;border-bottom:1px solid var(--line-2)}
@@ -446,7 +450,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v158</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v159</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -633,6 +637,7 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m6 15 6-6 6 6"/></svg>
     </button>
   </div>
+  <div class="tsplit" id="tSplit" hidden></div>
   <div class="breakdown" id="breakdown">
     <div class="r"><span>Base exenta</span><span class="num" id="bBaseEx">$0.00</span></div>
     <div class="r"><span>Base imponible</span><span class="num" id="bBaseImp">$0.00</span></div>
@@ -19149,6 +19154,23 @@ function refreshRow(row){
   const bp=row.querySelector('.bpval'); const bulto=+p.bulto||0; if(bp && document.activeElement!==bp) bp.value = bulto>0 ? (qty/bulto).toFixed(2) : '0.00';
 }
 
+// ---- montos en línea: inmediato (disponible) vs backorder ----
+// Mismo criterio que calcBackOrderSplit (respeta UMV). Montos SIN IVA para
+// que sumen exactamente el total mostrado en la barra (t.total - t.iva).
+function splitMontos(){
+  var dispM=0, backM=0, dispU=0, backU=0;
+  CATALOGO.forEach(function(p){
+    var q=(+state.qty[p.codigo]||0); if(q<=0) return;
+    var inv=Math.round(+p.inv||0); if(inv<0) inv=0;
+    var umv=Math.round(+p.umv||0); if(umv<1) umv=1;
+    var d = (inv>=q) ? q : Math.floor(inv/umv)*umv;
+    var b = q-d;
+    var net=precioNeto(p);
+    if(d>0){ dispM+=net*d; dispU+=d; }
+    if(b>0){ backM+=net*b; backU+=b; }
+  });
+  return {dispM:round2(dispM), backM:round2(backM), dispU:dispU, backU:backU};
+}
 // ---- totales UI ----
 function updateTotals(){
   const t=totals(); const dl=descLabel();
@@ -19156,6 +19178,17 @@ function updateTotals(){
   let meta=`${t.lineas} ${t.lineas===1?'línea':'líneas'} · ${fmtN.format(t.unidades)} und`;
   if(dl!=='—') meta+=` · Desc ${dl}`;
   $('#tMeta').textContent=meta;
+  const has0=t.lineas>0; const spEl=$('#tSplit');
+  if(spEl){
+    if(has0){
+      const sp=splitMontos();
+      let html='<span class="tspl-imm">⚡ Inmediato: '+fmt.format(sp.dispM)+' <span class="u">· '+fmtN.format(sp.dispU)+' und</span></span>';
+      if(sp.backU>0){
+        html+='<span class="tspl-bo">⏳ BackOrder: '+fmt.format(sp.backM)+' <span class="u">· '+fmtN.format(sp.backU)+' und</span></span>';
+      }
+      spEl.innerHTML=html; spEl.hidden=false;
+    } else { spEl.hidden=true; spEl.innerHTML=''; }
+  }
   $('#bBaseEx').textContent=fmt.format(t.baseEx);
   $('#bBaseImp').textContent=fmt.format(t.baseImp);
   $('#bSubtotal').textContent=fmt.format(t.subtotal);
