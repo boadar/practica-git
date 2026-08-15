@@ -186,6 +186,8 @@
   .name{font-size:14px;font-weight:600;color:var(--ink);margin:0;line-height:1.3}
   .name .pcode{font-weight:700;color:var(--ink);letter-spacing:.3px}
   .sub{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:baseline;font-size:15px;color:var(--ink-2)}
+  .histhint{margin:5px 0 0;font-size:11.5px;font-weight:700;color:#1D4ED8;background:#EAF1FE;border:1px solid #D3E1FB;border-radius:7px;padding:3px 8px;display:inline-block;line-height:1.35}
+  .histhint b{font-weight:800}
   .plabel{font-weight:700;color:var(--ink)}
   .price{font-weight:700;color:#1D4ED8}
   .sep{color:var(--ink-3);font-weight:700}
@@ -462,7 +464,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v160</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v161</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -19042,8 +19044,41 @@ function totals(){
   return {baseEx,baseImp,subtotal,descuento,baseExD,baseImpD,iva,total,lineas,unidades};
 }
 
+// ---- histórico de compras del cliente (pista en línea) ----
+// El archivo historico_ventas.json se sirve junto al index (GitHub Pages) y se
+// carga UNA sola vez, bajo demanda, cuando hay un cliente seleccionado. Si no se
+// puede cargar (p. ej. en el Artifact, que no tiene el archivo al lado), la app
+// sigue funcionando igual: simplemente no muestra pistas.
+let HIST=null, HIST_TRIED=false, HIST_LOADING=false;
+const HIST_MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+async function cargarHistorico(){
+  if(HIST || HIST_LOADING || HIST_TRIED) return;
+  HIST_LOADING=true;
+  try{
+    const r=await fetch('historico_ventas.json',{cache:'force-cache'});
+    if(!r.ok) throw new Error('http '+r.status);
+    HIST=await r.json();
+    render();                 // re-pinta para mostrar las pistas ya con datos
+  }catch(e){
+    HIST_TRIED=true;          // no disponible -> silencioso, no reintentar
+  }finally{ HIST_LOADING=false; }
+}
+function histCli(){ const c=state.meta&&state.meta.codcliente; return (HIST && c && HIST[c]) ? HIST[c] : null; }
+function histHintHtml(code){
+  const hc=histCli(); if(!hc) return '';
+  const ms=hc[code]; if(!ms) return '';
+  let total=0, lastYm='', añoAct=0; const yAct=String(new Date().getFullYear());
+  for(const ym in ms){ const q=+ms[ym]||0; total+=q; if(ym>lastYm) lastYm=ym; if(ym.slice(0,4)===yAct) añoAct+=q; }
+  if(total<=0) return '';
+  const parts=['<b>'+fmtN.format(Math.round(total))+'</b> total'];
+  if(añoAct>0) parts.push(fmtN.format(Math.round(añoAct))+' en '+yAct);
+  if(lastYm){ const y=lastYm.slice(0,4), m=+lastYm.slice(5,7); parts.push('últ. '+HIST_MESES[m-1]+' '+y); }
+  return '<div class="histhint" title="Compras históricas de este cliente (desde 2022)">🕘 Cliente: '+parts.join(' · ')+'</div>';
+}
+
 // ---- render lista ----
 function render(){
+  if(state.meta&&state.meta.codcliente && !HIST && !HIST_TRIED) cargarHistorico();
   const list=$('#list'); const items=visibleProducts();
   if(!items.length){list.innerHTML='<div class="empty">'+(filter.onlyOn?'No tiene productos seleccionados con cantidades':'No hay productos que coincidan.<br>Ajusta la búsqueda o el filtro.')+'</div>';return;}
   // agrupa por categoría (según el orden de CATS) para que cada categoría sea un
@@ -19094,6 +19129,7 @@ function render(){
         ${priceHtml}${(adminMode&&precioTmpDe(p)!=null)?`<span class="tag ptmp-tag" title="Precio temporal de este pedido">Precio temp. ${fmt.format(precioTmpDe(p))}</span>`:''}
         ${!exento?`<span class="sep">·</span><span class="plabel">Precio + IVA</span><span class="price">${fmt.format(netIva)}</span>`:`<span class="tag exento">Exento IVA</span>`}
       </div>
+      ${histHintHtml(p.codigo)}
       <div class="prow">
         <div class="invline"><span class="inv ${sc}"><b>INV.</b> ${fmtN.format(inv)} <span class="u">und</span></span>${agotado?`<span class="nostock">Sin stock</span>`:''}${step>1?`<span class="umvbox">UMV ${fmtN.format(step)}</span>`:''}${(+p.bulto>0)?`<span class="umvbox">BULTO ${fmtN.format(+p.bulto)}</span>`:''}</div>
         <div class="right">
@@ -20675,7 +20711,7 @@ function wire(){
   fc.addEventListener('change',async ()=>{
     const val=fc.value.trim();
     const x=cliByNombre[val];
-    if(x){ fcc.value=x.c; state.meta.cliente=x.n; state.meta.codcliente=x.c; state.meta.nuevoCliente=null; save(); updateTotals(); updateReqLabels(); cerrarListaCliente(fc); return; }
+    if(x){ fcc.value=x.c; state.meta.cliente=x.n; state.meta.codcliente=x.c; state.meta.nuevoCliente=null; save(); updateTotals(); updateReqLabels(); cerrarListaCliente(fc); render(); return; }
     if(!val){ updateReqLabels(); return; }
     // ya es un cliente nuevo con ese mismo nombre: no volver a preguntar
     if(state.meta.nuevoCliente && String(state.meta.cliente||'').trim()===val){ updateReqLabels(); return; }
@@ -20685,7 +20721,7 @@ function wire(){
   });
   fcc.addEventListener('change',()=>{
     const x=cliByCod[fcc.value.trim()];
-    if(x){ fc.value=x.n; state.meta.cliente=x.n; state.meta.codcliente=x.c; state.meta.nuevoCliente=null; save(); updateTotals(); cerrarListaCliente(fcc); }
+    if(x){ fc.value=x.n; state.meta.cliente=x.n; state.meta.codcliente=x.c; state.meta.nuevoCliente=null; save(); updateTotals(); cerrarListaCliente(fcc); render(); }
     updateReqLabels();
   });
   // ---- Registro de clientes nuevos ----
