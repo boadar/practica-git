@@ -443,7 +443,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v157</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v158</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -18312,10 +18312,12 @@ async function enviarPedidos(ids){
   toast(msg);
 }
 
-function abrirPedido(id){
+async function abrirPedido(id){
   const o=loadOrders().find(x=>x.id===id); if(!o) return;
   state.qty=JSON.parse(JSON.stringify(o.qty||{}));
   state.meta=JSON.parse(JSON.stringify(o.meta||{}));
+  // recupera los documentos del cliente nuevo (RIF/cédula) desde IndexedDB, para conservarlos al editar/reenviar
+  await hidratarDocsIdb({id:o.id, meta:state.meta});
   currentOrderId=o.id; save();
   syncMetaFields();
   filter.onlyOn=true; filter.cat=''; filter.q=''; const qi=$('#q'); if(qi) qi.value=''; syncChips();
