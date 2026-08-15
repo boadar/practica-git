@@ -53,12 +53,25 @@ def main():
     src = src.replace('wire(); pwaSetup();', 'wire();', 1)
 
     # 3) registro del service worker antes de </body>
+    #    Con auto-actualización: busca una nueva versión al abrir y cada 60 s;
+    #    cuando el nuevo SW toma control (skipWaiting+clients.claim en sw.js),
+    #    recarga UNA vez para aplicar la versión nueva sin intervención del usuario.
     if 'serviceWorker' not in src:
         sw_reg = (
             '<script>\n'
             "if('serviceWorker' in navigator){\n"
+            "  var _reloadingSW=false;\n"
+            "  navigator.serviceWorker.addEventListener('controllerchange',function(){\n"
+            "    if(_reloadingSW) return; _reloadingSW=true; window.location.reload();\n"
+            "  });\n"
             "  window.addEventListener('load',function(){\n"
-            "    navigator.serviceWorker.register('./sw.js').catch(function(){});\n"
+            "    navigator.serviceWorker.register('./sw.js').then(function(reg){\n"
+            "      reg.update();\n"
+            "      setInterval(function(){ reg.update(); }, 60000);\n"
+            "    }).catch(function(){});\n"
+            '  });\n'
+            "  document.addEventListener('visibilitychange',function(){\n"
+            "    if(document.visibilityState==='visible'){ navigator.serviceWorker.getRegistration().then(function(r){ if(r) r.update(); }).catch(function(){}); }\n"
             '  });\n'
             '}\n'
             '</script>\n'

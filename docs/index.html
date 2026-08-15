@@ -469,7 +469,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v162</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v163</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -21065,8 +21065,18 @@ if(window.ResizeObserver){ const ro=new ResizeObserver(syncHeaderVars); ro.obser
 <!--INNER_END-->
 <script>
 if('serviceWorker' in navigator){
+  var _reloadingSW=false;
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    if(_reloadingSW) return; _reloadingSW=true; window.location.reload();
+  });
   window.addEventListener('load',function(){
-    navigator.serviceWorker.register('./sw.js').catch(function(){});
+    navigator.serviceWorker.register('./sw.js').then(function(reg){
+      reg.update();
+      setInterval(function(){ reg.update(); }, 60000);
+    }).catch(function(){});
+  });
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='visible'){ navigator.serviceWorker.getRegistration().then(function(r){ if(r) r.update(); }).catch(function(){}); }
   });
 }
 </script>
