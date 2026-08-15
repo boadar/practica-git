@@ -443,7 +443,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v156</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v157</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -18828,6 +18828,10 @@ function pdfExtraerStrings(buf){
   }
   return strings;
 }
+// corta la basura de la columna derecha del RIF (fechas, comprobante, etc.) que el OCR pega en la misma línea
+function _cortarRif(s){
+  return String(s||'').replace(/(^|\s)(FECHA\b|N[º°]?\s*COMPROBANTE|COMPROBANTE\b|DIVISI[ÓO]N\b|CONDICI[ÓO]N\b|FIRMA\s+AUTORIZADA|VENCIMIENTO\b|INSCRIPCI|ACTUALIZAC)[\s\S]*$/i,'').replace(/\s+/g,' ').trim();
+}
 function parseRif(clean){
   let rif='';
   for(const s of clean){ const m=s.match(/\b([JGVEP])[-\s]?(\d{8,10})\b/); if(m){ rif=m[1]+m[2]; break; } }
@@ -18836,18 +18840,87 @@ function parseRif(clean){
   if(ri>=0){
     let after=clean[ri].replace(new RegExp('^.*?'+rif.split('').join('[-\\s]?')),'').trim();
     if(!after){ for(let k=ri+1;k<clean.length;k++){ if(clean[k]){ after=clean[k]; break; } } }
-    nombre=after;
+    nombre=_cortarRif(after);
   }
   let dir='';
   const di=clean.findIndex(s=>/DOMICILIO FISCAL/i.test(s));
   if(di>=0){
-    const parts=[]; const first=clean[di].replace(/.*DOMICILIO FISCAL:?/i,'').trim(); if(first) parts.push(first);
-    for(let k=di+1;k<clean.length;k++){ const s=clean[k]; if(/FECHA|DIVISI|FIRMA|CONDICI|COMPROBANTE|REGISTRO/i.test(s)) break; if(s) parts.push(s); }
+    const parts=[];
+    for(let k=di;k<clean.length && k-di<=5;k++){
+      let s=clean[k]; if(k===di) s=s.replace(/.*DOMICILIO FISCAL:?/i,'');
+      s=_cortarRif(s);
+      if(!s){ if(k>di) break; else continue; }
+      if(k>di && /^(DIVISI|CONDICI|FIRMA|LA VALIDEZ|REGISTRO)/i.test(s)) break;
+      if(k>di && (s.match(/[A-Za-zÁÉÍÓÚÑ]/g)||[]).length<3) continue;   // salta líneas de ruido (QR/gráficos)
+      parts.push(s);
+      if(/ZONA\s+POSTAL\s*\d/i.test(s)) break;   // la dirección suele terminar en la zona postal
+    }
     dir=parts.join(' ').replace(/\s+/g,' ').trim();
   }
   const fm=rif.match(/^([JGVEP])(\d{8})(\d)$/);
   if(fm) rif=fm[1]+'-'+fm[2]+'-'+fm[3];   // formato estandar J-12345678-9
   return {rif,nombre,direccion:dir};
+}
+// ---- OCR para RIF que son imágenes/escaneos (sin texto) ----
+// Extrae el JPEG más grande embebido en un PDF (escaneo), como data URI
+function pdfExtraerImagenJpeg(buf){
+  let s=''; const CH=8192;
+  for(let i=0;i<buf.length;i+=CH){ s+=String.fromCharCode.apply(null, buf.subarray(i, Math.min(i+CH, buf.length))); }
+  const key=pdfClaveRC4(s);
+  const objRe=/(\d+)\s+(\d+)\s+obj/g, objs=[]; let om;
+  while(om=objRe.exec(s)) objs.push({num:+om[1], gen:+om[2], at:om.index, end:objRe.lastIndex});
+  let best=null;
+  for(let oi=0; oi<objs.length; oi++){
+    const o=objs[oi], limit=(oi+1<objs.length)?objs[oi+1].at:s.length;
+    const st=s.indexOf('stream', o.end); if(st<0 || st>=limit) continue;
+    const header=s.slice(o.end, st);
+    if(header.indexOf('/Image')<0 || header.indexOf('/DCTDecode')<0) continue;   // solo JPEG (DCTDecode)
+    let d=st+6; if(s.charCodeAt(d)===13) d++; if(s.charCodeAt(d)===10) d++;
+    const e=s.indexOf('endstream', d); if(e<0) continue;
+    let data=buf.subarray(d,e);
+    if(key) data=rc4Bytes(pdfObjKey(key,o.num,o.gen), data);
+    if(!best || data.length>best.length) best=data;
+  }
+  if(!best) return null;
+  let bin=''; const B=0x8000; for(let i=0;i<best.length;i+=B){ bin+=String.fromCharCode.apply(null, best.subarray(i, Math.min(i+B, best.length))); }
+  return 'data:image/jpeg;base64,'+btoa(bin);
+}
+// carga Tesseract.js bajo demanda (solo cuando hace falta OCR; requiere internet)
+let _tessP=null;
+function cargarTesseract(){
+  if(window.Tesseract) return Promise.resolve(window.Tesseract);
+  if(_tessP) return _tessP;
+  _tessP=new Promise((res,rej)=>{
+    const sc=document.createElement('script');
+    sc.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+    sc.onload=()=>{ if(window.Tesseract) res(window.Tesseract); else { _tessP=null; rej(new Error('OCR no disponible')); } };
+    sc.onerror=()=>{ _tessP=null; rej(new Error('No se pudo cargar el OCR (revisa tu conexión a internet)')); };
+    document.head.appendChild(sc);
+  });
+  return _tessP;
+}
+async function ocrTexto(dataUri, onProg){
+  const T=await cargarTesseract();
+  const r=await T.recognize(dataUri, 'spa', { logger:m=>{ if(onProg) onProg(m); } });
+  return (r && r.data && r.data.text) || '';
+}
+function rcOvTexto(t){ const e=document.querySelector('#rcOverlay .rc-ovtxt'); if(e) e.textContent=t; }
+// vuelca los datos del RIF en el formulario; devuelve true si algo se llenó
+function aplicarDatosRif(d){
+  if(d.nombre) $('#rcNombre').value=d.nombre;
+  if(d.rif) $('#rcRif').value=d.rif;
+  if(d.direccion){ const fis=$('[data-addr="fiscal"]'); const dir=fis&&fis.querySelector('[data-af="completa"]'); if(dir){ dir.value=d.direccion; const mm=$('#rcMismaDir'); if(mm && mm.checked) rcCopiarFiscalAEnvio(); } }
+  return !!(d.rif||d.nombre);
+}
+// lee un RIF (imagen data URI) por OCR y devuelve los datos
+async function leerRifPorOcr(dataUri){
+  rcOvTexto('LEYENDO EL RIF (OCR)…');
+  try{
+    const texto=await ocrTexto(dataUri, m=>{ if(m&&m.status==='recognizing text'){ rcOvTexto('LEYENDO EL RIF… '+Math.round((m.progress||0)*100)+'%'); } });
+    const lineas=String(texto).split(/\r?\n/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean);
+    return parseRif(lineas);
+  }catch(e){ console.error('OCR', e); toast(e.message||'No se pudo leer con OCR'); return {rif:'',nombre:'',direccion:''}; }
+  finally{ rcOvTexto('ESPERE MIENTRAS SE CARGAN LOS DATOS…'); }
 }
 function rcAddrBlockHtml(){
   return '<div class="rc-envio rc-addr">'+
@@ -20566,19 +20639,24 @@ function wire(){
     try{
       const esPdf=/\.pdf$/i.test(f.name)||f.type==='application/pdf';
       if(key==='rif' && esPdf){
-        const ab=await f.arrayBuffer();
-        const strings=pdfExtraerStrings(new Uint8Array(ab)).map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean);
-        const d=parseRif(strings);
-        if(d.nombre) $('#rcNombre').value=d.nombre;
-        if(d.rif) $('#rcRif').value=d.rif;
-        if(d.direccion){ const fis=$('[data-addr="fiscal"]'); const dir=fis.querySelector('[data-af="completa"]'); if(dir){ dir.value=d.direccion; const mm=$('#rcMismaDir'); if(mm && mm.checked) rcCopiarFiscalAEnvio(); } }
+        const ab=await f.arrayBuffer(); const u8=new Uint8Array(ab);
+        const strings=pdfExtraerStrings(u8).map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean);
+        let d=parseRif(strings);
+        if(!d.rif && !d.nombre){                       // PDF sin texto (escaneo) -> OCR de la imagen interna
+          const img=pdfExtraerImagenJpeg(u8);
+          if(img) d=await leerRifPorOcr(img);
+        }
+        const ok=aplicarDatosRif(d);
         regCli.docs[key]={name:f.name||'RIF.pdf', dataUri:await fileToDataUri(f)};
-        toast(d.rif?'Datos del RIF leídos ✓':'RIF adjuntado; escribe los datos');
+        toast(ok?'Datos del RIF leídos ✓':'RIF adjuntado; revisa y escribe los datos');
       } else if(esPdf){
         regCli.docs[key]={name:f.name, dataUri:await fileToDataUri(f)};
-      } else if(key==='rif'){
-        regCli.docs[key]={name:(f.name||key).replace(/\.[^.]+$/,'')+'.jpg', dataUri:await imagenReducida(f,1500)};
-        toast('RIF adjuntado como imagen; para que se llenen los datos solos, adjunta el PDF del RIF');
+      } else if(key==='rif'){                           // RIF como imagen (foto/escaneo) -> OCR
+        const dataUri=await imagenReducida(f,2000);
+        const d=await leerRifPorOcr(dataUri);
+        const ok=aplicarDatosRif(d);
+        regCli.docs[key]={name:(f.name||key).replace(/\.[^.]+$/,'')+'.jpg', dataUri:dataUri};
+        toast(ok?'Datos del RIF leídos ✓':'RIF adjuntado; revisa y escribe los datos');
       } else {
         regCli.docs[key]={name:(f.name||key).replace(/\.[^.]+$/,'')+'.jpg', dataUri:await imagenReducida(f,1500)};
       }
