@@ -1,7 +1,7 @@
 /* Service worker de Pedidos OFICA — permite usar la app sin conexión.
    Estrategia: cache-first para los recursos propios; guarda en caché lo que se pide.
    Sube el número de versión (CACHE) cuando publiques una nueva versión de la app. */
-const CACHE = 'pedidos-ofica-v165';
+const CACHE = 'pedidos-ofica-v166';
 const ASSETS = [
   './',
   './index.html',
@@ -30,9 +30,12 @@ self.addEventListener('fetch', (e) => {
   const sameOrigin = url.origin === self.location.origin;
   const isDoc = e.request.mode === 'navigate' ||
     (sameOrigin && (url.pathname.endsWith('/') || url.pathname.endsWith('/index.html')));
+  // La base del histórico se actualiza sola (se publica sin cambiar la versión de la app):
+  // network-first para que llegue la última; si no hay red, usa la caché (offline).
+  const isData = sameOrigin && url.pathname.endsWith('historico_ventas.json');
 
-  // HTML de la app: network-first (siempre intenta la última versión; usa caché si no hay red)
-  if (isDoc) {
+  // HTML de la app y datos que cambian: network-first (última versión; caché si no hay red)
+  if (isDoc || isData) {
     e.respondWith(
       fetch(e.request).then((resp) => {
         try {

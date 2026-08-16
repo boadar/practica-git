@@ -469,7 +469,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v165</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v166</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -541,7 +541,12 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
         <span class="btnlabel">Actualizar App</span>
       </button>
+        <button class="iconbtn cargarinv" id="btnCargarHist" type="button" style="display:none" title="Cargar el Excel de ventas (historial de compras) y publicarlo. Se fusiona con la base: conserva lo anterior y actualiza los meses repetidos con la data nueva. Pide un token que no se guarda.">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 9l-5 5-3-3-4 4"/></svg>
+        <span class="btnlabel">Cargar Histórico</span>
+      </button>
       </div></div>
+      <input type="file" id="fileCargarHist" accept=".xlsx" style="display:none">
       </div>
     </div>
     <div class="appbtns">
@@ -19621,7 +19626,7 @@ function cerrarListaCliente(input){
 }
 
 async function toggleAdmin(){
-  const admBtns=['#btnCargar','#btnCargarOtro','#btnCargarInv','#btnNuevoProd','#btnPrecioTmp','#btnDescuentos','#btnOverInv','#btnRespaldo','#btnRestaurar','#btnReset','#btnEditarCat','#btnActualizarApp'];
+  const admBtns=['#btnCargar','#btnCargarOtro','#btnCargarInv','#btnNuevoProd','#btnPrecioTmp','#btnDescuentos','#btnOverInv','#btnRespaldo','#btnRestaurar','#btnReset','#btnEditarCat','#btnActualizarApp','#btnCargarHist'];
   if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display='none'; }); { const ag=$('#admGroups'); if(ag) ag.style.display='none'; } filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
   const pass=await askPassword();
   if(pass==null) return;
@@ -20250,7 +20255,144 @@ function xlsxOpenZip(buf){
     dir[dec.decode(buf.subarray(p+46,p+46+nl))]={method,cs,lho};
     p+=46+nl+el+cl;
   }
-  return { get(name){ const e=dir[name]; if(!e) return null; const q=e.lho; const nl=buf[q+26]|(buf[q+27]<<8), el=buf[q+28]|(buf[q+29]<<8); const ds=q+30+nl+el; const comp=buf.subarray(ds,ds+e.cs); return e.method===0?comp:inflateRaw(comp); } };
+  return {
+    get(name){ const e=dir[name]; if(!e) return null; const q=e.lho; const nl=buf[q+26]|(buf[q+27]<<8), el=buf[q+28]|(buf[q+29]<<8); const ds=q+30+nl+el; const comp=buf.subarray(ds,ds+e.cs); return e.method===0?comp:inflateRaw(comp); },
+    raw(name){ const e=dir[name]; if(!e) return null; const q=e.lho; const nl=buf[q+26]|(buf[q+27]<<8), el=buf[q+28]|(buf[q+29]<<8); const ds=q+30+nl+el; return {method:e.method, comp:buf.subarray(ds,ds+e.cs)}; }
+  };
+}
+// inflate rápido usando el nativo del navegador (DecompressionStream) cuando existe;
+// si no, cae al inflate en JS puro. Necesario para archivos de ventas grandes.
+async function inflateEntryFast(comp, method){
+  if(method===0) return comp;
+  if(typeof DecompressionStream!=='undefined'){
+    try{
+      const stream=new Blob([comp]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      const ab=await new Response(stream).arrayBuffer();
+      return new Uint8Array(ab);
+    }catch(e){ /* cae al inflate JS */ }
+  }
+  return inflateRaw(comp);
+}
+// serial de fecha de Excel -> {y,m}
+function excelSerialToYM(serial){ const d=new Date(Math.round((serial-25569)*86400000)); return {y:d.getUTCFullYear(), m:d.getUTCMonth()+1}; }
+// Lee el export de ventas de Profit y agrega a {cliente:{producto:{"YYYY-MM":cant}}},
+// SOLO para productos del catálogo actual. Detecta las columnas por su encabezado.
+async function parseVentasXlsx(buf, onProg){
+  const zip=xlsxOpenZip(buf);
+  const pad2=n=>String(n).padStart(2,'0'), pad4=n=>String(n).padStart(4,'0');
+  const norm=s=>String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]/g,'').toUpperCase();
+  // sharedStrings
+  const shared=[]; const ssRaw=zip.raw('xl/sharedStrings.xml');
+  if(ssRaw){ const ssB=await inflateEntryFast(ssRaw.comp, ssRaw.method); const xml=xlText(ssB);
+    const si=/<si>([\s\S]*?)<\/si>/g; let m; while(m=si.exec(xml)){ const tr=/<t[^>]*>([\s\S]*?)<\/t>/g; let t,s=''; while(t=tr.exec(m[1])) s+=t[1]; shared.push(xlUnesc(s)); } }
+  // primera hoja (workbook.xml y sus rels son pequeños -> inflate JS ok)
+  let sheetPath='xl/worksheets/sheet1.xml';
+  try{
+    const wb=xlText(zip.get('xl/workbook.xml'));
+    const relsB=zip.get('xl/_rels/workbook.xml.rels'); const relsT=relsB?xlText(relsB):'';
+    const relMap={}; (relsT.match(/<Relationship\b[^>]*\/?>/g)||[]).forEach(t=>{ const id=(t.match(/Id="([^"]+)"/)||[])[1]; const tg=(t.match(/Target="([^"]+)"/)||[])[1]; if(id&&tg) relMap[id]=tg; });
+    const first=(wb.match(/<sheet\b[^>]*\/?>/)||[])[0]||''; const rid=(first.match(/r:id="([^"]+)"/)||[])[1];
+    let tg=relMap[rid]; if(tg){ if(tg.charAt(0)==='/') tg=tg.slice(1); else if(!/^xl\//.test(tg)) tg='xl/'+tg; sheetPath=tg; }
+  }catch(e){}
+  const shRaw=zip.raw(sheetPath); if(!shRaw) throw new Error('No se pudo leer la hoja de ventas');
+  const shB=await inflateEntryFast(shRaw.comp, shRaw.method);
+  const sh=xlText(shB);
+  // valor de una celda (según attrs t=...)
+  function cellVal(attrs, inner){
+    if(inner===undefined) return undefined;
+    if(/t="s"/.test(attrs)){ const vi=(inner.match(/<v>([\s\S]*?)<\/v>/)||[])[1]; return shared[parseInt(vi,10)]; }
+    if(/t="inlineStr"/.test(attrs)){ const tt=inner.match(/<t[^>]*>([\s\S]*?)<\/t>/); return tt?xlUnesc(tt[1]):''; }
+    if(/t="str"/.test(attrs)){ const vv=(inner.match(/<v>([\s\S]*?)<\/v>/)||[])[1]; return xlUnesc(vv||''); }
+    const vv=(inner.match(/<v>([\s\S]*?)<\/v>/)||[])[1]; return (vv!=null&&vv!=='')?parseFloat(vv):undefined;
+  }
+  // columnas por encabezado (fila 1); por defecto E/O/L/U (formato Profit)
+  let colCli='E', colArt='O', colFec='L', colQty='U';
+  { const r1=/<row[^>]*r="1"[^>]*>([\s\S]*?)<\/row>/.exec(sh);
+    if(r1){ const cRe=/<c r="([A-Z]+)1"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g; let m;
+      while(m=cRe.exec(r1[1])){ const nv=norm(cellVal(m[2]||'', m[3]));
+        if(nv==='CODIGOCLIENTE') colCli=m[1]; else if(nv==='ARTICULO') colArt=m[1];
+        else if(nv==='FECHA') colFec=m[1]; else if(nv==='CANTIDAD') colQty=m[1]; }
+    }
+  }
+  const cat=byCode; const hist={};
+  const stats={incluidas:0, clientes:new Set(), productos:new Set(), minYM:'9999-99', maxYM:'0000-00'};
+  const cRe=/<c r="([A-Z]+)(\d+)"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g;
+  let m, curRow=0, cur={}, processed=0;
+  function flush(){
+    if(curRow>=2){
+      const art=cur[colArt];
+      if(art!=null){
+        const code=String(art).trim();
+        if(code && cat[code]){
+          const cli=cur[colCli], fec=cur[colFec], q=cur[colQty];
+          let ym=null;
+          if(typeof fec==='number' && isFinite(fec)){ const d=excelSerialToYM(fec); ym=pad4(d.y)+'-'+pad2(d.m); }
+          else if(fec!=null){ const s=String(fec); const iso=/(\d{4})-(\d{2})/.exec(s); if(iso) ym=iso[1]+'-'+iso[2]; else { const dmy=/(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s); if(dmy) ym=dmy[3]+'-'+pad2(+dmy[2]); } }
+          if(ym && cli!=null){
+            const c=String(cli).trim();
+            const qq=(typeof q==='number')?q:(parseFloat(String(q==null?'':q).replace(',','.'))||0);
+            if(!hist[c]) hist[c]={}; if(!hist[c][code]) hist[c][code]={};
+            hist[c][code][ym]=(hist[c][code][ym]||0)+qq;
+            stats.incluidas++; stats.clientes.add(c); stats.productos.add(code);
+            if(ym<stats.minYM) stats.minYM=ym; if(ym>stats.maxYM) stats.maxYM=ym;
+          }
+        }
+      }
+    }
+    cur={};
+  }
+  while(m=cRe.exec(sh)){
+    const col=m[1], row=+m[2];
+    if(row!==curRow){ flush(); curRow=row; processed++; if(onProg && (processed&16383)===0){ onProg(processed); await new Promise(r=>setTimeout(r,0)); } }
+    if(col===colCli||col===colArt||col===colFec||col===colQty){ cur[col]=cellVal(m[3]||'', m[4]); }
+  }
+  flush();
+  return {hist, stats};
+}
+// fusiona: conserva lo anterior; por (cliente,producto,mes) la data NUEVA reemplaza (última manda)
+function mergeHistorico(base, nuevo){
+  const out=base||{};
+  for(const cli in nuevo){ if(!out[cli]) out[cli]={};
+    for(const prod in nuevo[cli]){ if(!out[cli][prod]) out[cli][prod]={};
+      const ms=nuevo[cli][prod]; for(const ym in ms){ out[cli][prod][ym]=Math.round(ms[ym]*100)/100; }
+    }
+  }
+  return out;
+}
+// Botón admin: carga el Excel de ventas, fusiona con la base y publica a GitHub.
+async function cargarHistoricoDesdeXlsx(file){
+  if(!file) return;
+  try{
+    toast('Leyendo archivo de ventas…');
+    const buf=new Uint8Array(await file.arrayBuffer());
+    const {hist:nuevo, stats}=await parseVentasXlsx(buf, p=>toast('Procesando… '+fmtN.format(p)+' filas'));
+    if(!stats.incluidas){ await askConfirm('No se encontraron ventas de productos del catálogo. Verifica que sea el export de ventas correcto (columnas Código Cliente, Artículo, Fecha y Cantidad).','Entendido','Cerrar'); return; }
+    const ok=await askConfirm('Archivo leído:\n\n· '+fmtN.format(stats.incluidas)+' ventas de catálogo\n· '+stats.clientes.size+' clientes · '+stats.productos.size+' productos\n· Periodo: '+stats.minYM+' a '+stats.maxYM+'\n\nSe FUSIONA con la base actual: se conserva lo anterior y los meses repetidos se actualizan con esta data. Se publica a GitHub para todos los dispositivos.\n\nNecesitarás un token de GitHub (no se guarda). ¿Continuar?','Sí, publicar','Cancelar');
+    if(!ok) return;
+    const token=await pedirToken(); if(!token) return;
+    const H={ 'Authorization':'Bearer '+token, 'Accept':'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28' };
+    toast('Descargando base actual…');
+    let base={};
+    { const r=await fetch(GH_API+'/contents/docs/historico_ventas.json?ref='+encodeURIComponent(GH_BRANCH), {headers:Object.assign({},H,{'Accept':'application/vnd.github.raw'})});
+      if(r.ok){ base=await r.json(); if(!base||typeof base!=='object'||Array.isArray(base)) throw new Error('La base actual no tiene un formato válido; se abortó para no perder datos.'); }
+      else if(r.status===404){ base={}; }   // no existe aún: primera carga (no hay nada que conservar)
+      else { let mm=''; try{ mm=(await r.json()).message||''; }catch(e){} throw new Error('No se pudo leer la base actual (GitHub '+r.status+(mm?' — '+mm:'')+'). Se abortó para no perder datos.'); }
+    }
+    const merged=mergeHistorico(base, nuevo);
+    const nCli=Object.keys(merged).length;
+    const js=JSON.stringify(merged);
+    toast('Publicando a GitHub…');
+    const ref=await ghFetch(GH_API+'/git/ref/heads/'+GH_BRANCH, {headers:H});
+    const commitSha=ref.object.sha; const commit=await ghFetch(GH_API+'/git/commits/'+commitSha, {headers:H}); const baseTree=commit.tree.sha;
+    const blobSha=(await ghFetch(GH_API+'/git/blobs',{method:'POST',headers:H,body:JSON.stringify({content:ghEncodeB64(js),encoding:'base64'})})).sha;
+    const tree=await ghFetch(GH_API+'/git/trees',{method:'POST',headers:H,body:JSON.stringify({base_tree:baseTree,tree:[{path:'docs/historico_ventas.json',mode:'100644',type:'blob',sha:blobSha}]})});
+    const newCommit=await ghFetch(GH_API+'/git/commits',{method:'POST',headers:H,body:JSON.stringify({message:'Actualizar histórico de compras ('+stats.minYM+' a '+stats.maxYM+')',tree:tree.sha,parents:[commitSha]})});
+    await ghFetch(GH_API+'/git/refs/heads/'+GH_BRANCH,{method:'PATCH',headers:H,body:JSON.stringify({sha:newCommit.sha,force:false})});
+    HIST=merged; HIST_TRIED=false; render();
+    await askConfirm('¡Histórico actualizado y publicado!\n\nLa base ahora tiene '+fmtN.format(nCli)+' clientes. Todos los dispositivos la tomarán al reabrir la app (puede tardar 1-2 minutos).','Entendido','Cerrar');
+  }catch(err){
+    await askConfirm('No se pudo actualizar el histórico: '+(err&&err.message?err.message:err)+'\n\nNo se realizó ningún cambio. Verifica el token (permiso Contents: Read and write) y tu conexión.','Entendido','Cerrar');
+  }
 }
 function xlUnesc(s){ return String(s).replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&#(\d+);/g,(m,d)=>String.fromCharCode(+d)).replace(/&amp;/g,'&'); }
 function xlText(b){ return new TextDecoder('utf-8').decode(b); }
@@ -21022,6 +21164,8 @@ function wire(){
   // ---- Editor de catálogo ----
   $('#btnEditarCat').addEventListener('click',openCatEdit);
   $('#btnActualizarApp').addEventListener('click',actualizarApp);
+  $('#btnCargarHist').addEventListener('click',()=>{ $('#fileCargarHist').click(); });
+  $('#fileCargarHist').addEventListener('change',async e=>{ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(f) await cargarHistoricoDesdeXlsx(f); });
   $('#catEditClose').addEventListener('click',cerrarCatEdit);
   $('#catEditModal').addEventListener('click',e=>{ if(e.target===$('#catEditModal')) cerrarCatEdit(); });
   $('#catEditSearch').addEventListener('input',e=>catEditRender(e.target.value));
