@@ -443,7 +443,9 @@
     #print td.n,#print th.n{text-align:right;font-variant-numeric:tabular-nums}
     #print table thead th.ch{text-align:center;vertical-align:middle;line-height:1.15}
     #print .imp{white-space:nowrap}
-    #print tfoot td{font-weight:bold;background:#f4f4f4}
+    #print tbody.totals td{font-weight:bold;background:#f4f4f4}
+    #print tbody.totals{page-break-inside:avoid;break-inside:avoid}
+    #print tbody.totals tr{page-break-inside:avoid;break-inside:avoid}
     #print .cat td{background:#e8eef3;font-weight:bold;text-transform:uppercase;font-size:11px}
     #print table.pricelist{font-size:10px}
     #print table.pricelist th,#print table.pricelist td{padding:3px 5px}
@@ -466,7 +468,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v167</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v168</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -20760,7 +20762,7 @@ function buildPrint(){
     ${obsConDesc(m)?'<br><b>Observaciones:</b> '+esc(obsConDesc(m)).replace(/\n/g,'<br>'):''}</div>
     <table><colgroup><col style="width:11%"><col><col style="width:8%"><col style="width:11%"><col style="width:16%"></colgroup><thead><tr><th>Código</th><th>Producto</th><th class="ch">Cant.</th><th class="ch">Precio c/desc</th><th class="ch imp">Importe</th></tr></thead>
     <tbody>${rowsHtml}</tbody>
-    <tfoot>
+    <tbody class="totals">
       ${t.descuento>0.005 ? '' : foot('Base exenta',fmt.format(t.baseEx))+foot('Base imponible',fmt.format(t.baseImp))+foot('Subtotal',fmt.format(t.subtotal))}
       ${foot('Descuento '+(dl==='—'?'':'('+dl+')'),'– '+fmt.format(t.descuento))}
       ${foot('Base exenta c/desc.',fmt.format(t.baseExD))}
@@ -20768,7 +20770,7 @@ function buildPrint(){
       ${foot('Subtotal c/desc.',fmt.format(t.baseExD+t.baseImpD))}
       ${foot('IVA (16%)',fmt.format(t.iva))}
       ${foot('TOTAL',fmt.format(t.total),'tot')}
-    </tfoot></table>`;
+    </tbody></table>`;
 }
 function printWhenReady(){
   const imgs=[...document.querySelectorAll('#print img')];
