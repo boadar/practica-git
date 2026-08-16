@@ -466,7 +466,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v166</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v167</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -19752,12 +19752,17 @@ function orderRows(){
   });
   rows.push([]);
   const tr=(label,val)=>['','','','','','',label,round2(val)];
-  rows.push(tr('Base exenta',t.baseEx));
-  rows.push(tr('Base imponible',t.baseImp));
-  rows.push(tr('Subtotal',t.subtotal));
+  const hayDesc = t.descuento > 0.005;
+  if(!hayDesc){   // sin descuento: se muestran las bases y el subtotal normales
+    rows.push(tr('Base exenta',t.baseEx));
+    rows.push(tr('Base imponible',t.baseImp));
+    rows.push(tr('Subtotal',t.subtotal));
+  }
+  // con descuento: se omiten Base exenta, Base imponible y Subtotal (sin desc.)
   rows.push(tr('Descuento',-t.descuento));
   rows.push(tr('Base exenta c/desc',t.baseExD));
   rows.push(tr('Base imponible c/desc',t.baseImpD));
+  if(hayDesc) rows.push(tr('Subtotal c/desc',t.baseExD+t.baseImpD));
   rows.push(tr('IVA (16%)',t.iva));
   rows.push(tr('TOTAL',t.total));
   return rows;
@@ -20756,9 +20761,7 @@ function buildPrint(){
     <table><colgroup><col style="width:11%"><col><col style="width:8%"><col style="width:11%"><col style="width:16%"></colgroup><thead><tr><th>Código</th><th>Producto</th><th class="ch">Cant.</th><th class="ch">Precio c/desc</th><th class="ch imp">Importe</th></tr></thead>
     <tbody>${rowsHtml}</tbody>
     <tfoot>
-      ${foot('Base exenta',fmt.format(t.baseEx))}
-      ${foot('Base imponible',fmt.format(t.baseImp))}
-      ${foot('Subtotal',fmt.format(t.subtotal))}
+      ${t.descuento>0.005 ? '' : foot('Base exenta',fmt.format(t.baseEx))+foot('Base imponible',fmt.format(t.baseImp))+foot('Subtotal',fmt.format(t.subtotal))}
       ${foot('Descuento '+(dl==='—'?'':'('+dl+')'),'– '+fmt.format(t.descuento))}
       ${foot('Base exenta c/desc.',fmt.format(t.baseExD))}
       ${foot('Base imponible c/desc.',fmt.format(t.baseImpD))}
