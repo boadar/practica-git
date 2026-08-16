@@ -469,7 +469,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v164</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v165</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -900,6 +900,18 @@
   .lp-gentext{font-size:14px;font-weight:800;letter-spacing:.4px;color:var(--brand-ink);text-align:center}
   .ptmp-sheet{max-width:640px}
   .ptmp-hint{padding:10px 16px;font-size:12px;color:var(--ink-2);background:var(--surface-2);border-bottom:1px solid var(--line)}
+  .ptmp-grupo{padding:10px 16px;border-bottom:1px solid var(--line);background:var(--brand-tint)}
+  .ptmp-grupo-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .ptmp-grupo-lbl{font-size:12px;font-weight:800;color:var(--brand-ink);width:100%}
+  .ptmp-grupo select{border:1px solid var(--line);border-radius:8px;padding:8px 9px;font-size:13px;font-weight:600;background:var(--surface);color:var(--ink);max-width:200px}
+  .ptmp-grupo-pct{display:flex;align-items:center;gap:3px;border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:var(--surface)}
+  .ptmp-grupo-pct input{width:46px;border:none;outline:none;font-size:14px;font-weight:700;color:var(--brand-ink);text-align:right;background:transparent}
+  .ptmp-grupo-pct span{color:var(--ink-3);font-size:12px}
+  .ptmp-grupo .btn{padding:8px 14px;font-size:13px}
+  .ptmp-grupo-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .ptmp-grupo-chips:empty{margin-top:0}
+  .ptmp-gchip{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--brand);border-radius:20px;padding:4px 6px 4px 11px;font-size:11.5px;font-weight:700;color:var(--brand-ink)}
+  .ptmp-gchip button{border:none;background:var(--brand-tint);color:var(--brand-ink);width:18px;height:18px;border-radius:50%;cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center}
   .ptmp-search{padding:10px 16px;border-bottom:1px solid var(--line)}
   .ptmp-search input{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:14px;background:var(--surface-2)}
   .ptmp-body{overflow:auto;padding:2px 0;flex:1 1 auto}
@@ -972,6 +984,16 @@
   <div class="sheet ptmp-sheet">
     <header><h2>Precio y descuento temporal</h2><button class="closex" id="ptmpClose">&times;</button></header>
     <div class="ptmp-hint">Fija precios <b>solo para este pedido</b>. No cambia la base de datos ni otros pedidos, y solo aplica en modo administrador.</div>
+    <div class="ptmp-grupo">
+      <div class="ptmp-grupo-row">
+        <span class="ptmp-grupo-lbl">Descuento por grupo</span>
+        <select id="ptmpGrpTipo" aria-label="Tipo de grupo"><option value="cat">Por categoría</option><option value="marca">Por marca</option></select>
+        <select id="ptmpGrpVal" aria-label="Grupo"></select>
+        <span class="ptmp-grupo-pct"><input type="text" inputmode="decimal" id="ptmpGrpPct" placeholder="0" aria-label="Porcentaje de descuento del grupo"><span>%</span></span>
+        <button class="btn primary" id="ptmpGrpApply" type="button">Aplicar</button>
+      </div>
+      <div class="ptmp-grupo-chips" id="ptmpGrpChips"></div>
+    </div>
     <div class="ptmp-search"><input type="search" id="ptmpSearch" placeholder="Buscar producto o código…" autocomplete="off"></div>
     <div class="ptmp-body" id="ptmpBody"></div>
     <div class="ptmp-foot"><span class="ptmp-count" id="ptmpCount"></span><div class="ptmp-foot-btns"><button class="btn ghost" id="ptmpClear">Quitar todos</button><button class="btn" id="ptmpCancel">Cancelar</button><button class="btn primary" id="ptmpSave">Guardar</button></div></div>
@@ -17623,13 +17645,32 @@ function factorGlobal(){const d1=+state.meta.desc1||0,d2=+state.meta.desc2||0,d3
 // Precio unitario con los descuentos del cliente.
 // Se aplican todos los descuentos SIN redondeo intermedio y se redondea SOLO el resultado final a 2 decimales.
 var ptmpDraft={}, ptmpDescDraft={}, ptmpDescOrig={};
+// borradores de descuento por GRUPO (categoría / marca). Guardan el % (0-100) por clave.
+var ptmpCatDraft={}, ptmpMarcaDraft={};
+const MARCAS=[{k:'solita',label:'SOLITA'},{k:'ofica',label:'OFICA'},{k:'alher',label:'ALHER'}];
+function marcaLabel(k){ const m=MARCAS.find(x=>x.k===k); return m?m.label:String(k||'').toUpperCase(); }
+// % efectivo que se aplicará a un producto cuando NO tiene override por producto:
+// categoría > marca > (global de la ficha, salvo descGlobal=NO). Sirve de placeholder.
+function ptmpEffDescPct(p){
+  const c=ptmpCatDraft[p.categoria];
+  if(c!=null && String(c).trim()!=='') return parseFloat(String(c).replace(',','.'))||0;
+  const m=ptmpMarcaDraft[brandOf(p.categoria)];
+  if(m!=null && String(m).trim()!=='') return parseFloat(String(m).replace(',','.'))||0;
+  if(String(p.descGlobal||'SI').toUpperCase()==='NO') return 0;
+  return descGlobalPct();
+}
 function descResumenTexto(meta){
   meta = meta || state.meta;
   const parts=[];
   const g=[+meta.desc1||0,+meta.desc2||0,+meta.desc3||0].filter(x=>x>0).map(x=>Math.round(x*100)+'%');
   if(g.length) parts.push('General '+g.join('+'));
+  const fmtPct=d=>[+d.d1||0,+d.d2||0,+d.d3||0].filter(x=>x>0).map(x=>Math.round(x*100)+'%').join('+');
+  const dmarca=meta.descMarca||{};
+  Object.keys(dmarca).forEach(k=>{ const ps=fmtPct(dmarca[k]); if(ps) parts.push('Marca '+marcaLabel(k)+' '+ps); });
+  const dcat=meta.descCat||{};
+  Object.keys(dcat).forEach(c=>{ const ps=fmtPct(dcat[c]); if(ps) parts.push(catDisplay(c)+' '+ps); });
   const dp=meta.descProd||{};
-  Object.keys(dp).forEach(c=>{ const d=dp[c]; const ps=[+d.d1||0,+d.d2||0,+d.d3||0].filter(x=>x>0).map(x=>Math.round(x*100)+'%'); if(ps.length) parts.push(c+' '+ps.join('+')); });
+  Object.keys(dp).forEach(c=>{ const ps=fmtPct(dp[c]); if(ps) parts.push(c+' '+ps); });
   return parts.length ? ('Descuentos: '+parts.join(' · ')) : '';
 }
 function obsConDesc(meta){
@@ -17640,7 +17681,11 @@ function obsConDesc(meta){
 function precioTmpDe(p){ return (p && state.meta && state.meta.precioTmp && state.meta.precioTmp[p.codigo]!=null) ? +state.meta.precioTmp[p.codigo] : null; }
 function descDe(p){
   const dp = (p && state.meta && state.meta.descProd) ? state.meta.descProd[p.codigo] : null;
-  if(dp) return [+dp.d1||0, +dp.d2||0, +dp.d3||0];   // override por producto (Cambio de precio temporal): SIEMPRE aplica
+  if(dp) return [+dp.d1||0, +dp.d2||0, +dp.d3||0];   // override por PRODUCTO (precio temporal): máxima prioridad
+  const dc = (p && state.meta && state.meta.descCat) ? state.meta.descCat[p.categoria] : null;
+  if(dc) return [+dc.d1||0, +dc.d2||0, +dc.d3||0];   // descuento por LÍNEA (categoría)
+  const dm = (p && state.meta && state.meta.descMarca) ? state.meta.descMarca[brandOf(p.categoria)] : null;
+  if(dm) return [+dm.d1||0, +dm.d2||0, +dm.d3||0];   // descuento por MARCA
   if(p && String(p.descGlobal||'SI').toUpperCase()==='NO') return [0,0,0];   // producto marcado "DESCUENTO GLOBAL = NO": no recibe el descuento de la ficha
   return [+state.meta.desc1||0, +state.meta.desc2||0, +state.meta.desc3||0];   // descuento global de la ficha del cliente
 }
@@ -17652,7 +17697,52 @@ function precioNeto(p){
   const base=(ov!=null)?ov:(+(p&&p.precioUsd)||0);
   return round2(base*(1-d[0])*(1-d[1])*(1-d[2]));   // redondeo a 2 decimales solo al final
 }
-function openPrecioTmp(){ ptmpDraft=Object.assign({}, state.meta.precioTmp||{}); ptmpDescDraft={}; ptmpDescOrig=JSON.parse(JSON.stringify(state.meta.descProd||{})); const s=$('#ptmpSearch'); if(s) s.value=''; ptmpRender(''); $('#precioTmpModal').classList.add('open'); }
+function openPrecioTmp(){
+  ptmpDraft=Object.assign({}, state.meta.precioTmp||{}); ptmpDescDraft={}; ptmpDescOrig=JSON.parse(JSON.stringify(state.meta.descProd||{}));
+  // borradores por grupo: convierte {d1,d2,d3} guardado -> % combinado para editar
+  ptmpCatDraft={}; Object.keys(state.meta.descCat||{}).forEach(c=>{ const d=state.meta.descCat[c]; ptmpCatDraft[c]=String(descCombPct([+d.d1||0,+d.d2||0,+d.d3||0])); });
+  ptmpMarcaDraft={}; Object.keys(state.meta.descMarca||{}).forEach(k=>{ const d=state.meta.descMarca[k]; ptmpMarcaDraft[k]=String(descCombPct([+d.d1||0,+d.d2||0,+d.d3||0])); });
+  const s=$('#ptmpSearch'); if(s) s.value='';
+  ptmpGrpPopularVal(); ptmpGrpChips();
+  ptmpRender(''); $('#precioTmpModal').classList.add('open');
+}
+// llena el 2º selector con las categorías o marcas según el tipo elegido
+function ptmpGrpPopularVal(){
+  const tipo=($('#ptmpGrpTipo')||{}).value||'cat';
+  const sel=$('#ptmpGrpVal'); if(!sel) return;
+  let opts='';
+  if(tipo==='marca'){ MARCAS.forEach(m=>{ opts+='<option value="'+m.k+'">'+m.label+'</option>'; }); }
+  else { CATS.slice().forEach(c=>{ opts+='<option value="'+esc(c)+'">'+esc(catDisplay(c))+'</option>'; }); }
+  sel.innerHTML=opts;
+  const pct=$('#ptmpGrpPct'); if(pct) pct.value='';
+}
+// aplica el % escrito al grupo seleccionado (queda en el borrador)
+function ptmpGrpAplicar(){
+  const tipo=($('#ptmpGrpTipo')||{}).value||'cat';
+  const val=($('#ptmpGrpVal')||{}).value||'';
+  const raw=String((($('#ptmpGrpPct')||{}).value||'')).replace(',','.').trim();
+  if(!val){ return; }
+  if(raw===''){ toast('Escribe el porcentaje de descuento'); return; }
+  const pct=parseFloat(raw);
+  if(!isFinite(pct)||pct<0||pct>=100){ toast('Porcentaje inválido (0 a 99)'); return; }
+  if(tipo==='marca') ptmpMarcaDraft[val]=String(pct); else ptmpCatDraft[val]=String(pct);
+  const pctEl=$('#ptmpGrpPct'); if(pctEl) pctEl.value='';
+  ptmpGrpChips(); ptmpRender(($('#ptmpSearch')||{}).value||''); ptmpUpdateCount();
+  const nombre = tipo==='marca'?marcaLabel(val):catDisplay(val);
+  toast(pct+'% aplicado a '+(tipo==='marca'?'la marca ':'la línea ')+nombre);
+}
+// pinta los chips de descuentos por grupo aplicados (con botón para quitar)
+function ptmpGrpChips(){
+  const cont=$('#ptmpGrpChips'); if(!cont) return;
+  let h='';
+  Object.keys(ptmpMarcaDraft).forEach(k=>{ const v=ptmpMarcaDraft[k]; if(String(v).trim()==='') return; h+='<span class="ptmp-gchip">Marca '+esc(marcaLabel(k))+': '+esc(v)+'% <button type="button" data-gtipo="marca" data-gval="'+esc(k)+'" aria-label="Quitar">×</button></span>'; });
+  Object.keys(ptmpCatDraft).forEach(c=>{ const v=ptmpCatDraft[c]; if(String(v).trim()==='') return; h+='<span class="ptmp-gchip">'+esc(catDisplay(c))+': '+esc(v)+'% <button type="button" data-gtipo="cat" data-gval="'+esc(c)+'" aria-label="Quitar">×</button></span>'; });
+  cont.innerHTML=h;
+}
+function ptmpGrpQuitar(tipo,val){
+  if(tipo==='marca') delete ptmpMarcaDraft[val]; else delete ptmpCatDraft[val];
+  ptmpGrpChips(); ptmpRender(($('#ptmpSearch')||{}).value||''); ptmpUpdateCount();
+}
 function ptmpRender(q){
   q=(q||'').trim().toLowerCase();
   let list;
@@ -17676,7 +17766,7 @@ function ptmpRender(q){
     h+='<div class="ptmp-row'+(has?' has':'')+'">'
       +'<div class="ptmp-info"><span class="ptmp-code">'+esc(p.codigo)+'</span><span class="ptmp-name">'+esc(p.nombre)+'</span></div>'
       +'<div class="ptmp-base">Base<br><b>'+fmt.format(base)+'</b></div>'
-      +'<div class="ptmp-descwrap"><span>Desc</span><input type="text" inputmode="decimal" data-ptmpdesc="'+esc(p.codigo)+'" value="'+esc(dShown)+'" placeholder="'+(String(p.descGlobal||'SI').toUpperCase()==='NO'?0:gPct)+'" aria-label="Descuento de '+esc(p.codigo)+'"><span>%</span></div>'
+      +'<div class="ptmp-descwrap"><span>Desc</span><input type="text" inputmode="decimal" data-ptmpdesc="'+esc(p.codigo)+'" value="'+esc(dShown)+'" placeholder="'+ptmpEffDescPct(p)+'" aria-label="Descuento de '+esc(p.codigo)+'"><span>%</span></div>'
       +'<div class="ptmp-inwrap"><span>$</span><input type="text" inputmode="decimal" data-ptmpcode="'+esc(p.codigo)+'" value="'+(hasP?(+tmp).toFixed(2):'')+'" placeholder="'+base.toFixed(2)+'" aria-label="Precio temporal de '+esc(p.codigo)+'"></div>'
       +'</div>';
   });
@@ -17704,7 +17794,8 @@ function ptmpUpdateCount(){
   const dset={}; Object.keys(ptmpDescOrig).forEach(c=>dset[c]=1);
   Object.keys(ptmpDescDraft).forEach(c=>{ if(String(ptmpDescDraft[c]).trim()==='') delete dset[c]; else dset[c]=1; });
   const nD=Object.keys(dset).length;
-  const el=$('#ptmpCount'); if(el) el.textContent=nP+' precio'+(nP===1?'':'s')+' · '+nD+' descuento'+(nD===1?'':'s')+' por producto';
+  let nG=0; Object.keys(ptmpCatDraft).forEach(c=>{ if(String(ptmpCatDraft[c]).trim()!=='') nG++; }); Object.keys(ptmpMarcaDraft).forEach(k=>{ if(String(ptmpMarcaDraft[k]).trim()!=='') nG++; });
+  const el=$('#ptmpCount'); if(el) el.textContent=nP+' precio'+(nP===1?'':'s')+' · '+nD+' desc. producto · '+nG+' por grupo';
 }
 function ptmpSave(){
   const clean={};
@@ -17719,10 +17810,16 @@ function ptmpSave(){
     if(byCode[code] && isFinite(pct) && pct>=0 && pct<100){ nd[code]={d1:pct/100,d2:0,d3:0}; }
   });
   if(Object.keys(nd).length) state.meta.descProd=nd; else delete state.meta.descProd;
+  // descuentos por grupo: categor\u00eda y marca (% -> {d1,d2,d3})
+  const toTier=raw=>{ const pct=parseFloat(String(raw).replace(',','.').trim()); return (isFinite(pct)&&pct>0&&pct<100)?{d1:pct/100,d2:0,d3:0}:null; };
+  const ncat={}; Object.keys(ptmpCatDraft).forEach(c=>{ const t=toTier(ptmpCatDraft[c]); if(t && CATS.indexOf(c)>=0) ncat[c]=t; });
+  if(Object.keys(ncat).length) state.meta.descCat=ncat; else delete state.meta.descCat;
+  const nmarca={}; Object.keys(ptmpMarcaDraft).forEach(k=>{ const t=toTier(ptmpMarcaDraft[k]); if(t && MARCAS.some(m=>m.k===k)) nmarca[k]=t; });
+  if(Object.keys(nmarca).length) state.meta.descMarca=nmarca; else delete state.meta.descMarca;
   save(); render(); updateTotals();
   $('#precioTmpModal').classList.remove('open');
-  const nP=Object.keys(clean).length, nD=Object.keys(nd).length;
-  toast('Aplicado: '+nP+' precio'+(nP===1?'':'s')+' temporal'+(nP===1?'':'es')+' \u00b7 '+nD+' descuento'+(nD===1?'':'s')+' por producto \u2713');
+  const nP=Object.keys(clean).length, nD=Object.keys(nd).length, nG=Object.keys(ncat).length+Object.keys(nmarca).length;
+  toast('Aplicado: '+nP+' precio'+(nP===1?'':'s')+' temporal'+(nP===1?'':'es')+' \u00b7 '+nD+' desc. por producto \u00b7 '+nG+' por grupo \u2713');
 }
 function descLabel(){const ds=[+state.meta.desc1||0,+state.meta.desc2||0,+state.meta.desc3||0];const p=ds.filter(d=>d>0).map(d=>Math.round(d*100)+'%');return p.length?p.join(' + '):'—';}
 // Texto "Descuentos X%+Y%+Z%" con los descuentos seleccionados en la ficha del cliente (vacío si no hay)
@@ -20977,7 +21074,11 @@ function wire(){
   $('#ptmpSearch').addEventListener('input',()=>ptmpRender($('#ptmpSearch').value));
   $('#ptmpBody').addEventListener('input',ptmpOnInput);
   $('#ptmpSave').addEventListener('click',ptmpSave);
-  $('#ptmpClear').addEventListener('click',()=>{ ptmpDraft={}; ptmpDescDraft={}; ptmpDescOrig={}; ptmpRender($('#ptmpSearch').value); });
+  $('#ptmpClear').addEventListener('click',()=>{ ptmpDraft={}; ptmpDescDraft={}; ptmpDescOrig={}; ptmpCatDraft={}; ptmpMarcaDraft={}; ptmpGrpChips(); ptmpRender($('#ptmpSearch').value); });
+  $('#ptmpGrpTipo').addEventListener('change',ptmpGrpPopularVal);
+  $('#ptmpGrpApply').addEventListener('click',ptmpGrpAplicar);
+  $('#ptmpGrpPct').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); ptmpGrpAplicar(); } });
+  $('#ptmpGrpChips').addEventListener('click',e=>{ const b=e.target.closest('button[data-gtipo]'); if(b) ptmpGrpQuitar(b.dataset.gtipo, b.dataset.gval); });
   $('#btnDescuentos').addEventListener('click',administrarDescuentos);
     $('#btnOverInv').addEventListener('click',toggleOverInv);
   $('#fileRestaurar').addEventListener('change',e=>{
