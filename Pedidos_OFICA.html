@@ -468,7 +468,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v172</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v173</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -495,6 +495,7 @@
         <select id="ocSelect" class="ocsel" style="display:none" title="Cargar órdenes de compra (PDF) de un cliente y generar un pedido por cada una">
           <option value="">📄 Cargar OC…</option>
           <option value="mangobajito">MANGO BAJITO</option>
+          <option value="grupoabreu">GRUPO ABREU</option>
         </select>
         <input type="file" id="fileCargarOC" accept=".pdf,application/pdf" multiple style="display:none">
       </div></div>
@@ -20528,9 +20529,38 @@ function matchClienteOC(razon){
 function ocLimpiar(s){ return String(s||'').split(/[\x00-\x08\x0e-\x1f]/)[0].replace(/\s+/g,' ').trim(); }
 let _ocCodeRe=null;
 function ocCodeRegex(){ if(_ocCodeRe) return _ocCodeRe; const codes=CATALOGO.map(p=>p.codigo).sort((a,b)=>b.length-a.length); _ocCodeRe=new RegExp('('+codes.map(c=>c.replace(/-/g,'\\-')).join('|')+')','g'); return _ocCodeRe; }
+// mapa código de barra -> código de producto (para OC que asocian por barcode, ej. GRUPO ABREU)
+let _ocBarMap=null;
+function ocBarMap(){ if(_ocBarMap) return _ocBarMap; _ocBarMap={}; CATALOGO.forEach(p=>{ const b=String(p.codigoBarra||'').trim(); if(b) _ocBarMap[b]=p.codigo; }); return _ocBarMap; }
+// Extractor de texto de PDF con descompresión NATIVA del navegador (DecompressionStream).
+// Es más robusto que pdfExtraerStrings: no se cuelga con imágenes grandes (las salta) y usa
+// inflate nativo. Devuelve los fragmentos de texto en orden de lectura (hay que .join('')).
+async function _ocInflate(u8){ try{ const ab=await new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('deflate'))).arrayBuffer(); return new Uint8Array(ab); }catch(e){ return null; } }
+async function pdfStringsFast(buf){
+  let s=''; for(let i=0;i<buf.length;i+=8192){ s+=String.fromCharCode.apply(null, buf.subarray(i, Math.min(i+8192, buf.length))); }
+  const objRe=/(\d+)\s+(\d+)\s+obj/g; const objs=[]; let m; while(m=objRe.exec(s)) objs.push({at:m.index, end:objRe.lastIndex});
+  const out=[];
+  for(let k=0;k<objs.length;k++){
+    const o=objs[k], limit=(k+1<objs.length)?objs[k+1].at:s.length;
+    const st=s.indexOf('stream', o.end); if(st<0||st>=limit) continue;
+    const header=s.slice(o.end, st);
+    if(header.indexOf('/FlateDecode')<0) continue;
+    if(/\/(Image|XObject|Width|Height|DCTDecode)\b/.test(header)) continue;   // saltar imágenes (no son texto)
+    let d=st+6; if(s.charCodeAt(d)===13)d++; if(s.charCodeAt(d)===10)d++;
+    let e=s.indexOf('endstream', d); if(e<0) continue;
+    if(buf[e-1]===10)e--; if(buf[e-1]===13)e--;   // recorta el EOL antes de endstream (DecompressionStream es estricto)
+    const comp=buf.subarray(d, e);
+    const inf=await _ocInflate(comp); if(!inf || inf.length>1500000) continue;   // salta streams enormes (imágenes)
+    let txt=''; for(let i2=0;i2<inf.length;i2++) txt+=String.fromCharCode(inf[i2]);
+    if(txt.indexOf('Tj')<0 && txt.indexOf('TJ')<0) continue;
+    const re=/\(((?:[^()\\]|\\.)*)\)/g; let mm;
+    while(mm=re.exec(txt)){ out.push(mm[1].replace(/\\([()\\])/g,'$1').replace(/\\n/g,'\n').replace(/\\r/g,'').replace(/\\t/g,' ')); }
+  }
+  return out;
+}
 // Parser para el formato de GRUPO MANGO BAJITO
-function parseOCMangoBajito(buf, filename){
-  const j=pdfExtraerStrings(buf).join('').replace(/ +/g,' ');
+async function parseOCMangoBajito(buf, filename){
+  const j=(await pdfStringsFast(buf)).join('').replace(/ +/g,' ');
   const ocm=(filename||'').match(/Nro\.?\s*([\d.]+)/); const numped=ocm?('OC '+ocm[1].replace(/\./g,'')):(filename||'').replace(/\.pdf$/i,'');
   const iBody=j.indexOf('TOTAL USD'); const body=iBody>=0?j.slice(iBody+9):j;
   const qty={}, missing=[]; const rowRe=/PZAS\.\s*([\d.,]+)\s*\$/g; const cre=ocCodeRegex(); let m, last=0;
@@ -20547,13 +20577,48 @@ function parseOCMangoBajito(buf, filename){
   if(blo){ let b=blo[1]; if(nombre) b=b.replace(nombre,''); b=b.replace(/CALLE F EDIF VIAMONTE[\s\S]*?MIRANDA\s*CARACAS/,'|S|'); const p=b.split('|S|'); dir=ocLimpiar(p[1]||p[0]||''); }
   return {numped, nombre, direccion:dir, qty, missing};
 }
-const OC_PARSERS={ mangobajito: parseOCMangoBajito };
+// Parser para el formato de GRUPO ABREU (asocia el producto por CÓDIGO DE BARRA).
+// Respaldo: si el barcode no está en el catálogo, usa el código SOLITA que aparece en la descripción.
+async function parseOCAbreu(buf, filename){
+  const j=(await pdfStringsFast(buf)).join('').replace(/ +/g,' ');
+  const ocm=(filename||'').match(/ODC\s*([\d]+)/i); const numped=ocm?('ODC '+ocm[1]):(filename||'').replace(/\.pdf$/i,'');
+  const bmap=ocBarMap(); const cre=ocCodeRegex();
+  const qty={}, missing=[]; const ms=[]; const bre=/759114\d{7}/g; let mm;
+  while(mm=bre.exec(j)) ms.push({b:mm[0], i:mm.index});
+  for(let k=0;k<ms.length;k++){
+    const seg=j.slice(ms[k].i+13, (k+1<ms.length?ms[k+1].i:ms[k].i+13+400));
+    const nums=seg.match(/\d+,\d{3}/g)||[];   // CANT EMP, CANT UNID, TOTAL SOLICITADO
+    const q = nums.length>=3 ? parseInt(nums[2],10) : (nums.length?parseInt(nums[nums.length-1],10):0);
+    let code=bmap[ms[k].b];
+    if(!code){ cre.lastIndex=0; const cm=cre.exec(seg); code=cm?cm[1]:null; }   // respaldo por código en la descripción
+    if(code && byCode[code] && q>0){ qty[code]=(qty[code]||0)+q; }
+    else if(q>0){ missing.push(ms[k].b+' x'+q); }
+  }
+  // metadatos: los rótulos y valores vienen en 2 columnas -> se anclan por "Creado por:" + 2 fechas + NOMBRE + RIF
+  let razon='', suc='', desp='';
+  const mr=j.match(/Creado por:\s*\d{2}\/\d{2}\/\d{4}\s*\d{2}\/\d{2}\/\d{4}\s*([\s\S]*?)\s*(J\d{9})/);
+  if(mr){
+    razon=mr[1].trim();
+    const rest=j.slice(j.indexOf(mr[2])+mr[2].length);
+    const msuc=rest.match(/^([A-Z0-9ÁÉÍÓÚÑ .,&\-\/]+?)\s*(?=[A-ZÁÉÍÓÚÑ][a-zá-úñ]|Av\.|Calle|Centro)/);
+    suc=msuc?msuc[1].trim():'';
+    const after=rest.slice(msuc?msuc[0].length:0);
+    const md=after.match(/^([\s\S]*?[a-zá-úñ][\s\S]*?)(?=[A-ZÁÉÍÓÚÑ]{2,}[A-ZÁÉÍÓÚÑ ]{8}|Emitid|Moneda|Proveedor|Tel[eé]fono|Persona|ZONA POSTAL\s*\d|$)/);
+    desp=md?md[1].replace(/\s+/g,' ').trim():'';
+    desp=desp.replace(/[\s.]*[A-ZÁÉÍÓÚÑ]{1,4}\.?\s*$/,'').trim();   // recorta el "AV." de la fiscal que pueda colarse
+  }
+  let dir='';
+  if(suc) dir+='Sucursal: '+suc;
+  if(desp) dir+=(dir?' · ':'')+'Despacho: '+desp;
+  return {numped, nombre:razon, direccion:dir, qty, missing};
+}
+const OC_PARSERS={ mangobajito: parseOCMangoBajito, grupoabreu: parseOCAbreu };
 async function cargarOCArchivos(files, formato){
   const parser=OC_PARSERS[formato]; if(!parser){ toast('Formato de OC no reconocido'); return; }
   toast('Leyendo '+files.length+' OC…');
   ocDraft=[];
   for(const f of files){
-    try{ const buf=new Uint8Array(await f.arrayBuffer()); const p=parser(buf, f.name); p._file=f.name; ocDraft.push(p); }
+    try{ const buf=new Uint8Array(await f.arrayBuffer()); const p=await parser(buf, f.name); p._file=f.name; ocDraft.push(p); }
     catch(err){ console.error('OC', f.name, err); ocDraft.push({numped:(f.name||'').replace(/\.pdf$/i,''), nombre:'(no se pudo leer)', direccion:'', qty:{}, missing:[], _err:true}); }
   }
   const sv=$('#ocVend'); if(sv) sv.innerHTML='<option value="">—</option>'+VENDEDORES.map(v=>'<option>'+esc(v)+'</option>').join('');
