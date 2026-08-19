@@ -471,7 +471,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v170</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v171</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -495,6 +495,11 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 8v6"/><path d="m9.5 11.5 2.5 2.5 2.5-2.5"/></svg>
         <span class="btnlabel">Cargar Pedido de otro dispositivo</span>
       </button>
+        <select id="ocSelect" class="ocsel" style="display:none" title="Cargar órdenes de compra (PDF) de un cliente y generar un pedido por cada una">
+          <option value="">📄 Cargar OC…</option>
+          <option value="mangobajito">MANGO BAJITO</option>
+        </select>
+        <input type="file" id="fileCargarOC" accept=".pdf,application/pdf" multiple style="display:none">
       </div></div>
       <div class="admgroup"><span class="admgroup-lbl">Este pedido</span><div class="admgroup-btns">
         <button class="iconbtn cargarinv" id="btnDescuentos" type="button" style="display:none" title="Agregar un descuento personalizado para este pedido (se coloca en Descuento 1 de la ficha del cliente)">
@@ -906,6 +911,15 @@
   @keyframes lpspin{to{transform:rotate(360deg)}}
   .lp-gentext{font-size:14px;font-weight:800;letter-spacing:.4px;color:var(--brand-ink);text-align:center}
   .ptmp-sheet{max-width:640px}
+  .ocsel{border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:13px;font-weight:800;background:var(--brand-tint);color:var(--brand-ink);cursor:pointer;min-width:150px}
+  .oc-fields{display:flex;flex-wrap:wrap;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--surface-2)}
+  .oc-fields label{display:flex;flex-direction:column;gap:3px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-3)}
+  .oc-fields select,.oc-fields input{border:1px solid var(--line);border-radius:8px;padding:8px 9px;font-size:13px;font-weight:600;background:var(--surface);color:var(--ink)}
+  .oc-fields input{width:72px;text-align:right}
+  .oc-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--line-2)}
+  .oc-row .oc-n{font-size:12px;font-weight:800;color:var(--brand-ink);white-space:nowrap}
+  .oc-row small{color:var(--ink-3);font-size:11.5px}
+  .oc-row .nocli{color:#C0392B}
   .ptmp-hint{padding:10px 16px;font-size:12px;color:var(--ink-2);background:var(--surface-2);border-bottom:1px solid var(--line)}
   .ptmp-grupo{padding:10px 16px;border-bottom:1px solid var(--line);background:var(--brand-tint)}
   .ptmp-grupo-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -1004,6 +1018,19 @@
     <div class="ptmp-search"><input type="search" id="ptmpSearch" placeholder="Buscar producto o código…" autocomplete="off"></div>
     <div class="ptmp-body" id="ptmpBody"></div>
     <div class="ptmp-foot"><span class="ptmp-count" id="ptmpCount"></span><div class="ptmp-foot-btns"><button class="btn ghost" id="ptmpClear">Quitar todos</button><button class="btn" id="ptmpCancel">Cancelar</button><button class="btn primary" id="ptmpSave">Guardar</button></div></div>
+  </div>
+</div>
+<div class="modal" id="ocModal">
+  <div class="sheet ptmp-sheet">
+    <header><h2>Cargar OC — generar pedidos</h2><button class="closex" id="ocClose">&times;</button></header>
+    <div class="ptmp-hint" id="ocHint"></div>
+    <div class="oc-fields">
+      <label>Vendedor<select id="ocVend"></select></label>
+      <label>Condición de pago<select id="ocCond"></select></label>
+      <label>Descuento %<input type="text" inputmode="decimal" id="ocDesc" placeholder="0"></label>
+    </div>
+    <div class="ptmp-body" id="ocList"></div>
+    <div class="ptmp-foot"><span class="ptmp-count" id="ocCount"></span><div class="ptmp-foot-btns"><button class="btn" id="ocCancel">Cancelar</button><button class="btn primary" id="ocGen">Generar pedidos</button></div></div>
   </div>
 </div>
 <div class="modal lpmodal" id="lpModal">
@@ -19640,7 +19667,7 @@ function cerrarListaCliente(input){
 }
 
 async function toggleAdmin(){
-  const admBtns=['#btnCargar','#btnCargarOtro','#btnCargarInv','#btnNuevoProd','#btnPrecioTmp','#btnDescuentos','#btnOverInv','#btnRespaldo','#btnRestaurar','#btnReset','#btnEditarCat','#btnActualizarApp','#btnCargarHist'];
+  const admBtns=['#btnCargar','#btnCargarOtro','#ocSelect','#btnCargarInv','#btnNuevoProd','#btnPrecioTmp','#btnDescuentos','#btnOverInv','#btnRespaldo','#btnRestaurar','#btnReset','#btnEditarCat','#btnActualizarApp','#btnCargarHist'];
   if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display='none'; }); { const ag=$('#admGroups'); if(ag) ag.style.display='none'; } filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
   const pass=await askPassword();
   if(pass==null) return;
@@ -20483,6 +20510,103 @@ function cargarPedidoDesdeXlsx(buf){
   toast('Pedido cargado: '+nref+' ref'+(nref===1?'':'s')+(missing.length?' · '+missing.length+' fuera de catálogo':''));
 }
 
+// ===== Cargar OC (órdenes de compra en PDF) — un pedido por cada OC =====
+// Cada cliente puede enviar un formato distinto -> un parser por cliente. Empezamos con MANGO BAJITO.
+let ocDraft=[];   // OC leídas, pendientes de generar
+// normaliza razón social para cruzar con la base (quita C.A/S.A/SUC, acentos, símbolos)
+function _normCli(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\b(C\.?A\.?|S\.?A\.?|COMPANIA|COMPA[NÑ]IA|ANONIMA|SUC\.?|SUCURSAL)\b/g,' ').replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
+// cruza la razón social de la OC con la base CLIENTES: exacto, o substring fuerte (evita falsos positivos)
+function matchClienteOC(razon){
+  const r=_normCli(razon); if(r.length<5) return null;
+  let exact=null, best=null, bestLen=0;
+  for(let i=0;i<CLIENTES.length;i++){
+    const n=_normCli(CLIENTES[i].n); if(!n) continue;
+    if(n===r){ exact=CLIENTES[i]; break; }
+    if((n.indexOf(r)>=0 || r.indexOf(n)>=0) && Math.min(n.length,r.length)>=12 && n.length>bestLen){ best=CLIENTES[i]; bestLen=n.length; }
+  }
+  const res=exact||best; return res?{codigo:res.c, nombreBase:res.n}:null;
+}
+function ocLimpiar(s){ return String(s||'').split(/[\x00-\x08\x0e-\x1f]/)[0].replace(/\s+/g,' ').trim(); }
+let _ocCodeRe=null;
+function ocCodeRegex(){ if(_ocCodeRe) return _ocCodeRe; const codes=CATALOGO.map(p=>p.codigo).sort((a,b)=>b.length-a.length); _ocCodeRe=new RegExp('('+codes.map(c=>c.replace(/-/g,'\\-')).join('|')+')','g'); return _ocCodeRe; }
+// Parser para el formato de GRUPO MANGO BAJITO
+function parseOCMangoBajito(buf, filename){
+  const j=pdfExtraerStrings(buf).join('').replace(/ +/g,' ');
+  const ocm=(filename||'').match(/Nro\.?\s*([\d.]+)/); const numped=ocm?('OC '+ocm[1].replace(/\./g,'')):(filename||'').replace(/\.pdf$/i,'');
+  const iBody=j.indexOf('TOTAL USD'); const body=iBody>=0?j.slice(iBody+9):j;
+  const qty={}, missing=[]; const rowRe=/PZAS\.\s*([\d.,]+)\s*\$/g; const cre=ocCodeRegex(); let m, last=0;
+  while(m=rowRe.exec(body)){
+    const pre=body.slice(last, m.index); last=m.index+m[0].length;
+    cre.lastIndex=0; const cm=cre.exec(pre); const code=cm?cm[1]:null;   // primer código de la fila
+    const q=Math.round(parseFloat(m[1].replace(/\./g,'').replace(',','.'))||0);
+    if(code && byCode[code] && q>0){ qty[code]=(qty[code]||0)+q; }
+    else if(q>0){ const mc=pre.match(/\/\s*([A-Z]{2,4}\d{2,4}[A-Z0-9]*)\s*$/); missing.push((mc?mc[1]:ocLimpiar(pre.slice(-28)))+' x'+q); }
+  }
+  const mn=j.match(/OFICA REPRESENTACIONES,\s*S\.A\.\s*([\s\S]*?)CALLE F EDIF VIAMONTE/);
+  const nombre=mn?ocLimpiar(mn[1]):'';
+  let dir=''; const blo=j.match(/OFICA REPRESENTACIONES,\s*S\.A\.\s*([\s\S]*?)(PROVE\.|DETALLE DE|Pág|PROV\b)/);
+  if(blo){ let b=blo[1]; if(nombre) b=b.replace(nombre,''); b=b.replace(/CALLE F EDIF VIAMONTE[\s\S]*?MIRANDA\s*CARACAS/,'|S|'); const p=b.split('|S|'); dir=ocLimpiar(p[1]||p[0]||''); }
+  return {numped, nombre, direccion:dir, qty, missing};
+}
+const OC_PARSERS={ mangobajito: parseOCMangoBajito };
+async function cargarOCArchivos(files, formato){
+  const parser=OC_PARSERS[formato]; if(!parser){ toast('Formato de OC no reconocido'); return; }
+  toast('Leyendo '+files.length+' OC…');
+  ocDraft=[];
+  for(const f of files){
+    try{ const buf=new Uint8Array(await f.arrayBuffer()); const p=parser(buf, f.name); p._file=f.name; ocDraft.push(p); }
+    catch(err){ console.error('OC', f.name, err); ocDraft.push({numped:(f.name||'').replace(/\.pdf$/i,''), nombre:'(no se pudo leer)', direccion:'', qty:{}, missing:[], _err:true}); }
+  }
+  const sv=$('#ocVend'); if(sv) sv.innerHTML='<option value="">—</option>'+VENDEDORES.map(v=>'<option>'+esc(v)+'</option>').join('');
+  const sc=$('#ocCond'); if(sc) sc.innerHTML=$('#f_condicion').innerHTML;
+  const dd=$('#ocDesc'); if(dd) dd.value='';
+  ocRenderLista();
+  $('#ocModal').classList.add('open');
+}
+function ocRenderLista(){
+  let h='', totRef=0;
+  ocDraft.forEach(oc=>{
+    const n=Object.keys(oc.qty||{}).length; totRef+=n;
+    const mt=oc._err?null:matchClienteOC(oc.nombre||'');
+    const cliInfo = oc._err ? '<span class="nocli">no se pudo leer el PDF</span>'
+      : esc(oc.nombre||'—')+(mt?' → <b>'+esc(mt.codigo)+'</b>':' · <span class="nocli">sin código en base</span>');
+    h+='<div class="oc-row"><div><b>'+esc(oc.numped||oc._file||'OC')+'</b><br><small>'+cliInfo+'</small></div>'
+      +'<div class="oc-n">'+n+' ref'+(oc.missing&&oc.missing.length?' · '+oc.missing.length+' fuera':'')+'</div></div>';
+  });
+  $('#ocList').innerHTML=h;
+  $('#ocHint').textContent='Se detectaron '+ocDraft.length+' OC ('+totRef+' líneas). Se genera un pedido por cada una con el precio de lista, el vendedor y la condición elegidos, y el descuento indicado. La dirección de envío va a Observaciones.';
+  $('#ocCount').textContent=ocDraft.length+' OC';
+}
+async function generarPedidosOC(){
+  const vend=($('#ocVend').value||'').trim(), cond=($('#ocCond').value||'').trim();
+  const descPct=parseFloat(String($('#ocDesc').value||'').replace(',','.'))||0;
+  if(!vend){ toast('Elige el vendedor'); return; }
+  if(!cond){ toast('Elige la condición de pago'); return; }
+  const descFrac = (descPct>0 && descPct<100) ? descPct/100 : 0;
+  const list=loadOrders(); const stamp=Date.now(); const fecha=isoHoy();
+  let creados=0; const resumen=[];
+  ocDraft.forEach((oc,i)=>{
+    const q={}; Object.keys(oc.qty||{}).forEach(c=>{ if(byCode[c]) q[c]=oc.qty[c]; });
+    if(!Object.keys(q).length) return;
+    const mt=matchClienteOC(oc.nombre||'');
+    let obs=oc.direccion||'';
+    if(oc.missing && oc.missing.length) obs=(obs?obs+'\n':'')+'No cargados (fuera de catálogo): '+oc.missing.join('; ');
+    const meta={cliente:(mt?mt.nombreBase:oc.nombre)||oc.nombre||'', codcliente:mt?mt.codigo:'',
+      vendedor:vend, condicion:cond, numped:oc.numped||'', obs:obs, fecha:fecha,
+      desc1:String(descFrac), desc2:'0', desc3:'0', origen:'OC'};
+    const sq=state.qty, sm=state.meta; state.qty=q; state.meta=meta; const tot=totals().total; state.qty=sq; state.meta=sm;
+    list.push({ id:'P'+stamp+'-oc'+i+'-'+Math.floor(Math.random()*1000), nombre:meta.cliente, codcliente:meta.codcliente,
+      fecha:fecha, numped:meta.numped, total:tot, savedAt:new Date().toISOString(), meta:meta, qty:q, status:'PENDIENTE', editado:false });
+    creados++;
+    resumen.push((oc.numped||'OC')+' → '+meta.cliente+(mt?' ('+mt.codigo+')':' (sin código)')+' · '+Object.keys(q).length+' ref'+(oc.missing&&oc.missing.length?' · '+oc.missing.length+' fuera':''));
+  });
+  if(!creados){ toast('No se generó ningún pedido (sin productos de catálogo)'); return; }
+  storeOrders(list);
+  $('#ocModal').classList.remove('open');
+  await askConfirm('Se generaron '+creados+' pedido'+(creados===1?'':'s')+' desde las OC (PENDIENTES):\n\n'+resumen.join('\n')+'\n\nRevísalos y envíalos desde "Ver pedidos". El precio es el de lista con '+(descFrac>0?Math.round(descFrac*100)+'% de descuento':'sin descuento')+'.','Entendido','Cerrar');
+  if(typeof openPedidos==='function') openPedidos();
+}
+
 // ===== Cargar Pedido de OTRO DISPOSITIVO (Excel del correo: buildOrderXlsxStyled, hoja "Pedido") =====
 // Reconstruye el pedido usando el PRECIO FINAL (con descuento) de cada linea como precio temporal,
 // para que los montos queden identicos aunque el precio de lista del catalogo haya cambiado.
@@ -21197,6 +21321,14 @@ function wire(){
   $('#btnActualizarApp').addEventListener('click',actualizarApp);
   $('#btnCargarHist').addEventListener('click',()=>{ $('#fileCargarHist').click(); });
   $('#fileCargarHist').addEventListener('change',async e=>{ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(f) await cargarHistoricoDesdeXlsx(f); });
+  // ---- Cargar OC ----
+  let _ocFormato='';
+  $('#ocSelect').addEventListener('change',e=>{ const v=e.target.value; e.target.value=''; if(v){ _ocFormato=v; $('#fileCargarOC').click(); } });
+  $('#fileCargarOC').addEventListener('change',async e=>{ const files=Array.from(e.target.files||[]); e.target.value=''; if(files.length) await cargarOCArchivos(files,_ocFormato); });
+  $('#ocClose').addEventListener('click',()=>$('#ocModal').classList.remove('open'));
+  $('#ocCancel').addEventListener('click',()=>$('#ocModal').classList.remove('open'));
+  $('#ocModal').addEventListener('click',e=>{ if(e.target===$('#ocModal')) $('#ocModal').classList.remove('open'); });
+  $('#ocGen').addEventListener('click',generarPedidosOC);
   $('#catEditClose').addEventListener('click',cerrarCatEdit);
   $('#catEditModal').addEventListener('click',e=>{ if(e.target===$('#catEditModal')) cerrarCatEdit(); });
   $('#catEditSearch').addEventListener('input',e=>catEditRender(e.target.value));
