@@ -468,7 +468,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v171</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v172</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -1024,7 +1024,9 @@
     <div class="oc-fields">
       <label>Vendedor<select id="ocVend"></select></label>
       <label>Condición de pago<select id="ocCond"></select></label>
-      <label>Descuento %<input type="text" inputmode="decimal" id="ocDesc" placeholder="0"></label>
+      <label>Desc 1 %<input type="text" inputmode="decimal" id="ocDesc1" placeholder="0"></label>
+      <label>Desc 2 %<input type="text" inputmode="decimal" id="ocDesc2" placeholder="0"></label>
+      <label>Desc 3 %<input type="text" inputmode="decimal" id="ocDesc3" placeholder="0"></label>
     </div>
     <div class="ptmp-body" id="ocList"></div>
     <div class="ptmp-foot"><span class="ptmp-count" id="ocCount"></span><div class="ptmp-foot-btns"><button class="btn" id="ocCancel">Cancelar</button><button class="btn primary" id="ocGen">Generar pedidos</button></div></div>
@@ -20556,7 +20558,7 @@ async function cargarOCArchivos(files, formato){
   }
   const sv=$('#ocVend'); if(sv) sv.innerHTML='<option value="">—</option>'+VENDEDORES.map(v=>'<option>'+esc(v)+'</option>').join('');
   const sc=$('#ocCond'); if(sc) sc.innerHTML=$('#f_condicion').innerHTML;
-  const dd=$('#ocDesc'); if(dd) dd.value='';
+  ['#ocDesc1','#ocDesc2','#ocDesc3'].forEach(id=>{ const e=$(id); if(e) e.value=''; });
   ocRenderLista();
   $('#ocModal').classList.add('open');
 }
@@ -20571,15 +20573,16 @@ function ocRenderLista(){
       +'<div class="oc-n">'+n+' ref'+(oc.missing&&oc.missing.length?' · '+oc.missing.length+' fuera':'')+'</div></div>';
   });
   $('#ocList').innerHTML=h;
-  $('#ocHint').textContent='Se detectaron '+ocDraft.length+' OC ('+totRef+' líneas). Se genera un pedido por cada una con el precio de lista, el vendedor y la condición elegidos, y el descuento indicado. La dirección de envío va a Observaciones.';
+  $('#ocHint').textContent='Se detectaron '+ocDraft.length+' OC ('+totRef+' líneas). Puedes cargar varias a la vez; el vendedor, la condición y los descuentos elegidos se aplican a TODAS. Se genera un pedido por cada una con el precio de lista. La dirección de envío va a Observaciones.';
   $('#ocCount').textContent=ocDraft.length+' OC';
 }
 async function generarPedidosOC(){
   const vend=($('#ocVend').value||'').trim(), cond=($('#ocCond').value||'').trim();
-  const descPct=parseFloat(String($('#ocDesc').value||'').replace(',','.'))||0;
   if(!vend){ toast('Elige el vendedor'); return; }
   if(!cond){ toast('Elige la condición de pago'); return; }
-  const descFrac = (descPct>0 && descPct<100) ? descPct/100 : 0;
+  const _pct=id=>{ const v=parseFloat(String(($(id)||{}).value||'').replace(',','.'))||0; return (v>0&&v<100)?v/100:0; };
+  const d1=_pct('#ocDesc1'), d2=_pct('#ocDesc2'), d3=_pct('#ocDesc3');
+  const descTxt=[d1,d2,d3].filter(x=>x>0).map(x=>Math.round(x*100)+'%').join(' + ') || 'sin descuento';
   const list=loadOrders(); const stamp=Date.now(); const fecha=isoHoy();
   let creados=0; const resumen=[];
   ocDraft.forEach((oc,i)=>{
@@ -20590,7 +20593,7 @@ async function generarPedidosOC(){
     if(oc.missing && oc.missing.length) obs=(obs?obs+'\n':'')+'No cargados (fuera de catálogo): '+oc.missing.join('; ');
     const meta={cliente:(mt?mt.nombreBase:oc.nombre)||oc.nombre||'', codcliente:mt?mt.codigo:'',
       vendedor:vend, condicion:cond, numped:oc.numped||'', obs:obs, fecha:fecha,
-      desc1:String(descFrac), desc2:'0', desc3:'0', origen:'OC'};
+      desc1:String(d1), desc2:String(d2), desc3:String(d3), origen:'OC'};
     const sq=state.qty, sm=state.meta; state.qty=q; state.meta=meta; const tot=totals().total; state.qty=sq; state.meta=sm;
     list.push({ id:'P'+stamp+'-oc'+i+'-'+Math.floor(Math.random()*1000), nombre:meta.cliente, codcliente:meta.codcliente,
       fecha:fecha, numped:meta.numped, total:tot, savedAt:new Date().toISOString(), meta:meta, qty:q, status:'PENDIENTE', editado:false });
@@ -20600,7 +20603,7 @@ async function generarPedidosOC(){
   if(!creados){ toast('No se generó ningún pedido (sin productos de catálogo)'); return; }
   storeOrders(list);
   $('#ocModal').classList.remove('open');
-  await askConfirm('Se generaron '+creados+' pedido'+(creados===1?'':'s')+' desde las OC (PENDIENTES):\n\n'+resumen.join('\n')+'\n\nRevísalos y envíalos desde "Ver pedidos". El precio es el de lista con '+(descFrac>0?Math.round(descFrac*100)+'% de descuento':'sin descuento')+'.','Entendido','Cerrar');
+  await askConfirm('Se generaron '+creados+' pedido'+(creados===1?'':'s')+' desde las OC (PENDIENTES):\n\n'+resumen.join('\n')+'\n\nRevísalos y envíalos desde "Ver pedidos". Precio de lista con descuento: '+descTxt+'.','Entendido','Cerrar');
   if(typeof openPedidos==='function') openPedidos();
 }
 
