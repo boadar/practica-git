@@ -471,7 +471,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v168</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v169</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -17663,8 +17663,13 @@ function ptmpEffDescPct(p){
   if(c!=null && String(c).trim()!=='') return parseFloat(String(c).replace(',','.'))||0;
   const m=ptmpMarcaDraft[brandOf(p.categoria)];
   if(m!=null && String(m).trim()!=='') return parseFloat(String(m).replace(',','.'))||0;
-  if(String(p.descGlobal||'SI').toUpperCase()==='NO') return 0;
-  return descGlobalPct();
+  const noGlobal=String(p.descGlobal||'SI').toUpperCase()==='NO';
+  const gp=descGlobalPct();
+  if(gp>0 && !noGlobal) return gp;
+  const bp=(state.meta&&state.meta.descProdBase)?state.meta.descProdBase[p.codigo]:null;
+  if(bp) return descCombPct([+bp.d1||0,+bp.d2||0,+bp.d3||0]);   // descuento reconstruido del pedido cargado
+  if(noGlobal) return 0;
+  return gp;
 }
 function descResumenTexto(meta){
   meta = meta || state.meta;
@@ -17688,13 +17693,19 @@ function obsConDesc(meta){
 function precioTmpDe(p){ return (p && state.meta && state.meta.precioTmp && state.meta.precioTmp[p.codigo]!=null) ? +state.meta.precioTmp[p.codigo] : null; }
 function descDe(p){
   const dp = (p && state.meta && state.meta.descProd) ? state.meta.descProd[p.codigo] : null;
-  if(dp) return [+dp.d1||0, +dp.d2||0, +dp.d3||0];   // override por PRODUCTO (precio temporal): máxima prioridad
+  if(dp) return [+dp.d1||0, +dp.d2||0, +dp.d3||0];   // 1) override por PRODUCTO (precio temporal, intencional): máxima prioridad
   const dc = (p && state.meta && state.meta.descCat) ? state.meta.descCat[p.categoria] : null;
-  if(dc) return [+dc.d1||0, +dc.d2||0, +dc.d3||0];   // descuento por LÍNEA (categoría)
+  if(dc) return [+dc.d1||0, +dc.d2||0, +dc.d3||0];   // 2) descuento por LÍNEA (categoría)
   const dm = (p && state.meta && state.meta.descMarca) ? state.meta.descMarca[brandOf(p.categoria)] : null;
-  if(dm) return [+dm.d1||0, +dm.d2||0, +dm.d3||0];   // descuento por MARCA
-  if(p && String(p.descGlobal||'SI').toUpperCase()==='NO') return [0,0,0];   // producto marcado "DESCUENTO GLOBAL = NO": no recibe el descuento de la ficha
-  return [+state.meta.desc1||0, +state.meta.desc2||0, +state.meta.desc3||0];   // descuento global de la ficha del cliente
+  if(dm) return [+dm.d1||0, +dm.d2||0, +dm.d3||0];   // 3) descuento por MARCA
+  const noGlobal = p && String(p.descGlobal||'SI').toUpperCase()==='NO';   // producto marcado "DESCUENTO GLOBAL = NO"
+  const g=[+state.meta.desc1||0, +state.meta.desc2||0, +state.meta.desc3||0];
+  const gHas = g[0]>0||g[1]>0||g[2]>0;
+  if(gHas && !noGlobal) return g;                    // 4) descuento GLOBAL de la ficha (si el usuario lo puso) manda sobre la reconstrucción
+  const bp = (p && state.meta && state.meta.descProdBase) ? state.meta.descProdBase[p.codigo] : null;
+  if(bp) return [+bp.d1||0, +bp.d2||0, +bp.d3||0];   // 5) descuento reconstruido de un pedido cargado (respaldo; cede ante un global/línea nuevo)
+  if(noGlobal) return [0,0,0];
+  return g;                                          // 6) global (0 o su valor)
 }
 function descCombPct(arr){ const a=+arr[0]||0,b=+arr[1]||0,c=+arr[2]||0; return Math.round((1-(1-a)*(1-b)*(1-c))*1000)/10; }
 function descGlobalPct(){ return descCombPct([+state.meta.desc1||0,+state.meta.desc2||0,+state.meta.desc3||0]); }
@@ -18394,14 +18405,15 @@ async function enviarPedidos(ids){
     }
   }
   const resumen=sel.map(o=>resumenPedido(o)).join('\n\n———\n\n');
-  // asunto: 1 pedido -> "Pedido {cliente} {fecha}"; varios -> "Pedidos {fecha} - {# control}"
+  // asunto: 1 pedido -> "Pedido {cliente} {fecha}"; varios del MISMO cliente -> "Pedidos {cliente} {fecha} - {# control}"
   let subject;
   if(sel.length===1){
     const o=sel[0];
     subject='Pedido '+(o.nombre||'')+' '+fechaFmt(o.fecha||'');
   } else {
     const hoy=new Date().toISOString().slice(0,10);
-    subject='Pedidos '+fechaFmt(hoy)+' - '+nextControlCorreo();
+    const cliUnico = sel.every(o=>(o.nombre||'')===(sel[0].nombre||'')) ? (sel[0].nombre||'').trim() : '';
+    subject='Pedidos '+(cliUnico?cliUnico+' ':'')+fechaFmt(hoy)+' - '+nextControlCorreo();
   }
   let enviado=false, cancelado=false, modo='';
 
@@ -20447,7 +20459,9 @@ function cargarPedidoDesdeXlsx(buf){
   if(Object.keys(qty).length===0 && !nombre){ throw new Error('El archivo no tiene datos de pedido'); }
   // aplicar (reemplaza el pedido actual)
   state.qty=qty;
-  state.meta={cliente:nombre,codcliente:cod,vendedor:vendedor,condicion:condicion,numped:'',obs:obs,desc1:'0',desc2:'0',desc3:'0',descProd:descProd};
+  // El descuento por producto del Excel se guarda como descProdBase (respaldo/reconstrucción):
+  // reconstruye el pedido tal cual, pero CEDE si luego se agrega un descuento global o por línea.
+  state.meta={cliente:nombre,codcliente:cod,vendedor:vendedor,condicion:condicion,numped:'',obs:obs,desc1:'0',desc2:'0',desc3:'0',descProdBase:descProd};
   const dt=new Date(); state.meta.fecha=dt.toISOString().slice(0,10);
   currentOrderId=null; setLocked(false); save();
   syncMetaFields();
