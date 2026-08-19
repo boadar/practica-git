@@ -473,7 +473,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v176</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v177</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -923,6 +923,22 @@
   .oc-fields label{display:flex;flex-direction:column;gap:3px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-3)}
   .oc-fields select,.oc-fields input{border:1px solid var(--line);border-radius:8px;padding:8px 9px;font-size:13px;font-weight:600;background:var(--surface);color:var(--ink)}
   .oc-fields input{width:72px;text-align:right}
+  .oc-fields .oc-pct{display:inline-flex;align-items:center;gap:3px;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--surface)}
+  .oc-fields .oc-pct input{width:44px;border:none;border-radius:0;padding:0;background:transparent;text-align:right;font-size:14px;font-weight:700;color:var(--brand-ink)}
+  .oc-fields .oc-pct b{color:var(--ink-3);font-size:13px;font-weight:700}
+  .oc-nodesc{border-bottom:1px solid var(--line);background:#FFF7E6}
+  .oc-nodesc-top{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 16px}
+  .oc-nodesc-lbl{font-size:12px;font-weight:800;color:#8a6d1a;display:flex;flex-direction:column;gap:1px}
+  .oc-nodesc-lbl b{color:#8a6d1a}
+  .oc-nodesc-lbl small{font-weight:600;font-size:10.5px;color:var(--ink-3);text-transform:none;letter-spacing:0}
+  .oc-nodesc-all{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--ink-2)}
+  .oc-nodesc-all .oc-pct{border-color:#E4C86A}
+  .oc-nodesc-all .btn{padding:7px 12px;font-size:12px}
+  .oc-nodesc-list{max-height:150px;overflow:auto;padding:0 16px 8px}
+  .oc-nd-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid #F0E4C0}
+  .oc-nd-name{font-size:11.5px;font-weight:600;color:var(--ink-2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .oc-nd-row .oc-pct{padding:4px 8px}
+  .oc-nd-row .oc-pct input{width:38px}
   .oc-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--line-2)}
   .oc-row .oc-n{font-size:12px;font-weight:800;color:var(--brand-ink);white-space:nowrap}
   .oc-row small{color:var(--ink-3);font-size:11.5px}
@@ -1034,9 +1050,16 @@
     <div class="oc-fields">
       <label>Vendedor<select id="ocVend"></select></label>
       <label>Condición de pago<select id="ocCond"></select></label>
-      <label>Desc 1 %<input type="text" inputmode="decimal" id="ocDesc1" placeholder="0"></label>
-      <label>Desc 2 %<input type="text" inputmode="decimal" id="ocDesc2" placeholder="0"></label>
-      <label>Desc 3 %<input type="text" inputmode="decimal" id="ocDesc3" placeholder="0"></label>
+      <label>Descuento 1<span class="oc-pct"><input type="text" inputmode="decimal" id="ocDesc1" placeholder="0"><b>%</b></span></label>
+      <label>Descuento 2<span class="oc-pct"><input type="text" inputmode="decimal" id="ocDesc2" placeholder="0"><b>%</b></span></label>
+      <label>Descuento 3<span class="oc-pct"><input type="text" inputmode="decimal" id="ocDesc3" placeholder="0"><b>%</b></span></label>
+    </div>
+    <div class="oc-nodesc" id="ocNoDescWrap" hidden>
+      <div class="oc-nodesc-top">
+        <span class="oc-nodesc-lbl">Referencias SIN descuento global <b id="ocNoDescN">0</b><small>estas no reciben el descuento del lote; ponles un descuento adicional si aplica</small></span>
+        <span class="oc-nodesc-all">Aplicar a todas <span class="oc-pct"><input type="text" inputmode="decimal" id="ocExtraAll" placeholder="0"><b>%</b></span><button class="btn" id="ocExtraAllBtn" type="button">Aplicar</button></span>
+      </div>
+      <div class="oc-nodesc-list" id="ocNoDescList"></div>
     </div>
     <div class="ptmp-body" id="ocList"></div>
     <div class="ptmp-foot"><span class="ptmp-count" id="ocCount"></span><div class="ptmp-foot-btns"><button class="btn" id="ocCancel">Cancelar</button><button class="btn primary" id="ocGen">Generar pedidos</button></div></div>
@@ -20649,8 +20672,22 @@ async function cargarOCArchivos(files, formato){
   const sv=$('#ocVend'); if(sv) sv.innerHTML='<option value="">—</option>'+VENDEDORES.map(v=>'<option>'+esc(v)+'</option>').join('');
   const sc=$('#ocCond'); if(sc) sc.innerHTML=$('#f_condicion').innerHTML;
   ['#ocDesc1','#ocDesc2','#ocDesc3'].forEach(id=>{ const e=$(id); if(e) e.value=''; });
+  const ea=$('#ocExtraAll'); if(ea) ea.value='';
   ocRenderLista();
+  ocRenderSinDescGlobal();
   $('#ocModal').classList.add('open');
+}
+// Lista las referencias (de todas las OC) que NO reciben descuento global (producto con descGlobal=NO),
+// para poder ponerles un descuento adicional por producto (individual o a todas a la vez).
+function ocRenderSinDescGlobal(){
+  const wrap=$('#ocNoDescWrap'), listEl=$('#ocNoDescList'); if(!wrap||!listEl) return;
+  const codes=new Set();
+  ocDraft.forEach(oc=>{ Object.keys(oc.qty||{}).forEach(c=>{ const p=byCode[c]; if(p && String(p.descGlobal||'SI').toUpperCase()==='NO') codes.add(c); }); });
+  if(!codes.size){ wrap.hidden=true; listEl.innerHTML=''; return; }
+  const arr=[...codes].sort();
+  listEl.innerHTML=arr.map(c=>{ const p=byCode[c]; return '<div class="oc-nd-row"><span class="oc-nd-name">'+esc(c)+' · '+esc(p.nombre||'')+'</span><span class="oc-pct"><input type="text" inputmode="decimal" data-nd="'+esc(c)+'" placeholder="0"><b>%</b></span></div>'; }).join('');
+  const nEl=$('#ocNoDescN'); if(nEl) nEl.textContent=arr.length;
+  wrap.hidden=false;
 }
 function ocRenderLista(){
   let h='', totRef=0;
@@ -20704,6 +20741,9 @@ async function generarPedidosOC(){
   const _pct=id=>{ const v=parseFloat(String(($(id)||{}).value||'').replace(',','.'))||0; return (v>0&&v<100)?v/100:0; };
   const d1=_pct('#ocDesc1'), d2=_pct('#ocDesc2'), d3=_pct('#ocDesc3');
   const descTxt=[d1,d2,d3].filter(x=>x>0).map(x=>Math.round(x*100)+'%').join(' + ') || 'sin descuento';
+  // descuento ADICIONAL por producto (referencias sin descuento global): se aplica como descProd
+  const extra={};
+  document.querySelectorAll('#ocNoDescList [data-nd]').forEach(inp=>{ const v=parseFloat(String(inp.value||'').replace(',','.'))||0; if(v>0&&v<100) extra[inp.dataset.nd]=v/100; });
   const list=loadOrders(); const stamp=Date.now(); const fecha=isoHoy();
   let creados=0, nReg=0; const resumen=[];
   ocDraft.forEach((oc,i)=>{
@@ -20715,6 +20755,9 @@ async function generarPedidosOC(){
     const meta={cliente:(mt?mt.nombreBase:oc.nombre)||oc.nombre||'', codcliente:mt?mt.codigo:'',
       vendedor:vend, condicion:cond, numped:oc.numped||'', obs:obs, fecha:fecha,
       desc1:String(d1), desc2:String(d2), desc3:String(d3), origen:'OC'};
+    // descuento adicional por producto para las referencias sin descuento global de ESTA OC
+    const dp={}; Object.keys(q).forEach(c=>{ if(extra[c]!=null) dp[c]={d1:extra[c],d2:0,d3:0}; });
+    if(Object.keys(dp).length) meta.descProd=dp;
     const recs=ocRegistrosDePedido(q, meta, oc.numped||'', meta.cliente, stamp, i);
     recs.forEach(r=>list.push(r));
     const enviables=recs.filter(r=>!r.referencial).length;   // Disponible/BackOrder o único (el ORIGINAL no cuenta)
@@ -21452,6 +21495,7 @@ function wire(){
   $('#ocCancel').addEventListener('click',()=>$('#ocModal').classList.remove('open'));
   $('#ocModal').addEventListener('click',e=>{ if(e.target===$('#ocModal')) $('#ocModal').classList.remove('open'); });
   $('#ocGen').addEventListener('click',generarPedidosOC);
+  $('#ocExtraAllBtn').addEventListener('click',()=>{ const v=($('#ocExtraAll').value||'').trim(); document.querySelectorAll('#ocNoDescList [data-nd]').forEach(inp=>{ inp.value=v; }); toast(v?('Descuento adicional '+v+'% aplicado a todas'):'Descuento adicional quitado'); });
   $('#catEditClose').addEventListener('click',cerrarCatEdit);
   $('#catEditModal').addEventListener('click',e=>{ if(e.target===$('#catEditModal')) cerrarCatEdit(); });
   $('#catEditSearch').addEventListener('input',e=>catEditRender(e.target.value));
