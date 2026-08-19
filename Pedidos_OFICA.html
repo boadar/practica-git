@@ -473,7 +473,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v174</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v175</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -20662,6 +20662,37 @@ function ocRenderLista(){
   $('#ocHint').textContent='Se detectaron '+ocDraft.length+' OC ('+totRef+' líneas). Puedes cargar varias a la vez; el vendedor, la condición y los descuentos elegidos se aplican a TODAS. Se genera un pedido por cada una con el precio de lista. La dirección de envío va a Observaciones.';
   $('#ocCount').textContent=ocDraft.length+' OC';
 }
+// Aplica a una OC la MISMA lógica que un pedido normal y devuelve los registros a guardar:
+//  - división por días (30-60 / 30-60-90) si la condición lo pide, o
+//  - BackOrder: Disponible + _BackOrder + ORIGINAL referencial si no alcanza el inventario, o
+//  - un único pedido si se despacha completo.
+function ocRegistrosDePedido(q, baseMeta, numped, nombre, stamp, idx){
+  const sq=state.qty, sm=state.meta; const recs=[]; const rnd=()=>Math.floor(Math.random()*1000); const idb='P'+stamp+'-oc'+idx;
+  const stmp=stamp+idx;
+  const mk=(sufijo, qq, meta, tot)=>({ id:idb+'-'+sufijo+'-'+rnd(), nombre:nombre, codcliente:baseMeta.codcliente||'', fecha:baseMeta.fecha||'', numped:meta.numped||'', total:tot, savedAt:new Date().toISOString(), meta:meta, qty:qq, status:'PENDIENTE', editado:false, origen:'OC' });
+  const totDe=(qq,meta)=>{ state.qty=qq; state.meta=meta; const t=totals().total; state.qty=sq; state.meta=sm; return t; };
+  try{
+    const plan=condSplitPlan((baseMeta.condicion||'').trim());
+    if(plan){   // división por días
+      state.qty=q; state.meta=baseMeta; const grupos=dividirPedido(plan); state.qty=sq; state.meta=sm;
+      grupos.forEach((g,i)=>{ const qq={}; g.codes.forEach(c=>{ qq[c]=q[c]; }); const m=JSON.parse(JSON.stringify(baseMeta)); m.condicion=DIA_COND[g.dias]||baseMeta.condicion; m.numped=numped+' ('+(i+1)+'/'+grupos.length+' - '+g.dias+' dias)'; recs.push(mk(i, qq, m, totDe(qq,m))); });
+      recs.push(crearRefOriginal(q, baseMeta, numped, nombre, stmp));
+      return recs;
+    }
+    state.qty=q; state.meta=baseMeta; const bo=calcBackOrderSplit(); state.qty=sq; state.meta=sm;
+    if(bo.hayBack && bo.hayDisp){   // BackOrder -> 3 pedidos
+      const m1=JSON.parse(JSON.stringify(baseMeta));                 // Disponible (mismo numped)
+      recs.push(mk('D', bo.disp, m1, totDe(bo.disp,m1)));
+      const m2=JSON.parse(JSON.stringify(baseMeta)); m2.numped=numped+'_BackOrder'; m2.esBackOrder=true;
+      recs.push(mk('B', bo.back, m2, totDe(bo.back,m2)));
+      recs.push(crearRefOriginal(q, baseMeta, numped, nombre, stmp));  // ORIGINAL referencial
+      return recs;
+    }
+    const m0=JSON.parse(JSON.stringify(baseMeta));                   // pedido único (despacho completo)
+    recs.push(mk('U', q, m0, totDe(q,m0)));
+    return recs;
+  } finally { state.qty=sq; state.meta=sm; }
+}
 async function generarPedidosOC(){
   const vend=($('#ocVend').value||'').trim(), cond=($('#ocCond').value||'').trim();
   if(!vend){ toast('Elige el vendedor'); return; }
@@ -20670,7 +20701,7 @@ async function generarPedidosOC(){
   const d1=_pct('#ocDesc1'), d2=_pct('#ocDesc2'), d3=_pct('#ocDesc3');
   const descTxt=[d1,d2,d3].filter(x=>x>0).map(x=>Math.round(x*100)+'%').join(' + ') || 'sin descuento';
   const list=loadOrders(); const stamp=Date.now(); const fecha=isoHoy();
-  let creados=0; const resumen=[];
+  let creados=0, nReg=0; const resumen=[];
   ocDraft.forEach((oc,i)=>{
     const q={}; Object.keys(oc.qty||{}).forEach(c=>{ if(byCode[c]) q[c]=oc.qty[c]; });
     if(!Object.keys(q).length) return;
@@ -20680,16 +20711,18 @@ async function generarPedidosOC(){
     const meta={cliente:(mt?mt.nombreBase:oc.nombre)||oc.nombre||'', codcliente:mt?mt.codigo:'',
       vendedor:vend, condicion:cond, numped:oc.numped||'', obs:obs, fecha:fecha,
       desc1:String(d1), desc2:String(d2), desc3:String(d3), origen:'OC'};
-    const sq=state.qty, sm=state.meta; state.qty=q; state.meta=meta; const tot=totals().total; state.qty=sq; state.meta=sm;
-    list.push({ id:'P'+stamp+'-oc'+i+'-'+Math.floor(Math.random()*1000), nombre:meta.cliente, codcliente:meta.codcliente,
-      fecha:fecha, numped:meta.numped, total:tot, savedAt:new Date().toISOString(), meta:meta, qty:q, status:'PENDIENTE', editado:false });
-    creados++;
-    resumen.push((oc.numped||'OC')+' → '+meta.cliente+(mt?' ('+mt.codigo+')':' (sin código)')+' · '+Object.keys(q).length+' ref'+(oc.missing&&oc.missing.length?' · '+oc.missing.length+' fuera':''));
+    const recs=ocRegistrosDePedido(q, meta, oc.numped||'', meta.cliente, stamp, i);
+    recs.forEach(r=>list.push(r));
+    const enviables=recs.filter(r=>!r.referencial).length;   // Disponible/BackOrder o único (el ORIGINAL no cuenta)
+    creados++; nReg+=enviables;
+    const back=recs.some(r=>r.meta&&r.meta.esBackOrder);
+    const detalle = back ? (enviables+' pedidos: Disponible + BackOrder (+ Original)') : (recs.length>1 ? enviables+' pedidos divididos' : '1 pedido');
+    resumen.push((oc.numped||'OC')+' → '+meta.cliente+(mt?' ('+mt.codigo+')':' (sin código)')+' · '+Object.keys(q).length+' ref · '+detalle+(oc.missing&&oc.missing.length?' · '+oc.missing.length+' fuera':''));
   });
   if(!creados){ toast('No se generó ningún pedido (sin productos de catálogo)'); return; }
   storeOrders(list);
   $('#ocModal').classList.remove('open');
-  await askConfirm('Se generaron '+creados+' pedido'+(creados===1?'':'s')+' desde las OC (PENDIENTES):\n\n'+resumen.join('\n')+'\n\nRevísalos y envíalos desde "Ver pedidos". Precio de lista con descuento: '+descTxt+'.','Entendido','Cerrar');
+  await askConfirm('Se procesaron '+creados+' OC → '+nReg+' pedido'+(nReg===1?'':'s')+' (PENDIENTES).\nLos que no alcanzan el inventario se dividieron en Disponible + BackOrder (con su Original referencial):\n\n'+resumen.join('\n')+'\n\nRevísalos y envíalos desde "Ver pedidos". Precio de lista con descuento: '+descTxt+'.','Entendido','Cerrar');
   if(typeof openPedidos==='function') openPedidos();
 }
 
