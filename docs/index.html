@@ -476,7 +476,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v175</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v176</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -18186,7 +18186,7 @@ function openPedidos(){
     box.innerHTML='<div class="ordersempty">No hay pedidos guardados.</div>';
   } else {
     box.innerHTML=list.map(o=>`<div class="orow">
-      <input type="checkbox" class="osel" data-sel="${esc(o.id)}" aria-label="Seleccionar pedido"${o.referencial?' disabled title="Pedido original referencial: no se puede enviar, solo revisar e imprimir"':''}>
+      <input type="checkbox" class="osel" data-sel="${esc(o.id)}"${o.referencial?' data-ref="1"':''} aria-label="Seleccionar pedido"${o.referencial?' title="Pedido original referencial: se puede seleccionar para eliminar, pero NO se envía"':''}>
       <button class="oopen" data-open="${esc(o.id)}">
         <span class="oname">${esc(o.nombre||'(sin nombre)')}</span>
         ${o.numped?`<span class="ometa">Nº ${esc(o.numped)}</span>`:''}
@@ -18207,6 +18207,10 @@ function openPedidos(){
 function opActualizarSeleccion(){
   const bar=$('#opSelBar'); if(!bar) return;
   const checked=[...document.querySelectorAll('#ordersList .osel:checked')];
+  // "ENVIAR PEDIDO" se desactiva si hay algún pedido ORIGINAL (referencial) seleccionado (no se envía);
+  // "Eliminar" queda siempre activo (los originales sí se pueden eliminar).
+  const anyRef=checked.some(c=>c.dataset.ref==='1');
+  const bEnviar=$('#btnEnviarPedidos'); if(bEnviar) bEnviar.disabled=anyRef;
   if(!checked.length){ bar.hidden=true; return; }
   const ids=new Set(checked.map(c=>c.dataset.sel));
   let sum=0; loadOrders().forEach(o=>{ if(ids.has(o.id)) sum+=totalSinIvaDe(o); });
@@ -21548,7 +21552,7 @@ function wire(){
     toast('Eliminado'+(ids.length===1?'':'s')+' '+ids.length+' pedido'+(ids.length===1?'':'s'));
   });
   $('#btnSelAll').addEventListener('click',()=>{
-    const boxes=[...document.querySelectorAll('#ordersList .osel:not(:disabled)')];
+    const boxes=[...document.querySelectorAll('#ordersList .osel:not(:disabled):not([data-ref="1"])')];   // solo enviables (excluye Originales)
     if(!boxes.length){ toast('No hay pedidos por enviar'); return; }
     const allOn=boxes.every(c=>c.checked);
     boxes.forEach(c=>{ c.checked=!allOn; });
