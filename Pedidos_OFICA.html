@@ -352,6 +352,14 @@
   .closex{border:none;background:var(--surface);width:34px;height:34px;border-radius:8px;font-size:18px;cursor:pointer;color:var(--ink-2)}
 
   /* ===== Pedidos guardados ===== */
+  .ofilter{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:9px 16px;border-bottom:1px solid var(--line);background:var(--surface)}
+  .ofilter #opFiltro{flex:1 1 180px;min-width:0;border:1px solid var(--line);background:var(--surface-2);border-radius:9px;padding:8px 11px;font-size:13px;font-family:inherit;color:var(--ink)}
+  .ofilter-est{display:flex;gap:4px;flex:0 0 auto}
+  .ofilter-est button{border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:8px;padding:6px 10px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit}
+  .ofilter-est button.on{background:var(--brand-ink);border-color:var(--brand-ink);color:#fff}
+  .ofilter-hidden{display:none!important}
+  .oday{position:sticky;top:0;z-index:1;padding:6px 16px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line-2)}
+  .oenv{color:var(--ok,#0a7d33);font-weight:700}
   .opselbar{display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--line);background:var(--brand-tint)}
   .opselbar .opsel-i{display:flex;flex-direction:column;gap:1px;min-width:0}
   .opselbar .opsel-r{margin-left:auto;text-align:right}
@@ -473,7 +481,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v180</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v181</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -723,6 +731,14 @@
 <div class="modal" id="ordersModal">
   <div class="sheet">
     <header><h2>Pedidos guardados</h2><button class="closex" id="opClose">×</button></header>
+    <div class="ofilter">
+      <input id="opFiltro" type="search" placeholder="Filtrar por nombre, Nº, código, estatus…" autocomplete="off">
+      <div class="ofilter-est" id="ofilterEst">
+        <button type="button" class="on" data-est="">Todos</button>
+        <button type="button" data-est="PENDIENTE">Pendientes</button>
+        <button type="button" data-est="ENVIADO">Enviados</button>
+      </div>
+    </div>
     <div class="opselbar" id="opSelBar" hidden>
       <span class="opsel-i"><span class="opsel-lbl">Pedidos Seleccionados</span><b id="opSelCount">0</b></span>
       <span class="opsel-i opsel-r"><span class="opsel-lbl">Monto Total de Pedidos</span><b id="opSelTotal"></b></span>
@@ -18202,30 +18218,67 @@ function limpiarPedidoTodo(){
 
 function openPedidos(){
   // orden por fecha y hora DESCENDENTE: primero el último pedido, al final el más antiguo
-  const tsPed=o=>{ const d=new Date((o&&(o.savedAt||o.fecha))||0); const t=d.getTime(); return isFinite(t)?t:0; };
+  const tsPed=o=>{ const d=new Date(fechaEfectiva(o)); const t=d.getTime(); return isFinite(t)?t:0; };
   const list=loadOrders().slice().sort((a,b)=>tsPed(b)-tsPed(a));
   const box=$('#ordersList');
   if(!list.length){
     box.innerHTML='<div class="ordersempty">No hay pedidos guardados.</div>';
   } else {
-    box.innerHTML=list.map(o=>`<div class="orow">
-      <input type="checkbox" class="osel" data-sel="${esc(o.id)}"${o.referencial?' data-ref="1"':''} aria-label="Seleccionar pedido"${o.referencial?' title="Pedido original referencial: se puede seleccionar para eliminar, pero NO se envía"':''}>
-      <button class="oopen" data-open="${esc(o.id)}">
-        <span class="oname">${esc(o.nombre||'(sin nombre)')}</span>
-        ${o.numped?`<span class="ometa">Nº ${esc(o.numped)}</span>`:''}
-        <span class="ometa">${o.codcliente?esc(o.codcliente)+' · ':''}${o.fecha?esc(fechaFmt(o.fecha)):''} · ${fmt.format(totalSinIvaDe(o))}</span>
-        <span class="obadge ${statusClass(o)}">${statusLabel(o)}</span>
-      </button>
-      <button class="odel" data-del="${esc(o.id)}" aria-label="Eliminar pedido">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-      </button>
-    </div>`).join('');
+    let prevDia=null, html='';
+    list.forEach(o=>{
+      const dk=diaKeyDe(o);
+      if(dk!==prevDia){ prevDia=dk; html+='<div class="oday" data-dia="'+esc(dk)+'">'+esc(diaLabelDe(o))+'</div>'; }
+      const enviado=(o.status==='ENVIADO');
+      const filtro=((o.nombre||'')+' '+(o.numped||'')+' '+(o.codcliente||'')+' '+statusLabel(o)+' '+(o.fecha||'')).toLowerCase();
+      const envTxt=(enviado&&o.enviadoAt)?(' · <b class="oenv">Enviado '+esc(fechaFmt(String(o.enviadoAt).slice(0,10)))+(hhmm(o.enviadoAt)?' '+hhmm(o.enviadoAt):'')+'</b>'):'';
+      html+='<div class="orow" data-filter="'+esc(filtro)+'" data-estado="'+(enviado?'ENVIADO':'PENDIENTE')+'">'
+        +'<input type="checkbox" class="osel" data-sel="'+esc(o.id)+'"'+(o.referencial?' data-ref="1"':'')+' aria-label="Seleccionar pedido"'+(o.referencial?' title="Pedido original referencial: se puede seleccionar para eliminar, pero NO se envía"':'')+'>'
+        +'<button class="oopen" data-open="'+esc(o.id)+'">'
+        +'<span class="oname">'+esc(o.nombre||'(sin nombre)')+'</span>'
+        +(o.numped?'<span class="ometa">Nº '+esc(o.numped)+'</span>':'')
+        +'<span class="ometa">'+(o.codcliente?esc(o.codcliente)+' · ':'')+(o.fecha?esc(fechaFmt(o.fecha)):'')+' · '+fmt.format(totalSinIvaDe(o))+envTxt+'</span>'
+        +'<span class="obadge '+statusClass(o)+'">'+statusLabel(o)+'</span>'
+        +'</button>'
+        +'<button class="odel" data-del="'+esc(o.id)+'" aria-label="Eliminar pedido"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>'
+        +'</div>';
+    });
+    box.innerHTML=html;
   }
+  opAplicarFiltro();   // reaplica el filtro activo tras re-render
   const ft=$('#ordersFooter'); if(ft) ft.hidden=!list.length;
   const sa=$('#btnSelAll'); if(sa) sa.textContent='Seleccionar todos';
   ordersAnchor=-1; ordersActive=-1;
   opActualizarSeleccion();   // al abrir no hay nada seleccionado -> oculta la barra
   $('#ordersModal').classList.add('open');
+}
+// ---- fechas y filtro de la lista de pedidos ----
+const MESES_ES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function fechaEfectiva(o){ return (o&&(o.enviadoAt||o.savedAt||o.fecha))||0; }   // enviado > guardado > fecha del pedido
+function diaKeyDe(o){ const d=new Date(fechaEfectiva(o)); if(!isFinite(d.getTime())) return 'sin'; return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function diaLabelDe(o){ const d=new Date(fechaEfectiva(o)); if(!isFinite(d.getTime())) return 'Sin fecha'; return d.getDate()+' de '+MESES_ES[d.getMonth()]+' de '+d.getFullYear(); }
+function hhmm(iso){ const d=new Date(iso); if(!isFinite(d.getTime())) return ''; return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+// Filtra la lista por texto y por estatus; oculta filas y encabezados de día vacíos.
+function opAplicarFiltro(){
+  const q=(($('#opFiltro')||{}).value||'').trim().toLowerCase();
+  const estBtn=document.querySelector('#ofilterEst .on'); const est=estBtn?estBtn.dataset.est:'';
+  const rows=[...document.querySelectorAll('#ordersList .orow')];
+  rows.forEach(r=>{
+    const okTxt = !q || (r.dataset.filter||'').indexOf(q)>=0;
+    const okEst = !est || r.dataset.estado===est;
+    r.classList.toggle('ofilter-hidden', !(okTxt&&okEst));
+  });
+  // encabezados de día: ocultar si no tienen ninguna fila visible debajo (hasta el próximo encabezado)
+  const days=[...document.querySelectorAll('#ordersList .oday')];
+  days.forEach(day=>{
+    let n=day.nextElementSibling, visibles=false;
+    while(n && !n.classList.contains('oday')){ if(n.classList.contains('orow') && !n.classList.contains('ofilter-hidden')){ visibles=true; break; } n=n.nextElementSibling; }
+    day.classList.toggle('ofilter-hidden', !visibles);
+  });
+  const vacio=$('#ordersList').querySelector('.ordersempty'); if(vacio) return;
+  const hayVisible=rows.some(r=>!r.classList.contains('ofilter-hidden'));
+  let nores=$('#opNoRes');
+  if(!hayVisible && rows.length){ if(!nores){ nores=document.createElement('div'); nores.id='opNoRes'; nores.className='ordersempty'; nores.textContent='Ningún pedido coincide con el filtro.'; $('#ordersList').appendChild(nores); } nores.hidden=false; }
+  else if(nores){ nores.hidden=true; }
 }
 // Selección tipo Excel (Shift + clic / Shift + flechas) en la lista de pedidos
 let ordersAnchor=-1, ordersActive=-1;
@@ -18540,7 +18593,8 @@ async function enviarPedidos(ids){
 
   // marca ENVIADO (conserva la marca EDITADO)
   const l2=loadOrders();
-  ids.forEach(id=>{ const o=l2.find(x=>x.id===id); if(o){ o.status='ENVIADO'; o.enviadoCentral=true; } });
+  const nowIso=new Date().toISOString();
+  ids.forEach(id=>{ const o=l2.find(x=>x.id===id); if(o){ o.status='ENVIADO'; o.enviadoCentral=true; if(!o.enviadoAt) o.enviadoAt=nowIso; } });
   storeOrders(l2);
   if($('#ordersModal').classList.contains('open')) openPedidos();
   const msg = modo==='eml' ? 'Correo con Excel adjunto generado: ábrelo para enviarlo'
@@ -21593,6 +21647,8 @@ function wire(){
   });
   $('#btnVerPedidos').addEventListener('click',openPedidos);
   $('#opClose').addEventListener('click',cerrarPedidos);
+  $('#opFiltro').addEventListener('input',opAplicarFiltro);
+  $('#ofilterEst').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b)); opAplicarFiltro(); });
   $('#ordersModal').addEventListener('click',e=>{ if(e.target===$('#ordersModal')) cerrarPedidos(); });
   $('#ordersList').addEventListener('click',async e=>{
     const cb=e.target.closest('.osel');
