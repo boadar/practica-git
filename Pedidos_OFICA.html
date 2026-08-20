@@ -375,8 +375,8 @@
   .obadge.st-ref{background:#E3E7EC;color:#334}
   .obadge.st-edit{box-shadow:inset 0 0 0 1.5px currentColor}
   #ordersModal .body{flex:1 1 auto;min-height:0}
-  .ofooter{flex:0 0 auto;display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line-2)}
-  .ofooter .btn{flex:1;padding:12px;font-size:13px}
+  .ofooter{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;border-top:1px solid var(--line-2)}
+  .ofooter .btn{flex:1 1 auto;min-width:120px;padding:12px;font-size:13px}
   .rc-pill{display:inline-block;font-size:11px;font-weight:800;background:#FFF1CC;color:#8a6d00;border-radius:999px;padding:2px 10px;vertical-align:middle;margin-left:6px}
   .rcbody{padding:12px 14px;position:relative}
   .rc-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
@@ -473,7 +473,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v177</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v178</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -730,6 +730,7 @@
     <div class="body" id="ordersList"></div>
     <div class="ofooter" id="ordersFooter" hidden>
       <button class="btn" id="btnSelAll" type="button">Seleccionar todos</button>
+      <button class="btn" id="btnDeselAll" type="button">Eliminar selección</button>
       <button class="btn danger" id="btnEliminarSel" type="button">Eliminar</button>
       <button class="btn primary" id="btnEnviarPedidos" type="button">ENVIAR PEDIDO</button>
     </div>
@@ -18231,7 +18232,12 @@ function opActualizarSeleccion(){
   // "Eliminar" queda siempre activo (los originales sí se pueden eliminar).
   const anyRef=checked.some(c=>c.dataset.ref==='1');
   const bEnviar=$('#btnEnviarPedidos'); if(bEnviar) bEnviar.disabled=anyRef;
-  if(!checked.length){ bar.hidden=true; return; }
+  if(!checked.length){
+    const c0=$('#opSelCount'); if(c0) c0.textContent='0';
+    const t0=$('#opSelTotal'); if(t0) t0.textContent=fmt.format(0);
+    if(bEnviar) bEnviar.disabled=false;
+    bar.hidden=true; return;
+  }
   const ids=new Set(checked.map(c=>c.dataset.sel));
   let sum=0; loadOrders().forEach(o=>{ if(ids.has(o.id)) sum+=totalSinIvaDe(o); });
   const c=$('#opSelCount'); if(c) c.textContent=checked.length;
@@ -21598,6 +21604,14 @@ function wire(){
     const allOn=boxes.every(c=>c.checked);
     boxes.forEach(c=>{ c.checked=!allOn; });
     $('#btnSelAll').textContent = allOn ? 'Seleccionar todos' : 'Quitar selección';
+    opActualizarSeleccion();
+  });
+  // Eliminar selección: desmarca TODAS las casillas (incluidos los Originales) -> cantidad y monto a cero
+  $('#btnDeselAll').addEventListener('click',()=>{
+    const marcados=[...document.querySelectorAll('#ordersList .osel:checked')];
+    if(!marcados.length){ toast('No hay pedidos seleccionados'); return; }
+    marcados.forEach(c=>{ c.checked=false; });
+    $('#btnSelAll').textContent='Seleccionar todos';
     opActualizarSeleccion();
   });
   // cerrar ventanas con ESC (sin modificar nada)
