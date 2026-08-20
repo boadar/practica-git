@@ -410,9 +410,9 @@
   .rc-spin{width:38px;height:38px;border:4px solid var(--line);border-top-color:var(--brand);border-radius:50%;animation:rcspin .8s linear infinite}
   @keyframes rcspin{to{transform:rotate(360deg)}}
   @media (max-width:560px){ .rc-grid2,.rc-grid3{grid-template-columns:1fr} }
-  .cfbody{padding:18px 16px}
-  .cfbody p{margin:0 0 18px;font-size:14px;color:var(--ink);line-height:1.45}
-  .cfbtns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .cfbody{padding:18px 16px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+  .cfbody p{margin:0 0 16px;font-size:14px;color:var(--ink);line-height:1.45;white-space:pre-line;overflow-y:auto;min-height:0;flex:1 1 auto}
+  .cfbtns{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:0 0 auto}
   .cfbtns .btn{padding:12px;font-size:13px}
   #admPass,#catInput{width:100%;border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-size:15px;background:var(--surface-2);margin-bottom:16px}
   .logo{-webkit-appearance:none;appearance:none;cursor:pointer;padding:0}
@@ -473,7 +473,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v178</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v179</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -942,6 +942,8 @@
   .oc-nd-row .oc-pct input{width:38px}
   .oc-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--line-2)}
   .oc-row .oc-n{font-size:12px;font-weight:800;color:var(--brand-ink);white-space:nowrap}
+  .oc-row.oc-dup{background:#FDECEC}
+  .oc-dupbadge{display:inline-block;background:#C0392B;color:#fff;font-size:9px;font-weight:800;padding:1px 6px;border-radius:10px;letter-spacing:.3px;vertical-align:middle}
   .oc-row small{color:var(--ink-3);font-size:11.5px}
   .oc-row .nocli{color:#C0392B}
   .ptmp-hint{padding:10px 16px;font-size:12px;color:var(--ink-2);background:var(--surface-2);border-bottom:1px solid var(--line)}
@@ -20697,12 +20699,14 @@ function ocRenderSinDescGlobal(){
 }
 function ocRenderLista(){
   let h='', totRef=0;
+  const yaSet=new Set(loadOrders().map(o=>String(o.numped||'').replace(/\s*\(ORIGINAL\)\s*$/,'').replace(/_BackOrder$/,'').trim()));
   ocDraft.forEach(oc=>{
     const n=Object.keys(oc.qty||{}).length; totRef+=n;
     const mt=oc._err?null:matchClienteOC(oc.nombre||'');
+    const dup=!oc._err && yaSet.has(String(oc.numped||'').trim());
     const cliInfo = oc._err ? '<span class="nocli">no se pudo leer el PDF</span>'
       : esc(oc.nombre||'—')+(mt?' → <b>'+esc(mt.codigo)+'</b>':' · <span class="nocli">sin código en base</span>');
-    h+='<div class="oc-row"><div><b>'+esc(oc.numped||oc._file||'OC')+'</b><br><small>'+cliInfo+'</small></div>'
+    h+='<div class="oc-row'+(dup?' oc-dup':'')+'"><div><b>'+esc(oc.numped||oc._file||'OC')+'</b>'+(dup?' <span class="oc-dupbadge">YA PROCESADA</span>':'')+'<br><small>'+cliInfo+'</small></div>'
       +'<div class="oc-n">'+n+' ref'+(oc.missing&&oc.missing.length?' · '+oc.missing.length+' fuera':'')+'</div></div>';
   });
   $('#ocList').innerHTML=h;
@@ -20751,10 +20755,15 @@ async function generarPedidosOC(){
   const extra={};
   document.querySelectorAll('#ocNoDescList [data-nd]').forEach(inp=>{ const v=parseFloat(String(inp.value||'').replace(',','.'))||0; if(v>0&&v<100) extra[inp.dataset.nd]=v/100; });
   const list=loadOrders(); const stamp=Date.now(); const fecha=isoHoy();
+  // detectar OC ya procesadas (mismo N° de pedido ya guardado) para no duplicarlas
+  const existentes=new Set(list.map(o=>String(o.numped||'').replace(/\s*\(ORIGINAL\)\s*$/,'').replace(/_BackOrder$/,'').trim()));
+  const yaProc=[];
   let creados=0, nReg=0; const resumen=[];
   ocDraft.forEach((oc,i)=>{
     const q={}; Object.keys(oc.qty||{}).forEach(c=>{ if(byCode[c]) q[c]=oc.qty[c]; });
     if(!Object.keys(q).length) return;
+    const np=String(oc.numped||'').trim();
+    if(np && existentes.has(np)){ yaProc.push(np); return; }   // ya fue procesada -> se omite
     const mt=matchClienteOC(oc.nombre||'');
     let obs=oc.direccion||'';
     if(oc.missing && oc.missing.length) obs=(obs?obs+'\n':'')+'No cargados (fuera de catálogo): '+oc.missing.join('; ');
@@ -20772,10 +20781,16 @@ async function generarPedidosOC(){
     const detalle = back ? (enviables+' pedidos: Disponible + BackOrder (+ Original)') : (recs.length>1 ? enviables+' pedidos divididos' : '1 pedido');
     resumen.push((oc.numped||'OC')+' → '+meta.cliente+(mt?' ('+mt.codigo+')':' (sin código)')+' · '+Object.keys(q).length+' ref · '+detalle+(oc.missing&&oc.missing.length?' · '+oc.missing.length+' fuera':''));
   });
-  if(!creados){ toast('No se generó ningún pedido (sin productos de catálogo)'); return; }
+  const dupTxt = yaProc.length ? ('\n\n⚠ '+yaProc.length+' OC ya estaban procesadas y se omitieron: '+yaProc.join(', ')) : '';
+  if(!creados){
+    await askConfirm(yaProc.length
+      ? ('Estas OC YA fueron procesadas y no se volvieron a generar:\n\n'+yaProc.join('\n')+'\n\nSi de verdad necesitas rehacerlas, elimínalas primero en "Ver pedidos".')
+      : 'No se generó ningún pedido (sin productos de catálogo).','Entendido','Cerrar');
+    return;
+  }
   storeOrders(list);
   $('#ocModal').classList.remove('open');
-  await askConfirm('Se procesaron '+creados+' OC → '+nReg+' pedido'+(nReg===1?'':'s')+' (PENDIENTES).\nLos que no alcanzan el inventario se dividieron en Disponible + BackOrder (con su Original referencial):\n\n'+resumen.join('\n')+'\n\nRevísalos y envíalos desde "Ver pedidos". Precio de lista con descuento: '+descTxt+'.','Entendido','Cerrar');
+  await askConfirm('Se procesaron '+creados+' OC → '+nReg+' pedido'+(nReg===1?'':'s')+' (PENDIENTES).\nLos que no alcanzan el inventario se dividieron en Disponible + BackOrder (con su Original referencial):\n\n'+resumen.join('\n')+dupTxt+'\n\nRevísalos y envíalos desde "Ver pedidos". Precio de lista con descuento: '+descTxt+'.','Entendido','Cerrar');
   if(typeof openPedidos==='function') openPedidos();
 }
 
@@ -21622,6 +21637,8 @@ function wire(){
     if($('#catModal').classList.contains('open')){ $('#catNo').click(); return; }
     if($('#confirmModal').classList.contains('open')){ $('#cfNo').click(); return; }
     if($('#tokenModal').classList.contains('open')){ $('#tokNo').click(); return; }
+    if($('#ocModal').classList.contains('open')){ $('#ocModal').classList.remove('open'); return; }   // cerrar Cargar OC sin procesar
+    if($('#precioTmpModal').classList.contains('open')){ $('#precioTmpModal').classList.remove('open'); return; }
     if($('#nuevoProdModal').classList.contains('open')){ cerrarNuevoProd(); return; }
     if($('#catEditModal').classList.contains('open')){ cerrarCatEdit(); return; }
     if($('#ordersModal').classList.contains('open')){ cerrarPedidos(); return; }
