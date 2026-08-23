@@ -481,7 +481,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v183</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v184</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -509,6 +509,7 @@
           <option value="">📄 Cargar OC…</option>
           <option value="mangobajito">MANGO BAJITO</option>
           <option value="grupoabreu">GRUPO ABREU</option>
+          <option value="redvital">REDVITAL</option>
         </select>
         <input type="file" id="fileCargarOC" accept=".pdf,application/pdf" multiple style="display:none">
       </div></div>
@@ -19892,6 +19893,58 @@ function buildXlsx(rows){
   ];
   return zip(files);
 }
+// xlsx de VARIAS hojas ([{name, rows}]) — para la comparación de precios de las OC (una hoja por OC)
+function buildXlsxMulti(sheets){
+  const enc=new TextEncoder();
+  const safe=(nm,i)=>{ let s=String(nm||('Hoja'+(i+1))).replace(/[\\\/\?\*\[\]:]/g,' ').replace(/\s+/g,' ').trim().slice(0,31); return s||('Hoja'+(i+1)); };
+  const names=[]; sheets.forEach((sh,i)=>{ let s=safe(sh.name,i), base=s, k=2; while(names.includes(s)){ s=(base.slice(0,27)+' '+k); k++; } names.push(s); });
+  const nS=sheets.length;
+  let ctOv=''; for(let i=0;i<nS;i++) ctOv+=`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`;
+  const ct=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${ctOv}</Types>`;
+  const rels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+  let sheetTags='', wbRel='';
+  for(let i=0;i<nS;i++){ sheetTags+=`<sheet name="${esc(names[i])}" sheetId="${i+1}" r:id="rId${i+1}"/>`; wbRel+=`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`; }
+  const wb=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheetTags}</sheets></workbook>`;
+  const wbr=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${wbRel}</Relationships>`;
+  const files=[
+    {name:'[Content_Types].xml',data:enc.encode(ct)},
+    {name:'_rels/.rels',data:enc.encode(rels)},
+    {name:'xl/workbook.xml',data:enc.encode(wb)},
+    {name:'xl/_rels/workbook.xml.rels',data:enc.encode(wbr)},
+  ];
+  sheets.forEach((sh,i)=>{ files.push({name:`xl/worksheets/sheet${i+1}.xml`,data:enc.encode(sheetXml(sh.rows))}); });
+  return zip(files);
+}
+// Compara el precio de cada OC vs el precio de lista del catálogo. Devuelve [{name, rows}] (una hoja por OC con precios).
+function buildOCComparison(drafts){
+  const sheets=[];
+  (drafts||[]).forEach(oc=>{
+    if(!oc.precios || !Object.keys(oc.precios).length) return;   // solo OC que traen precios (ej. REDVITAL)
+    const rows=[];
+    rows.push(['COMPARACIÓN DE PRECIOS — '+(oc.numped||'OC')]);
+    rows.push(['Cliente', oc.nombre||'']);
+    rows.push(['Fecha', isoHoy()]);
+    rows.push([]);
+    rows.push(['Código','Descripción','Cód. Barra','Cantidad','Precio OC $','Precio Lista $','Dif. Unit $','Dif. %','Total OC $','Total Lista $','Dif. Total $']);
+    const codes=Object.keys(oc.qty||{}).filter(c=>byCode[c] && oc.precios[c]!=null).sort();
+    let tOC=0,tL=0,tQ=0;
+    codes.forEach(c=>{
+      const p=byCode[c], q=oc.qty[c]||0, pOC=+oc.precios[c]||0, pL=+p.precioUsd||0;
+      const du=round2(pOC-pL), dp=pL?round2((pOC-pL)/pL*100):'', toc=round2(q*pOC), tl=round2(q*pL);
+      tOC+=toc; tL+=tl; tQ+=q;
+      rows.push([c, p.nombre||'', String(p.codigoBarra||''), q, round2(pOC), round2(pL), du, dp, toc, tl, round2(toc-tl)]);
+    });
+    rows.push([]);
+    rows.push(['','TOTALES','',tQ,'','','','',round2(tOC),round2(tL),round2(tOC-tL)]);
+    if(oc.missing && oc.missing.length){ rows.push([]); rows.push(['Fuera de catálogo (sin precio de lista):']); oc.missing.forEach(x=>rows.push([String(x)])); }
+    sheets.push({name:(oc.numped||'OC'), rows});
+  });
+  return sheets;
+}
 function orderRows(){
   const m=state.meta, t=totals(), f=factorGlobal();
   const d1=+m.desc1||0, d2=+m.desc2||0, d3=+m.desc3||0;
@@ -20797,7 +20850,51 @@ async function parseOCAbreu(buf, filename){
   if(desp) dir+=(dir?' · ':'')+'Despacho: '+desp;
   return {numped, nombre:razon, direccion:dir, qty, missing};
 }
-const OC_PARSERS={ mangobajito: parseOCMangoBajito, grupoabreu: parseOCAbreu };
+// pdf.js bajo demanda (solo para OC con texto CID/comprimido que pdfStringsFast no puede leer, ej. REDVITAL).
+// Se carga desde CDN al procesar la OC (Cargar OC es función de oficina, con internet).
+let _pdfjsP=null;
+function ensurePdfjs(){
+  if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if(_pdfjsP) return _pdfjsP;
+  _pdfjsP=new Promise((res,rej)=>{ const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload=()=>{ try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }catch(e){} res(window.pdfjsLib); };
+    s.onerror=()=>{ _pdfjsP=null; rej(new Error('No se pudo cargar el lector de PDF (requiere internet)')); };
+    document.head.appendChild(s); });
+  return _pdfjsP;
+}
+async function pdfTextoPdfjs(buf){
+  const lib=await ensurePdfjs();
+  const pdf=await lib.getDocument({data:buf}).promise;
+  let full='';
+  for(let pn=1; pn<=pdf.numPages; pn++){ const pg=await pdf.getPage(pn); const tc=await pg.getTextContent(); full+=tc.items.map(it=>it.str).join(' ')+'\n'; }
+  return full.replace(/ +/g,' ');
+}
+// Parser REDVITAL: PDF con fuente CID (Type0) -> se lee con pdf.js. Asocia por CÓDIGO DE BARRA.
+// Cada línea: <cod interno> <descripción> <cantidad> <precio unit> <total> UNID. <ítem> <barra>.
+async function parseOCRedvital(buf, filename){
+  const j=await pdfTextoPdfjs(buf);
+  const nm=(j.match(/N[uú]mero:\s*(\d+)/)||[])[1] || ((filename||'').match(/(\d{5,})/)||[])[1] || '';
+  const numped = nm ? ('OC '+nm) : (filename||'').replace(/\.pdf$/i,'');
+  const bmap=ocBarMap();
+  const qty={}, precios={}, missing=[];
+  const re=/(C\d{5,})\s+(.+?)\s+(\d[\d,]*)\s+(\d[\d,]*\.\d{2})\s+[\d,]*\.\d{2}\s+UNID\.?\s*\d+\s+(759114\d{7})/g; let m;
+  while(m=re.exec(j)){
+    const q=parseInt(m[3].replace(/,/g,''),10)||0;
+    const precio=parseFloat(m[4].replace(/,/g,''))||0;
+    const bar=m[5]; const code=bmap[bar];
+    if(code && byCode[code] && q>0){ qty[code]=(qty[code]||0)+q; if(precio>0) precios[code]=precio; }
+    else if(q>0){ missing.push(ocLimpiar((m[2]||'').trim()).slice(0,32)+' ('+bar+') x'+q); }
+  }
+  let nombre=(j.match(/(REDVITAL[A-ZÑÁÉÍÓÚ .,&]*?C\.?\s*A\.?)/i)||[])[0] || 'REDVITAL COMERCIALIZADORA, C.A.';
+  nombre=nombre.replace(/\s+/g,' ').trim();
+  let dir=(j.match(/(AV PRINCIPAL[\s\S]*?ZONA POSTAL\s*\d+)/i)||[])[1]||'';
+  dir=dir.replace(/\s+/g,' ').trim();
+  const dep=(j.match(/DEPARTAMENTO\s+([A-ZÁÉÍÓÚÑ ]+?)\s+[\d,]/)||[])[1];
+  if(dep) dir += (dir?' · ':'')+'Depto: '+dep.trim();
+  return {numped, nombre, direccion:dir, qty, precios, missing};
+}
+const OC_PARSERS={ mangobajito: parseOCMangoBajito, grupoabreu: parseOCAbreu, redvital: parseOCRedvital };
 async function cargarOCArchivos(files, formato){
   const parser=OC_PARSERS[formato]; if(!parser){ toast('Formato de OC no reconocido'); return; }
   toast('Leyendo '+files.length+' OC…');
@@ -20910,16 +21007,19 @@ async function generarPedidosOC(){
     const detalle = back ? (enviables+' pedidos: Disponible + BackOrder (+ Original)') : (recs.length>1 ? enviables+' pedidos divididos' : '1 pedido');
     resumen.push((oc.numped||'OC')+' → '+meta.cliente+(mt?' ('+mt.codigo+')':' (sin código)')+' · '+Object.keys(q).length+' ref · '+detalle+(oc.missing&&oc.missing.length?' · '+oc.missing.length+' fuera':''));
   });
+  // Comparación de precios OC vs lista: un Excel con una hoja por OC (nombre de hoja = N° de OC)
+  let cmpTxt='';
+  try{ const cmp=buildOCComparison(ocDraft); if(cmp.length){ download('Comparacion-precios-'+isoHoy()+'.xlsx', buildXlsxMulti(cmp), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); cmpTxt='\n\nSe descargó la comparación de precios (OC vs lista): '+cmp.length+' hoja'+(cmp.length===1?'':'s')+' (una por OC).'; } }catch(e){ console.error('comparación OC', e); }
   const dupTxt = yaProc.length ? ('\n\n⚠ '+yaProc.length+' OC ya estaban procesadas y se omitieron: '+yaProc.join(', ')) : '';
   if(!creados){
-    await askConfirm(yaProc.length
+    await askConfirm((yaProc.length
       ? ('Estas OC YA fueron procesadas y no se volvieron a generar:\n\n'+yaProc.join('\n')+'\n\nSi de verdad necesitas rehacerlas, elimínalas primero en "Ver pedidos".')
-      : 'No se generó ningún pedido (sin productos de catálogo).','Entendido','Cerrar');
+      : 'No se generó ningún pedido (sin productos de catálogo).')+cmpTxt,'Entendido','Cerrar');
     return;
   }
   storeOrders(list);
   $('#ocModal').classList.remove('open');
-  await askConfirm('Se procesaron '+creados+' OC → '+nReg+' pedido'+(nReg===1?'':'s')+' (PENDIENTES).\nLos que no alcanzan el inventario se dividieron en Disponible + BackOrder (con su Original referencial):\n\n'+resumen.join('\n')+dupTxt+'\n\nRevísalos y envíalos desde "Ver pedidos". Precio de lista con descuento: '+descTxt+'.','Entendido','Cerrar');
+  await askConfirm('Se procesaron '+creados+' OC → '+nReg+' pedido'+(nReg===1?'':'s')+' (PENDIENTES).\nLos que no alcanzan el inventario se dividieron en Disponible + BackOrder (con su Original referencial):\n\n'+resumen.join('\n')+dupTxt+'\n\nRevísalos y envíalos desde "Ver pedidos". Precio de lista con descuento: '+descTxt+'.'+cmpTxt,'Entendido','Cerrar');
   if(typeof openPedidos==='function') openPedidos();
 }
 
