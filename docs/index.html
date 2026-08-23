@@ -484,7 +484,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v185</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v186</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -19922,24 +19922,39 @@ function buildXlsxMulti(sheets){
   sheets.forEach((sh,i)=>{ files.push({name:`xl/worksheets/sheet${i+1}.xml`,data:enc.encode(sheetXml(sh.rows))}); });
   return zip(files);
 }
-// Compara el precio de cada OC vs el precio de lista del catálogo. Devuelve [{name, rows}] (una hoja por OC con precios).
-function buildOCComparison(drafts){
+// factor de descuento que aplica una OC a un producto (misma lógica que descDe en el flujo de OC):
+//  - referencia sin descuento global (descGlobal=NO) con descuento adicional -> ese adicional
+//  - referencia sin descuento global sin adicional -> sin descuento
+//  - resto -> descuento global del lote (d1·d2·d3 en cascada)
+function ocFactorDesc(p, disc){
+  disc=disc||{}; const extra=disc.extra||{};
+  if(extra[p.codigo]!=null) return (1-(+extra[p.codigo]||0));
+  const noGlobal = String(p.descGlobal||'SI').toUpperCase()==='NO';
+  if(noGlobal) return 1;
+  return (1-(+disc.d1||0))*(1-(+disc.d2||0))*(1-(+disc.d3||0));
+}
+// Compara el precio de cada OC vs el precio de lista CON EL DESCUENTO del lote. Devuelve [{name, rows}] (una hoja por OC con precios).
+function buildOCComparison(drafts, disc){
+  disc=disc||{d1:0,d2:0,d3:0,extra:{}};
+  const descTxt=[disc.d1,disc.d2,disc.d3].filter(x=>x>0).map(x=>Math.round(x*100)+'%').join(' + ')||'sin descuento';
   const sheets=[];
   (drafts||[]).forEach(oc=>{
-    if(!oc.precios || !Object.keys(oc.precios).length) return;   // solo OC que traen precios (ej. REDVITAL)
+    if(!oc.precios || !Object.keys(oc.precios).length) return;   // solo OC que traen precios
     const rows=[];
     rows.push(['COMPARACIÓN DE PRECIOS — '+(oc.numped||'OC')]);
     rows.push(['Cliente', oc.nombre||'']);
     rows.push(['Fecha', isoHoy()]);
+    rows.push(['Descuento del lote', descTxt]);
     rows.push([]);
-    rows.push(['Código','Descripción','Cód. Barra','Cantidad','Precio OC $','Precio Lista $','Dif. Unit $','Dif. %','Total OC $','Total Lista $','Dif. Total $']);
+    rows.push(['Código','Descripción','Cód. Barra','Cantidad','Precio OC $','Precio Lista c/Desc $','Dif. Unit $','Dif. %','Total OC $','Total Lista c/Desc $','Dif. Total $']);
     const codes=Object.keys(oc.qty||{}).filter(c=>byCode[c] && oc.precios[c]!=null).sort();
     let tOC=0,tL=0,tQ=0;
     codes.forEach(c=>{
-      const p=byCode[c], q=oc.qty[c]||0, pOC=+oc.precios[c]||0, pL=+p.precioUsd||0;
+      const p=byCode[c], q=oc.qty[c]||0, pOC=+oc.precios[c]||0;
+      const pL=round2((+p.precioUsd||0)*ocFactorDesc(p, disc));   // precio de lista CON descuento del lote
       const du=round2(pOC-pL), dp=pL?round2((pOC-pL)/pL*100):'', toc=round2(q*pOC), tl=round2(q*pL);
       tOC+=toc; tL+=tl; tQ+=q;
-      rows.push([c, p.nombre||'', String(p.codigoBarra||''), q, round2(pOC), round2(pL), du, dp, toc, tl, round2(toc-tl)]);
+      rows.push([c, p.nombre||'', String(p.codigoBarra||''), q, round2(pOC), pL, du, dp, toc, tl, round2(toc-tl)]);
     });
     rows.push([]);
     rows.push(['','TOTALES','',tQ,'','','','',round2(tOC),round2(tL),round2(tOC-tL)]);
@@ -20754,6 +20769,8 @@ function cargarPedidoDesdeXlsx(buf){
 // ===== Cargar OC (órdenes de compra en PDF) — un pedido por cada OC =====
 // Cada cliente puede enviar un formato distinto -> un parser por cliente. Empezamos con MANGO BAJITO.
 let ocDraft=[];   // OC leídas, pendientes de generar
+let ocFormatoActual='';   // formato/empresa del lote actual (mangobajito|grupoabreu|redvital)
+const OC_EMPRESA_LABEL={ mangobajito:'Mango_Bajito', grupoabreu:'Grupo_Abreu', redvital:'REDVITAL' };
 // normaliza razón social para cruzar con la base (quita C.A/S.A/SUC, acentos, símbolos)
 function _normCli(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\b(C\.?A\.?|S\.?A\.?|COMPANIA|COMPA[NÑ]IA|ANONIMA|SUC\.?|SUCURSAL)\b/g,' ').replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
 // cruza la razón social de la OC con la base CLIENTES: exacto, o substring fuerte (evita falsos positivos)
@@ -20903,6 +20920,7 @@ async function parseOCRedvital(buf, filename){
 const OC_PARSERS={ mangobajito: parseOCMangoBajito, grupoabreu: parseOCAbreu, redvital: parseOCRedvital };
 async function cargarOCArchivos(files, formato){
   const parser=OC_PARSERS[formato]; if(!parser){ toast('Formato de OC no reconocido'); return; }
+  ocFormatoActual=formato;
   toast('Leyendo '+files.length+' OC…');
   ocDraft=[];
   for(const f of files){
@@ -21013,9 +21031,16 @@ async function generarPedidosOC(){
     const detalle = back ? (enviables+' pedidos: Disponible + BackOrder (+ Original)') : (recs.length>1 ? enviables+' pedidos divididos' : '1 pedido');
     resumen.push((oc.numped||'OC')+' → '+meta.cliente+(mt?' ('+mt.codigo+')':' (sin código)')+' · '+Object.keys(q).length+' ref · '+detalle+(oc.missing&&oc.missing.length?' · '+oc.missing.length+' fuera':''));
   });
-  // Comparación de precios OC vs lista: un Excel con una hoja por OC (nombre de hoja = N° de OC)
+  // Comparación de precios OC vs lista CON DESCUENTO del lote: un Excel con una hoja por OC (nombre de hoja = N° de OC)
   let cmpTxt='';
-  try{ const cmp=buildOCComparison(ocDraft); if(cmp.length){ download('Comparacion-precios-'+isoHoy()+'.xlsx', buildXlsxMulti(cmp), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); cmpTxt='\n\nSe descargó la comparación de precios (OC vs lista): '+cmp.length+' hoja'+(cmp.length===1?'':'s')+' (una por OC).'; } }catch(e){ console.error('comparación OC', e); }
+  try{
+    const cmp=buildOCComparison(ocDraft, {d1, d2, d3, extra});
+    if(cmp.length){
+      const emp=OC_EMPRESA_LABEL[ocFormatoActual]||'OC';
+      download('Comparacion-precios-'+isoHoy()+'_OC_'+emp+'.xlsx', buildXlsxMulti(cmp), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      cmpTxt='\n\nSe descargó a Descargas la comparación de precios (OC vs lista con descuento): '+cmp.length+' hoja'+(cmp.length===1?'':'s')+' (una por OC).';
+    }
+  }catch(e){ console.error('comparación OC', e); }
   const dupTxt = yaProc.length ? ('\n\n⚠ '+yaProc.length+' OC ya estaban procesadas y se omitieron: '+yaProc.join(', ')) : '';
   if(!creados){
     await askConfirm((yaProc.length
