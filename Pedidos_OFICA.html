@@ -481,7 +481,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v181</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v182</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -20471,21 +20471,25 @@ async function parseVentasXlsx(buf, onProg){
     if(/t="str"/.test(attrs)){ const vv=(inner.match(/<v>([\s\S]*?)<\/v>/)||[])[1]; return xlUnesc(vv||''); }
     const vv=(inner.match(/<v>([\s\S]*?)<\/v>/)||[])[1]; return (vv!=null&&vv!=='')?parseFloat(vv):undefined;
   }
-  // columnas por encabezado (fila 1); por defecto E/O/L/U (formato Profit)
-  let colCli='E', colArt='O', colFec='L', colQty='U';
+  // columnas por encabezado (fila 1); por defecto E/O/L/U + F (Nombre Cliente) formato Profit
+  let colCli='E', colArt='O', colFec='L', colQty='U', colNom='F';
   { const r1=/<row[^>]*r="1"[^>]*>([\s\S]*?)<\/row>/.exec(sh);
     if(r1){ const cRe=/<c r="([A-Z]+)1"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g; let m;
       while(m=cRe.exec(r1[1])){ const nv=norm(cellVal(m[2]||'', m[3]));
         if(nv==='CODIGOCLIENTE') colCli=m[1]; else if(nv==='ARTICULO') colArt=m[1];
-        else if(nv==='FECHA') colFec=m[1]; else if(nv==='CANTIDAD') colQty=m[1]; }
+        else if(nv==='FECHA') colFec=m[1]; else if(nv==='CANTIDAD') colQty=m[1];
+        else if(nv==='NOMBRECLIENTE') colNom=m[1]; }
     }
   }
-  const cat=byCode; const hist={};
+  const cat=byCode; const hist={}; const nombres={};   // nombres[codCliente]=Nombre Cliente (del archivo)
   const stats={incluidas:0, clientes:new Set(), productos:new Set(), minYM:'9999-99', maxYM:'0000-00'};
   const cRe=/<c r="([A-Z]+)(\d+)"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g;
   let m, curRow=0, cur={}, processed=0;
   function flush(){
     if(curRow>=2){
+      // nombre del cliente (para agregarlo al listado si no existe); se toma aunque la fila no sea de catálogo
+      const cliN=cur[colCli], nomN=cur[colNom];
+      if(cliN!=null){ const cc=String(cliN).trim(); if(cc && nomN!=null){ const nn=String(nomN).trim(); if(nn && !nombres[cc]) nombres[cc]=nn; } }
       const art=cur[colArt];
       if(art!=null){
         const code=String(art).trim();
@@ -20510,10 +20514,10 @@ async function parseVentasXlsx(buf, onProg){
   while(m=cRe.exec(sh)){
     const col=m[1], row=+m[2];
     if(row!==curRow){ flush(); curRow=row; processed++; if(onProg && (processed&16383)===0){ onProg(processed); await new Promise(r=>setTimeout(r,0)); } }
-    if(col===colCli||col===colArt||col===colFec||col===colQty){ cur[col]=cellVal(m[3]||'', m[4]); }
+    if(col===colCli||col===colArt||col===colFec||col===colQty||col===colNom){ cur[col]=cellVal(m[3]||'', m[4]); }
   }
   flush();
-  return {hist, stats};
+  return {hist, stats, nombres};
 }
 // fusiona: conserva lo anterior; por (cliente,producto,mes) la data NUEVA reemplaza (última manda)
 function mergeHistorico(base, nuevo){
@@ -20525,13 +20529,47 @@ function mergeHistorico(base, nuevo){
   }
   return out;
 }
+// ---- Clientes agregados por "Cargar Histórico" ----
+// La base CLIENTES está horneada en el HTML; los clientes NUEVOS que trae el Excel de
+// ventas se guardan aparte en docs/clientes_extra.json (se publican junto al histórico)
+// y en localStorage, y se fusionan al listado en memoria (CLIENTES + mapas) al abrir.
+const CLI_EXTRA_KEY='ofica_clientes_extra_v1';
+const CLI_EXTRA_URLS=['clientes_extra.json','https://boadar.github.io/practica-git/clientes_extra.json'];
+let CLI_EXTRA_TRIED=false;
+function cliExtraLocal(){ try{ const o=JSON.parse(localStorage.getItem(CLI_EXTRA_KEY)||'{}'); return (o&&typeof o==='object'&&!Array.isArray(o))?o:{}; }catch(e){ return {}; } }
+function cliExtraGuardarLocal(map){ try{ localStorage.setItem(CLI_EXTRA_KEY, JSON.stringify(map)); }catch(e){} }
+// Fusiona {cod:nombre} al listado de clientes EN MEMORIA. Devuelve cuántos agregó.
+function mergeClientesEnMemoria(map){
+  let n=0;
+  for(const c in map){ const cod=String(c).trim(), nom=String(map[c]||'').trim();
+    if(!cod || !nom || cliByCod[cod]) continue;               // vacío o ya existe -> se ignora
+    const x={c:cod, n:nom}; CLIENTES.push(x); cliByCod[cod]=x; if(!cliByNombre[nom]) cliByNombre[nom]=x; n++;
+  }
+  return n;
+}
+async function cargarClientesExtra(){
+  mergeClientesEnMemoria(cliExtraLocal());                    // 1) local (instantáneo, sirve offline)
+  if(CLI_EXTRA_TRIED) return;
+  for(let i=0;i<CLI_EXTRA_URLS.length;i++){                   // 2) publicado (lo que agregaron otros dispositivos)
+    try{ const r=await fetch(CLI_EXTRA_URLS[i],{cache:'force-cache'}); if(!r.ok) continue;
+      const data=await r.json();
+      if(data && typeof data==='object' && !Array.isArray(data)){
+        mergeClientesEnMemoria(data);
+        const loc=cliExtraLocal(); for(const c in data){ if(!loc[c]) loc[c]=data[c]; } cliExtraGuardarLocal(loc);
+        break;
+      }
+    }catch(e){}
+  }
+  CLI_EXTRA_TRIED=true;
+}
+
 // Botón admin: carga el Excel de ventas, fusiona con la base y publica a GitHub.
 async function cargarHistoricoDesdeXlsx(file){
   if(!file) return;
   try{
     toast('Leyendo archivo de ventas…');
     const buf=new Uint8Array(await file.arrayBuffer());
-    const {hist:nuevo, stats}=await parseVentasXlsx(buf, p=>toast('Procesando… '+fmtN.format(p)+' filas'));
+    const {hist:nuevo, stats, nombres}=await parseVentasXlsx(buf, p=>toast('Procesando… '+fmtN.format(p)+' filas'));
     if(!stats.incluidas){ await askConfirm('No se encontraron ventas de productos del catálogo. Verifica que sea el export de ventas correcto (columnas Código Cliente, Artículo, Fecha y Cantidad).','Entendido','Cerrar'); return; }
     const ok=await askConfirm('Archivo leído:\n\n· '+fmtN.format(stats.incluidas)+' ventas de catálogo\n· '+stats.clientes.size+' clientes · '+stats.productos.size+' productos\n· Periodo: '+stats.minYM+' a '+stats.maxYM+'\n\nSe FUSIONA con la base actual: se conserva lo anterior y los meses repetidos se actualizan con esta data. Se publica a GitHub para todos los dispositivos.\n\nNecesitarás un token de GitHub (no se guarda). ¿Continuar?','Sí, publicar','Cancelar');
     if(!ok) return;
@@ -20547,15 +20585,38 @@ async function cargarHistoricoDesdeXlsx(file){
     const merged=mergeHistorico(base, nuevo);
     const nCli=Object.keys(merged).length;
     const js=JSON.stringify(merged);
+    // --- clientes NUEVOS del archivo que no están en el listado de la app ---
+    let cliExtraBase={};
+    { const r=await fetch(GH_API+'/contents/docs/clientes_extra.json?ref='+encodeURIComponent(GH_BRANCH), {headers:Object.assign({},H,{'Accept':'application/vnd.github.raw'})});
+      if(r.ok){ try{ const j=await r.json(); if(j&&typeof j==='object'&&!Array.isArray(j)) cliExtraBase=j; }catch(e){} }
+    }
+    const nuevosCli={};
+    for(const c in nombres){ const cod=String(c).trim(), nom=String(nombres[c]||'').trim();
+      if(!cod || !nom || cliByCod[cod] || cliExtraBase[cod]) continue;
+      if(cod.length<4 || nom.length<3 || !/[A-Za-zÁÉÍÓÚÑáéíóúñ]/.test(nom)) continue;   // descarta filas basura (ej. "1"→"0")
+      nuevosCli[cod]=nom; }
+    const nNuevosCli=Object.keys(nuevosCli).length;
+    const cliExtraMerged=Object.assign({}, cliExtraBase, nuevosCli);
     toast('Publicando a GitHub…');
     const ref=await ghFetch(GH_API+'/git/ref/heads/'+GH_BRANCH, {headers:H});
     const commitSha=ref.object.sha; const commit=await ghFetch(GH_API+'/git/commits/'+commitSha, {headers:H}); const baseTree=commit.tree.sha;
     const blobSha=(await ghFetch(GH_API+'/git/blobs',{method:'POST',headers:H,body:JSON.stringify({content:ghEncodeB64(js),encoding:'base64'})})).sha;
-    const tree=await ghFetch(GH_API+'/git/trees',{method:'POST',headers:H,body:JSON.stringify({base_tree:baseTree,tree:[{path:'docs/historico_ventas.json',mode:'100644',type:'blob',sha:blobSha}]})});
-    const newCommit=await ghFetch(GH_API+'/git/commits',{method:'POST',headers:H,body:JSON.stringify({message:'Actualizar histórico de compras ('+stats.minYM+' a '+stats.maxYM+')',tree:tree.sha,parents:[commitSha]})});
+    const treeEntries=[{path:'docs/historico_ventas.json',mode:'100644',type:'blob',sha:blobSha}];
+    if(nNuevosCli>0){
+      const blobCli=(await ghFetch(GH_API+'/git/blobs',{method:'POST',headers:H,body:JSON.stringify({content:ghEncodeB64(JSON.stringify(cliExtraMerged)),encoding:'base64'})})).sha;
+      treeEntries.push({path:'docs/clientes_extra.json',mode:'100644',type:'blob',sha:blobCli});
+    }
+    const msgCli=nNuevosCli>0?(' + '+nNuevosCli+' clientes nuevos'):'';
+    const tree=await ghFetch(GH_API+'/git/trees',{method:'POST',headers:H,body:JSON.stringify({base_tree:baseTree,tree:treeEntries})});
+    const newCommit=await ghFetch(GH_API+'/git/commits',{method:'POST',headers:H,body:JSON.stringify({message:'Actualizar histórico de compras ('+stats.minYM+' a '+stats.maxYM+')'+msgCli,tree:tree.sha,parents:[commitSha]})});
     await ghFetch(GH_API+'/git/refs/heads/'+GH_BRANCH,{method:'PATCH',headers:H,body:JSON.stringify({sha:newCommit.sha,force:false})});
-    HIST=merged; HIST_TRIED=false; render();
-    await askConfirm('¡Histórico actualizado y publicado!\n\nLa base ahora tiene '+fmtN.format(nCli)+' clientes. Todos los dispositivos la tomarán al reabrir la app (puede tardar 1-2 minutos).','Entendido','Cerrar');
+    HIST=merged; HIST_TRIED=false;
+    if(nNuevosCli>0){ mergeClientesEnMemoria(nuevosCli); const loc=cliExtraLocal(); Object.assign(loc, nuevosCli); cliExtraGuardarLocal(loc); }
+    render();
+    const lineaCli = nNuevosCli>0
+      ? ('\n\nSe agregaron '+nNuevosCli+' clientes NUEVOS al listado (con su nombre del archivo); ya puedes buscarlos al tomar pedidos.')
+      : '\n\nNo hubo clientes nuevos que agregar (todos ya estaban en el listado).';
+    await askConfirm('¡Histórico actualizado y publicado!\n\nLa base ahora tiene '+fmtN.format(nCli)+' clientes con compras.'+lineaCli+'\n\nTodos los dispositivos lo tomarán al reabrir la app (puede tardar 1-2 minutos).','Entendido','Cerrar');
   }catch(err){
     await askConfirm('No se pudo actualizar el histórico: '+(err&&err.message?err.message:err)+'\n\nNo se realizó ningún cambio. Verifica el token (permiso Contents: Read and write) y tu conexión.','Entendido','Cerrar');
   }
@@ -21758,7 +21819,7 @@ function syncHeaderVars(){
 // La app SIEMPRE inicia en blanco: cantidades en 0 y sin descuentos.
 try{ localStorage.removeItem(STORE_KEY); }catch(e){}
 state = {qty:{}, meta:{}};
-buildLists(); buildChips(); initMeta(); render(); updateTotals(); wire(); pwaSetup();
+buildLists(); buildChips(); initMeta(); render(); updateTotals(); wire(); pwaSetup(); cargarClientesExtra();
 // aviso breve con la versión al abrir la app
 try{ const _v=(document.getElementById('appver')||{}).textContent||''; setTimeout(()=>toast('Pedidos OFICA '+_v+' · '+CATALOGO.length+' referencias'),400); }catch(e){}
 syncHeaderVars();
