@@ -484,7 +484,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v182</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v183</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -20454,13 +20454,17 @@ async function parseVentasXlsx(buf, onProg){
   const shared=[]; const ssRaw=zip.raw('xl/sharedStrings.xml');
   if(ssRaw){ const ssB=await inflateEntryFast(ssRaw.comp, ssRaw.method); const xml=xlText(ssB);
     const si=/<si>([\s\S]*?)<\/si>/g; let m; while(m=si.exec(xml)){ const tr=/<t[^>]*>([\s\S]*?)<\/t>/g; let t,s=''; while(t=tr.exec(m[1])) s+=t[1]; shared.push(xlUnesc(s)); } }
-  // primera hoja (workbook.xml y sus rels son pequeños -> inflate JS ok)
+  // hoja de datos: preferir la llamada "Detalle Fac" (nuevo Reporte de Ventas); si no está, la primera hoja (formato viejo)
   let sheetPath='xl/worksheets/sheet1.xml';
   try{
     const wb=xlText(zip.get('xl/workbook.xml'));
     const relsB=zip.get('xl/_rels/workbook.xml.rels'); const relsT=relsB?xlText(relsB):'';
     const relMap={}; (relsT.match(/<Relationship\b[^>]*\/?>/g)||[]).forEach(t=>{ const id=(t.match(/Id="([^"]+)"/)||[])[1]; const tg=(t.match(/Target="([^"]+)"/)||[])[1]; if(id&&tg) relMap[id]=tg; });
-    const first=(wb.match(/<sheet\b[^>]*\/?>/)||[])[0]||''; const rid=(first.match(/r:id="([^"]+)"/)||[])[1];
+    const sheets=(wb.match(/<sheet\b[^>]*\/?>/g)||[]);
+    let elegido=null;
+    for(const s of sheets){ const nm=(s.match(/name="([^"]*)"/)||[])[1]||''; if(norm(nm)==='DETALLEFAC'){ elegido=s; break; } }   // por nombre de hoja
+    if(!elegido) elegido=sheets[0]||'';
+    const rid=(elegido.match(/r:id="([^"]+)"/)||[])[1];
     let tg=relMap[rid]; if(tg){ if(tg.charAt(0)==='/') tg=tg.slice(1); else if(!/^xl\//.test(tg)) tg='xl/'+tg; sheetPath=tg; }
   }catch(e){}
   const shRaw=zip.raw(sheetPath); if(!shRaw) throw new Error('No se pudo leer la hoja de ventas');
@@ -20481,7 +20485,7 @@ async function parseVentasXlsx(buf, onProg){
       while(m=cRe.exec(r1[1])){ const nv=norm(cellVal(m[2]||'', m[3]));
         if(nv==='CODIGOCLIENTE') colCli=m[1]; else if(nv==='ARTICULO') colArt=m[1];
         else if(nv==='FECHA') colFec=m[1]; else if(nv==='CANTIDAD') colQty=m[1];
-        else if(nv==='NOMBRECLIENTE') colNom=m[1]; }
+        else if(nv==='NOMBRECLIENTE'||nv==='NOMBREDELCLIENTE') colNom=m[1]; }   // "Nombre Cliente" (viejo) o "Nombre del Cliente" (nuevo)
     }
   }
   const cat=byCode; const hist={}; const nombres={};   // nombres[codCliente]=Nombre Cliente (del archivo)
