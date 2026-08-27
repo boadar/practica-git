@@ -109,7 +109,7 @@ const FARMATODO = {
   app: "VCOJEYD2PO",                    // Application ID en MAYUSCULAS (Algolia distingue mayus/minus)
   host: "vcojeyd2po-dsn.algolia.net",   // el host si va en minusculas
   key: "869a91e98550dd668b8b1dc04bca9011",
-  indices: ["products-vzla", "products-venezuela", "products"]
+  indices: ["products-venezuela", "products"]
 };
 
 const $ = (id) => document.getElementById(id);
@@ -196,12 +196,18 @@ async function buscarFarmatodo(q) {
     diag.push(idx + ": " + nb + " hits");
     if (nb > 0 && data.hits && data.hits.length) {
       const items = data.hits.map((h) => {
-        const nombre = h.name || h.fullName || h.productName || h.description || h.title;
+        const nombre = h.mediaDescription || h.largeDescription || h.grayDescription
+                    || h.name || h.fullName || h.productName;
         if (!nombre) return null;
-        const marca = h.brand || h.marca || h.laboratory || "";
-        const precio = mejorPrecio(h);
+        const marca = h.marca || h.brand || "";
+        let precio = null;
+        if (h.fullPrice != null) {
+          const p = parseFloat(String(h.fullPrice).replace(",", "."));
+          if (isFinite(p) && p > 0) precio = p;
+        }
+        if (precio == null) precio = mejorPrecio(h);
         const link = h.id ? "https://www.farmatodo.com.ve/producto/" + h.id : "";
-        const img = h.mediaImageUrl || h.image || h.imageUrl || "";
+        const img = h.mediaImageUrl || (Array.isArray(h.listUrlImages) ? h.listUrlImages[0] : "") || "";
         return { nombre: String(nombre).trim(), marca, precio, link, img, fuente: "Farmatodo" };
       }).filter(Boolean);
       diag.push("campos: " + Object.keys(data.hits[0]).slice(0, 30).join(","));
