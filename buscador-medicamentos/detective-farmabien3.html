@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Detective Farmabien 3 (productos)</title>
+<style>
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; margin:0; background:#f2f5f9; color:#1b2733; }
+  header { background:#0d47a1; color:#fff; padding:16px; text-align:center; }
+  main { max-width:900px; margin:0 auto; padding:16px; }
+  button { padding:12px 20px; font-size:1rem; font-weight:600; color:#fff; background:#1565c0; border:none; border-radius:10px; cursor:pointer; }
+  .box { background:#111; color:#8f8; font-family:monospace; font-size:.72rem; padding:12px; border-radius:8px; margin-top:14px; white-space:pre-wrap; word-break:break-word; min-height:60px; }
+</style>
+</head>
+<body>
+<header><h2>🔍 Detective Farmabien — productos</h2></header>
+<main>
+  <p>Toca el botón, espera y cópiame TODO el texto que aparezca abajo.</p>
+  <button id="btn" onclick="run()">Analizar productos</button>
+  <div class="box" id="out"></div>
+</main>
+<script>
+"use strict";
+const URL_BUSQUEDA = "https://www.farmabien.com/productos?term=paracetamol";
+const out = document.getElementById("out");
+const log = (t) => { out.textContent += t + "\n"; };
+
+async function proxyGet(url) {
+  const ps = [
+    "https://api.allorigins.win/raw?url=" + encodeURIComponent(url),
+    "https://corsproxy.io/?url=" + encodeURIComponent(url)
+  ];
+  for (const p of ps) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 18000);
+      const r = await fetch(p, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (r.ok) return await r.text();
+    } catch (e) {}
+  }
+  return "";
+}
+
+function contextos(txt, regex, n, radio) {
+  const res = [];
+  let m, count = 0;
+  const re = new RegExp(regex, "gi");
+  while ((m = re.exec(txt)) && count < n) {
+    const i = m.index;
+    res.push(txt.slice(Math.max(0, i - radio), i + radio).replace(/\s+/g, " "));
+    count++;
+  }
+  return res;
+}
+
+async function run() {
+  document.getElementById("btn").disabled = true;
+  out.textContent = "";
+  log("Descargando pagina de resultados...");
+  const html = await proxyGet(URL_BUSQUEDA);
+  if (!html) { log("No pude descargar (proxy). Reintenta."); document.getElementById("btn").disabled = false; return; }
+
+  log("Tamano: " + html.length + " caracteres");
+  if (/just a moment|cf-browser-verification|challenge-platform/i.test(html)) {
+    log(">> Parece bloqueo de Cloudflare (como Badan).");
+  }
+  const veces = (html.match(/paracetamol/gi) || []).length;
+  log("Aparece 'paracetamol': " + veces + " veces");
+  log("Tiene __NEXT_DATA__: " + html.includes("__NEXT_DATA__"));
+  log("Tiene __next_f (flight): " + html.includes("__next_f"));
+
+  log("\n===== CONTEXTOS alrededor de 'paracetamol' (copiame) =====");
+  contextos(html, "paracetamol", 3, 320).forEach((c, i) => log("\n[" + (i + 1) + "] ..." + c + "..."));
+
+  log("\n===== CONTEXTOS alrededor de precios (copiame) =====");
+  contextos(html, '(precio|price|pvp|monto|amount|"bs|bs\\.|\\$)[^a-z]{0,3}[0-9]', 4, 160)
+    .forEach((c, i) => log("\n[" + (i + 1) + "] ..." + c + "..."));
+
+  log("\nListo. Copia TODO este texto.");
+  document.getElementById("btn").disabled = false;
+}
+</script>
+</body>
+</html>
