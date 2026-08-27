@@ -67,6 +67,8 @@
   .precio .usd { font-size:.78rem; color:var(--verde); }
   .precio a { display:block; font-size:.72rem; color:var(--azul); margin-top:4px; text-decoration:none; }
   .vacio { text-align:center; color:var(--suave); padding:30px 10px; }
+  .diag { background:#fff8e1; border:1px solid #ffe082; border-radius:8px;
+    padding:10px 12px; margin-bottom:10px; font-size:.78rem; color:#6d4c00; word-break:break-word; }
   footer { text-align:center; font-size:.72rem; color:var(--suave); padding:16px; }
   .estrella { color:#e6a700; }
 </style>
@@ -167,22 +169,27 @@ function mejorPrecio(obj) {
 }
 
 async function buscarFarmatodo(q) {
+  const diag = [];
   for (const idx of FARMATODO.indices) {
-    const url = "https://" + FARMATODO.app + "-dsn.algolia.net/1/indexes/" + idx + "/query"
-              + "?x-algolia-application-id=" + FARMATODO.app
-              + "&x-algolia-api-key=" + FARMATODO.key;
+    const url = "https://" + FARMATODO.app + "-dsn.algolia.net/1/indexes/" + idx + "/query";
     let res;
     try {
       res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "text/plain" }, // evita preflight CORS
+        headers: {
+          "X-Algolia-Application-Id": FARMATODO.app,
+          "X-Algolia-API-Key": FARMATODO.key,
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({ params: "query=" + encodeURIComponent(q) + "&hitsPerPage=24" })
       });
-    } catch (e) { continue; }
-    if (!res.ok) continue;
+    } catch (e) { diag.push(idx + ": red/CORS " + e.message); continue; }
+    if (!res.ok) { diag.push(idx + ": HTTP " + res.status); continue; }
     const data = await res.json();
-    if (data.nbHits > 0 && data.hits) {
-      return data.hits.map((h) => {
+    const nb = data.nbHits || 0;
+    diag.push(idx + ": " + nb + " hits");
+    if (nb > 0 && data.hits && data.hits.length) {
+      const items = data.hits.map((h) => {
         const nombre = h.name || h.fullName || h.productName || h.description || h.title;
         if (!nombre) return null;
         const marca = h.brand || h.marca || h.laboratory || "";
@@ -191,9 +198,11 @@ async function buscarFarmatodo(q) {
         const img = h.mediaImageUrl || h.image || h.imageUrl || "";
         return { nombre: String(nombre).trim(), marca, precio, link, img, fuente: "Farmatodo" };
       }).filter(Boolean);
+      diag.push("campos: " + Object.keys(data.hits[0]).slice(0, 30).join(","));
+      return { items, diag };
     }
   }
-  return [];
+  return { items: [], diag };
 }
 
 // ============ ORQUESTADOR ============
@@ -208,21 +217,34 @@ async function buscar(q) {
   $("resultados").innerHTML = "";
   $("fuentes").innerHTML = "";
 
-  const tareas = [];
-  if (usarL) tareas.push(["Locatel", buscarLocatel(q)]);
-  if (usarF) tareas.push(["Farmatodo", buscarFarmatodo(q)]);
-
   let todos = [];
   const chips = [];
-  await Promise.all(tareas.map(async ([nombre, prom]) => {
+  let ftDiag = null;
+  const jobs = [];
+
+  if (usarL) jobs.push((async () => {
     try {
-      const res = await prom;
+      const res = await buscarLocatel(q);
       todos = todos.concat(res);
-      chips.push(chip(nombre, res.length + " resultados", "ok"));
+      chips.push(chip("Locatel", res.length + " resultados", res.length ? "ok" : "err"));
     } catch (e) {
-      chips.push(chip(nombre, "no se pudo cargar", "err"));
+      chips.push(chip("Locatel", "no se pudo cargar", "err"));
     }
-  }));
+  })());
+
+  if (usarF) jobs.push((async () => {
+    try {
+      const r = await buscarFarmatodo(q);
+      todos = todos.concat(r.items);
+      chips.push(chip("Farmatodo", r.items.length + " resultados", r.items.length ? "ok" : "err"));
+      if (r.items.length === 0) ftDiag = r.diag;
+    } catch (e) {
+      chips.push(chip("Farmatodo", "error", "err"));
+      ftDiag = [String(e.message)];
+    }
+  })());
+
+  await Promise.all(jobs);
   chips.push(chip("Badan", "no disponible (Cloudflare)", "err"));
   $("fuentes").innerHTML = chips.join("");
 
@@ -233,14 +255,19 @@ async function buscar(q) {
     return a.precio - b.precio;
   });
 
+  let extra = "";
+  if (ftDiag && ftDiag.length) {
+    extra = '<div class="diag"><b>Diagnóstico Farmatodo</b> (cópiamelo): ' + escapar(ftDiag.join("  |  ")) + '</div>';
+  }
+
   if (todos.length === 0) {
     $("estado").textContent = "";
-    $("resultados").innerHTML = '<div class="vacio">No se encontraron productos para "' + q + '".</div>';
+    $("resultados").innerHTML = extra + '<div class="vacio">No se encontraron productos para "' + escapar(q) + '".</div>';
     return;
   }
 
   $("estado").textContent = todos.length + ' resultado(s) para "' + q + '", del más barato al más caro.';
-  $("resultados").innerHTML = todos.map((r, i) => {
+  $("resultados").innerHTML = extra + todos.map((r, i) => {
     const usd = r.precio != null ? "~$" + (r.precio / tasa).toFixed(2) : "";
     const bs = r.precio != null ? "Bs. " + fmtBs.format(r.precio) : "s/precio";
     const estrella = i === 0 ? '<span class="estrella">★ </span>' : "";
