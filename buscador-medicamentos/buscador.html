@@ -63,6 +63,7 @@
   .badge.Locatel { background:#00843d; }
   .badge.Farmatodo { background:#0069b4; }
   .badge.Badan { background:#5c6bc0; }
+  .badge.Farmabien { background:#0F5A2D; }
   .precio { text-align:right; flex:none; white-space:nowrap; }
   .precio .bs { font-weight:700; font-size:.98rem; }
   .precio .usd { font-size:.78rem; color:var(--verde); }
@@ -90,6 +91,7 @@
     <label>Tasa Bs/$: <input id="tasa" type="number" value="720" min="1" step="0.01" /></label>
     <label><input type="checkbox" id="cLocatel" checked /> Locatel</label>
     <label><input type="checkbox" id="cFarmatodo" checked /> Farmatodo</label>
+    <label><input type="checkbox" id="cFarmabien" checked /> Farmabien</label>
     <label><input type="checkbox" id="cBadan" /> Badan <span style="opacity:.7">(bloqueado)</span></label>
   </div>
 
@@ -208,6 +210,45 @@ async function buscarBadan(q) {
   return { items, estado: "ok" };
 }
 
+// ============ FARMABIEN (Next.js, via proxy) ============
+function parsePrecioFB(s) {
+  const m = s.replace(/[^\d.,]/g, "").replace(/\./g, "").replace(",", ".");
+  const v = parseFloat(m); return v > 0 ? v : null;
+}
+
+async function buscarFarmabien(q) {
+  const url = "https://www.farmabien.com/productos?term=" + encodeURIComponent(q);
+  let html;
+  try { html = await traerTexto(url); } catch (e) { return { items: [], estado: "error" }; }
+
+  // Desempaquetar el "flight" de Next.js (self.__next_f.push([1,"..."]))
+  let flight = "";
+  for (const p of html.matchAll(/self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)/g)) {
+    try { flight += JSON.parse('"' + p[1] + '"'); } catch (e) {}
+  }
+  if (flight.length < 500) flight = html;
+
+  const nombres = [...flight.matchAll(/"h3",null,\{"className":"[^"]*","children":"([^"]*)"/g)];
+  const precios = [...flight.matchAll(/"children":"(Bs\.?S?\s*[0-9][\d.,]*)"/g)];
+  const ids = [...flight.matchAll(/\/productos\/(\d+)"/g)];
+
+  const items = [];
+  for (let i = 0; i < nombres.length; i++) {
+    const nombre = nombres[i][1].trim();
+    if (!nombre) continue;
+    const ini = nombres[i].index;
+    const fin = (i + 1 < nombres.length) ? nombres[i + 1].index : flight.length;
+    let precio = null;
+    for (const pm of precios) { if (pm.index > ini && pm.index < fin) { precio = parsePrecioFB(pm[1]); break; } }
+    let id = null;
+    for (const im of ids) { if (im.index < ini) id = im[1]; else break; }
+    items.push({ nombre, marca: "", precio, link: id ? "https://www.farmabien.com/productos/" + id : "", img: "", fuente: "Farmabien" });
+  }
+
+  if (!items.length && /<title>\s*just a moment/i.test(html)) return { items: [], estado: "cloudflare" };
+  return { items, estado: "ok" };
+}
+
 // ============ FARMATODO (Algolia) ============
 function mejorPrecio(obj) {
   const pref = ["finalprice","offerprice","sellprice","saleprice","pricewithdiscount","fullprice","price","precio","pvp"];
@@ -277,7 +318,8 @@ function chip(fuente, texto, clase) {
 
 async function buscar(q) {
   const tasa = parseFloat($("tasa").value) || 720;
-  const usarL = $("cLocatel").checked, usarF = $("cFarmatodo").checked, usarB = $("cBadan").checked;
+  const usarL = $("cLocatel").checked, usarF = $("cFarmatodo").checked,
+        usarFB = $("cFarmabien").checked, usarB = $("cBadan").checked;
   $("estado").textContent = "Buscando...";
   $("resultados").innerHTML = "";
   $("fuentes").innerHTML = "";
@@ -307,6 +349,18 @@ async function buscar(q) {
     } catch (e) {
       chips.push(chip("Farmatodo", "error", "err"));
       ftDiag = [String(e.message)];
+    }
+  })());
+
+  if (usarFB) jobs.push((async () => {
+    try {
+      const r = await buscarFarmabien(q);
+      todos = todos.concat(r.items);
+      if (r.estado === "cloudflare") chips.push(chip("Farmabien", "no disponible (Cloudflare)", "err"));
+      else if (r.estado === "error") chips.push(chip("Farmabien", "no se pudo cargar", "err"));
+      else chips.push(chip("Farmabien", r.items.length + " resultados", r.items.length ? "ok" : "err"));
+    } catch (e) {
+      chips.push(chip("Farmabien", "no se pudo cargar", "err"));
     }
   })());
 
