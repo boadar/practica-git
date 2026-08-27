@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Detective Farmabien</title>
+<style>
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; margin:0; background:#f2f5f9; color:#1b2733; }
+  header { background:#0d47a1; color:#fff; padding:16px; text-align:center; }
+  main { max-width:860px; margin:0 auto; padding:16px; }
+  button { padding:12px 20px; font-size:1rem; font-weight:600; color:#fff; background:#1565c0; border:none; border-radius:10px; cursor:pointer; }
+  #log { background:#111; color:#8f8; font-family:monospace; font-size:.78rem; padding:12px; border-radius:8px; margin-top:14px; white-space:pre-wrap; word-break:break-word; min-height:60px; }
+  .box { background:#e8f5e9; border:2px solid #43a047; color:#1b5e20; padding:14px; border-radius:10px; margin-top:14px; font-size:.85rem; word-break:break-word; }
+</style>
+</head>
+<body>
+<header><h2>🔍 Detective de Farmabien</h2></header>
+<main>
+  <p>Toca el botón y espera. Cópiame TODO lo que salga (la cajita verde y el texto negro).</p>
+  <button id="btn" onclick="run()">Analizar Farmabien</button>
+  <div id="box"></div>
+  <div id="log"></div>
+</main>
+<script>
+"use strict";
+const BASE = "https://www.farmabien.com";
+const logEl = document.getElementById("log");
+const log = (t) => { logEl.textContent += t + "\n"; };
+
+async function proxyGet(url) {
+  const ps = [
+    "https://api.allorigins.win/raw?url=" + encodeURIComponent(url),
+    "https://corsproxy.io/?url=" + encodeURIComponent(url)
+  ];
+  for (const p of ps) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 15000);
+      const r = await fetch(p, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (r.ok) return await r.text();
+    } catch (e) {}
+  }
+  return "";
+}
+
+async function run() {
+  document.getElementById("btn").disabled = true;
+  logEl.textContent = ""; document.getElementById("box").innerHTML = "";
+  const hallazgos = [];
+
+  // 1) VTEX (como Locatel)
+  log("1) Probando API VTEX (como Locatel)...");
+  const vtexUrl = BASE + "/api/catalog_system/pub/products/search/paracetamol?_from=0&_to=5";
+  const vtexTxt = await proxyGet(vtexUrl);
+  if (vtexTxt) {
+    try {
+      const d = JSON.parse(vtexTxt);
+      if (Array.isArray(d) && d.length) {
+        const p = d[0];
+        let precio = null;
+        try { precio = p.items[0].sellers[0].commertialOffer.Price; } catch (e) {}
+        hallazgos.push("VTEX = SI (" + d.length + " productos). Ejemplo: " + (p.productName || "?") + " -> Precio " + precio);
+        log("   VTEX FUNCIONA. Ejemplo: " + p.productName + " = " + precio);
+      } else { log("   VTEX respondio pero sin productos."); }
+    } catch (e) { log("   No es VTEX (respuesta no-JSON)."); }
+  } else { log("   VTEX: sin respuesta."); }
+
+  // 2) Pagina principal: detectar plataforma
+  log("2) Descargando pagina principal...");
+  const home = await proxyGet(BASE + "/");
+  if (!home) { log("   No pude descargar la pagina."); }
+  else {
+    log("   Pagina: " + home.length + " caracteres");
+    const low = home.toLowerCase();
+    if (/just a moment|cf-ray|challenge-platform|cf-browser/.test(low)) hallazgos.push("CLOUDFLARE = SI (como Badan, bloquea)");
+    if (/vtex|__runtime__|vtexassets/.test(low)) hallazgos.push("VTEX (pistas en la pagina) = SI");
+    if (/product-item-info|catalogsearch|magento/.test(low)) hallazgos.push("MAGENTO (como Badan) = posible");
+    if (low.includes("algolia")) {
+      hallazgos.push("ALGOLIA (como Farmatodo) = posible");
+      const app = (home.match(/algolia[^"']{0,40}?["']([A-Z0-9]{8,})["']/i) || [])[1];
+      const dsn = (home.match(/([a-z0-9]+)-dsn\.algolia\.net/i) || [])[1];
+      if (app) hallazgos.push("   posible Algolia appId: " + app);
+      if (dsn) hallazgos.push("   Algolia host: " + dsn + "-dsn.algolia.net");
+    }
+    // titulo y algunos scripts
+    const tit = (home.match(/<title>([^<]*)<\/title>/i) || [])[1] || "";
+    log("   Titulo: " + tit.trim());
+    const scripts = [...home.matchAll(/<script[^>]+src="([^"]+\.js[^"]*)"/g)].map(m => m[1]).slice(0, 8);
+    log("   Algunos scripts: \n     " + scripts.join("\n     "));
+  }
+
+  document.getElementById("box").innerHTML = "<div class='box'><b>RESUMEN (cópiame esto):</b><br>" +
+    (hallazgos.length ? hallazgos.map(h => "• " + h).join("<br>") : "No detecte plataforma clara; cópiame el texto negro de abajo.") + "</div>";
+  log("\nListo. Copia la cajita verde y este texto.");
+  document.getElementById("btn").disabled = false;
+}
+</script>
+</body>
+</html>
