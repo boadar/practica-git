@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Detective Farmabien 2 (API)</title>
+<style>
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; margin:0; background:#f2f5f9; color:#1b2733; }
+  header { background:#0d47a1; color:#fff; padding:16px; text-align:center; }
+  main { max-width:880px; margin:0 auto; padding:16px; }
+  button { padding:12px 20px; font-size:1rem; font-weight:600; color:#fff; background:#1565c0; border:none; border-radius:10px; cursor:pointer; }
+  #log { background:#111; color:#8f8; font-family:monospace; font-size:.75rem; padding:12px; border-radius:8px; margin-top:14px; white-space:pre-wrap; word-break:break-word; min-height:60px; }
+  .box { background:#e8f5e9; border:2px solid #43a047; color:#1b5e20; padding:14px; border-radius:10px; margin-top:14px; font-size:.82rem; word-break:break-word; }
+</style>
+</head>
+<body>
+<header><h2>🔍 Detective Farmabien — buscar la API</h2></header>
+<main>
+  <p>Toca el botón y espera (puede tardar 30-60 seg, descarga varios archivos de código). Cópiame la cajita verde completa.</p>
+  <button id="btn" onclick="run()">Buscar la API</button>
+  <div id="box"></div>
+  <div id="log"></div>
+</main>
+<script>
+"use strict";
+const BASE = "https://www.farmabien.com";
+const logEl = document.getElementById("log");
+const log = (t) => { logEl.textContent += t + "\n"; };
+
+async function proxyGet(url) {
+  const ps = [
+    "https://api.allorigins.win/raw?url=" + encodeURIComponent(url),
+    "https://corsproxy.io/?url=" + encodeURIComponent(url)
+  ];
+  for (const p of ps) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 15000);
+      const r = await fetch(p, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (r.ok) return await r.text();
+    } catch (e) {}
+  }
+  return "";
+}
+
+const IGNORAR = ["farmabien.com","vercel","googleapis","gstatic","google-analytics","googletagmanager",
+  "google.com","fonts","facebook","cloudflare","cloudfront","schema.org","w3.org","doubleclick",
+  "hotjar","sentry","jsdelivr","unpkg","cdnjs","youtube","instagram","twitter","tiktok","paypal",
+  "recaptcha","cookiebot","clarity.ms","bing.com"];
+
+function run_extraccion(text, urls, hosts, rel) {
+  for (const m of text.matchAll(/https?:\/\/[A-Za-z0-9._\-]+(?:\/[A-Za-z0-9._\-\/]*)?/g)) {
+    const u = m[0], low = u.toLowerCase();
+    if (low.endsWith(".js") || low.endsWith(".css") || low.endsWith(".png") || low.endsWith(".svg") || low.endsWith(".woff2")) continue;
+    const host = low.replace(/^https?:\/\//, "").split("/")[0];
+    if (!IGNORAR.some(x => host.includes(x))) hosts.add(host);
+    if (/api|search|product|catalog|graphql|gateway|backend|service|query|item/.test(low) &&
+        !IGNORAR.some(x => low.includes(x))) urls.add(u);
+  }
+  for (const m of text.matchAll(/["'`](\/api\/[A-Za-z0-9._\-\/{}$:]{2,60})["'`]/g)) rel.add(m[1]);
+  for (const m of text.matchAll(/["'`](\/[a-z0-9\-]*(?:search|buscar|product|producto)[a-z0-9\-\/{}$:]{0,40})["'`]/gi)) rel.add(m[1]);
+}
+
+async function run() {
+  document.getElementById("btn").disabled = true;
+  logEl.textContent = ""; document.getElementById("box").innerHTML = "";
+
+  log("Descargando pagina principal...");
+  const home = await proxyGet(BASE + "/");
+  if (!home) { log("No pude descargar la pagina."); document.getElementById("btn").disabled = false; return; }
+
+  let chunks = [...home.matchAll(/["'](\/_next\/static\/chunks\/[^"']+\.js[^"']*)["']/g)].map(m => m[1]);
+  chunks = [...new Set(chunks)].slice(0, 24);
+  log("Archivos de codigo a revisar: " + chunks.length);
+
+  const urls = new Set(), hosts = new Set(), rel = new Set();
+  run_extraccion(home, urls, hosts, rel);
+
+  let hechos = 0;
+  for (let i = 0; i < chunks.length; i += 6) {
+    const lote = chunks.slice(i, i + 6);
+    const textos = await Promise.all(lote.map(c => proxyGet(c.startsWith("http") ? c : BASE + c)));
+    textos.forEach(t => { if (t) run_extraccion(t, urls, hosts, rel); });
+    hechos += lote.length;
+    log("  revisados " + hechos + "/" + chunks.length);
+  }
+
+  const arr = (s) => [...s].sort();
+  let html = "<div class='box'><b>RESUMEN (cópiame TODO):</b><br><br>";
+  html += "<b>Direcciones API candidatas:</b><br>" + (arr(urls).length ? arr(urls).map(x => "• " + escapeHtml(x)).join("<br>") : "(ninguna)") + "<br><br>";
+  html += "<b>Rutas internas (/api, /search...):</b><br>" + (arr(rel).length ? arr(rel).slice(0, 40).map(x => "• " + escapeHtml(x)).join("<br>") : "(ninguna)") + "<br><br>";
+  html += "<b>Hosts externos vistos:</b><br>" + (arr(hosts).length ? arr(hosts).slice(0, 40).map(x => "• " + escapeHtml(x)).join("<br>") : "(ninguno)") + "</div>";
+  document.getElementById("box").innerHTML = html;
+  log("\nListo. Copia la cajita verde.");
+  document.getElementById("btn").disabled = false;
+}
+function escapeHtml(t) { const d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
+</script>
+</body>
+</html>
