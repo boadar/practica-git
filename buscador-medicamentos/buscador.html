@@ -184,7 +184,12 @@ async function buscarFarmatodo(q) {
         body: JSON.stringify({ params: "query=" + encodeURIComponent(q) + "&hitsPerPage=24" })
       });
     } catch (e) { diag.push(idx + ": red/CORS " + e.message); continue; }
-    if (!res.ok) { diag.push(idx + ": HTTP " + res.status); continue; }
+    if (!res.ok) {
+      let cuerpo = "";
+      try { cuerpo = (await res.text()).replace(/\s+/g, " ").slice(0, 160); } catch (e) {}
+      diag.push(idx + ": HTTP " + res.status + " " + cuerpo);
+      continue;
+    }
     const data = await res.json();
     const nb = data.nbHits || 0;
     diag.push(idx + ": " + nb + " hits");
