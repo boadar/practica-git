@@ -106,7 +106,8 @@
 
 // ---- Configuracion de Farmatodo (Algolia) ----
 const FARMATODO = {
-  app: "vcojeyd2po",
+  app: "VCOJEYD2PO",                    // Application ID en MAYUSCULAS (Algolia distingue mayus/minus)
+  host: "vcojeyd2po-dsn.algolia.net",   // el host si va en minusculas
   key: "869a91e98550dd668b8b1dc04bca9011",
   indices: ["products-vzla", "products-venezuela", "products"]
 };
@@ -171,7 +172,7 @@ function mejorPrecio(obj) {
 async function buscarFarmatodo(q) {
   const diag = [];
   for (const idx of FARMATODO.indices) {
-    const url = "https://" + FARMATODO.app + "-dsn.algolia.net/1/indexes/" + idx + "/query";
+    const url = "https://" + FARMATODO.host + "/1/indexes/" + idx + "/query";
     let res;
     try {
       res = await fetch(url, {
@@ -243,6 +244,7 @@ async function buscar(q) {
       todos = todos.concat(r.items);
       chips.push(chip("Farmatodo", r.items.length + " resultados", r.items.length ? "ok" : "err"));
       if (r.items.length === 0) ftDiag = r.diag;
+      else if (r.items[0] && r.items[0].precio == null) ftDiag = r.diag; // hay productos pero sin precio: ver campos
     } catch (e) {
       chips.push(chip("Farmatodo", "error", "err"));
       ftDiag = [String(e.message)];
