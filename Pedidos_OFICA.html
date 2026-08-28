@@ -481,7 +481,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v186</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v187</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -563,6 +563,10 @@
         <button class="iconbtn cargarinv" id="btnCargarHist" type="button" style="display:none" title="Cargar el Excel de ventas (historial de compras) y publicarlo. Se fusiona con la base: conserva lo anterior y actualiza los meses repetidos con la data nueva. Pide un token que no se guarda.">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 9l-5 5-3-3-4 4"/></svg>
         <span class="btnlabel">Cargar Histórico</span>
+      </button>
+        <button class="iconbtn cargarinv" id="btnSync" type="button" style="display:none" title="Sincronizar los pedidos entre el teléfono y la computadora (repositorio privado tuyo en GitHub).">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        <span class="btnlabel">Sincronizar</span>
       </button>
       </div></div>
       <input type="file" id="fileCargarHist" accept=".xlsx" style="display:none">
@@ -786,6 +790,24 @@
         <button class="btn" id="tokCancel">Cancelar</button>
         <button class="btn primary" id="tokOk">Publicar</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="syncModal">
+  <div class="sheet">
+    <header><h2>Sincronizar dispositivos</h2><button class="closex" id="syncClose">×</button></header>
+    <div class="cfbody">
+      <p>Los pedidos se comparten entre el teléfono y la computadora a través de un <b>repositorio PRIVADO</b> tuyo en GitHub (solo accesible con tu token). Pega tu <b>token de GitHub</b> (clásico, con alcance <i>repo</i>) y pulsa <b>Conectar</b>. Repite lo mismo en el otro dispositivo con el <b>mismo token</b>.</p>
+      <input type="password" id="syncToken" placeholder="github_pat_... o ghp_..." autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div class="cfbtns" style="flex-wrap:wrap">
+        <button class="btn" id="syncClose2">Cerrar</button>
+        <button class="btn danger" id="syncDisconnect" type="button" style="display:none">Desconectar</button>
+        <button class="btn" id="syncNow" type="button" style="display:none">Sincronizar ahora</button>
+        <button class="btn primary" id="syncConnect" type="button">Conectar</button>
+      </div>
+      <div id="syncEstado" style="margin-top:10px;font-size:12.5px;color:var(--ink-3)"></div>
+      <p style="font-size:11.5px;color:var(--ink-3);margin-top:8px">El token se guarda solo en este dispositivo para poder sincronizar en segundo plano. Puedes revocarlo cuando quieras desde GitHub. La primera vez se crea el repositorio privado <b>pedidos-ofica-sync</b> automáticamente.</p>
     </div>
   </div>
 </div>
@@ -17938,7 +17960,137 @@ let locked=false;          // true = modo solo lectura (pedido guardado abierto)
 let adminMode=false;       // true = edición de precios (clave de administrador)
 const ADMIN_KEY='Solita.2026';
 function loadOrders(){ try{const raw=localStorage.getItem(ORDERS_KEY);return raw?JSON.parse(raw):[];}catch(e){return [];} }
-function storeOrders(list){ try{localStorage.setItem(ORDERS_KEY,JSON.stringify(list)); return true;}catch(e){ console.error('storeOrders', e); return false; } }
+// ===== Sincronización de pedidos entre dispositivos (repositorio PRIVADO en GitHub) =====
+// Repo privado (solo accesible con el token) + archivo pedidos.json. Cada pedido lleva updatedAt;
+// los borrados dejan una "tumba" (id->fecha) para que no reaparezcan. Fusión: por id gana el más
+// reciente; si fue borrado después de su última edición, se omite.
+const ORDERS_DELETED_KEY='ofica_pedidos_del_v1';
+const SYNC_CFG_KEY='ofica_sync_cfg_v1';
+const SYNC_REPO='pedidos-ofica-sync', SYNC_FILE='pedidos.json';
+function syncCfg(){ try{ const c=JSON.parse(localStorage.getItem(SYNC_CFG_KEY)||'{}'); return (c&&typeof c==='object')?c:{}; }catch(e){ return {}; } }
+function syncCfgSet(c){ try{ localStorage.setItem(SYNC_CFG_KEY, JSON.stringify(c||{})); }catch(e){} }
+function syncActivo(){ const c=syncCfg(); return !!(c.token && c.owner); }
+function loadDeleted(){ try{ const d=JSON.parse(localStorage.getItem(ORDERS_DELETED_KEY)||'{}'); return (d&&typeof d==='object'&&!Array.isArray(d))?d:{}; }catch(e){ return {}; } }
+function storeDeleted(d){ try{ localStorage.setItem(ORDERS_DELETED_KEY, JSON.stringify(d||{})); }catch(e){} }
+function _ordSinUpd(o){ const c=Object.assign({}, o); delete c.updatedAt; return JSON.stringify(c); }
+function storeOrdersRaw(list){ try{ localStorage.setItem(ORDERS_KEY, JSON.stringify(list||[])); return true; }catch(e){ console.error('storeOrdersRaw', e); return false; } }
+// choke point: detecta cambios (updatedAt), borrados (tumbas) y dispara la subida
+function storeOrders(list){
+  try{
+    const prev=loadOrders(); const pm={}; prev.forEach(o=>{ if(o&&o.id) pm[o.id]=o; });
+    const now=new Date().toISOString();
+    list.forEach(o=>{ if(!o||!o.id) return; const old=pm[o.id];
+      if(!old){ if(!o.updatedAt) o.updatedAt=o.savedAt||now; }
+      else if(_ordSinUpd(old)!==_ordSinUpd(o)){ o.updatedAt=now; }
+      else if(!o.updatedAt){ o.updatedAt=old.updatedAt||o.savedAt||now; }
+    });
+    const vivos=new Set(list.map(o=>o&&o.id)); const del=loadDeleted(); let dch=false;
+    prev.forEach(o=>{ if(o&&o.id&&!vivos.has(o.id)){ del[o.id]=now; dch=true; } });   // borrados
+    list.forEach(o=>{ if(o&&o.id&&del[o.id]){ delete del[o.id]; dch=true; } });         // re-creados
+    if(dch) storeDeleted(del);
+    localStorage.setItem(ORDERS_KEY,JSON.stringify(list));
+    syncPushDebounced();
+    return true;
+  }catch(e){ console.error('storeOrders', e); return false; }
+}
+// une pedidos locales+remotos por id (gana updatedAt más reciente) respetando tumbas
+function mergeOrders(lList, lDel, rList, rDel){
+  const del=Object.assign({}, rDel||{});
+  Object.keys(lDel||{}).forEach(id=>{ if(!del[id] || lDel[id]>del[id]) del[id]=lDel[id]; });
+  const byId={};
+  (rList||[]).concat(lList||[]).forEach(o=>{ if(!o||!o.id) return; const ex=byId[o.id];
+    const ou=o.updatedAt||o.savedAt||'', eu=ex?(ex.updatedAt||ex.savedAt||''):'';
+    if(!ex || ou>=eu) byId[o.id]=o; });
+  const orders=[];
+  Object.keys(byId).forEach(id=>{ const o=byId[id], du=del[id];
+    if(du && du>=(o.updatedAt||o.savedAt||'')) return;   // borrado tras su última edición
+    orders.push(o); });
+  return {orders, del};
+}
+function _syncH(cfg){ return {'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}; }
+async function syncGithubUser(token){ const r=await fetch('https://api.github.com/user',{headers:_syncH({token})}); if(!r.ok) throw new Error('Token inválido o sin permiso ('+r.status+')'); return (await r.json()).login; }
+async function syncEnsureRepo(cfg){
+  const r=await fetch('https://api.github.com/repos/'+cfg.owner+'/'+SYNC_REPO, {headers:_syncH(cfg)});
+  if(r.ok) return true;
+  if(r.status===404){
+    const cr=await fetch('https://api.github.com/user/repos',{method:'POST',headers:_syncH(cfg),body:JSON.stringify({name:SYNC_REPO, private:true, auto_init:true, description:'Sincronización de pedidos OFICA (privado)'})});
+    if(!cr.ok) throw new Error('No se pudo crear el repositorio privado ('+cr.status+'). El token necesita alcance repo.');
+    return true;
+  }
+  throw new Error('No se pudo acceder al repositorio ('+r.status+')');
+}
+async function syncGet(cfg){
+  const r=await fetch('https://api.github.com/repos/'+cfg.owner+'/'+SYNC_REPO+'/contents/'+SYNC_FILE, {headers:_syncH(cfg)});
+  if(r.status===404) return {orders:[], del:{}, sha:null};
+  if(!r.ok) throw new Error('Lectura de sincronización '+r.status);
+  const j=await r.json(); let content='';
+  try{ content=decodeURIComponent(escape(atob(String(j.content||'').replace(/\n/g,'')))); }catch(e){ content=''; }
+  let d={}; try{ d=JSON.parse(content||'{}'); }catch(e){}
+  return {orders:d.orders||[], del:d.deleted||{}, sha:j.sha||null};
+}
+async function syncPut(cfg, orders, del, sha){
+  const content=JSON.stringify({orders, deleted:del, updatedAt:new Date().toISOString()});
+  const body={message:'pedidos '+new Date().toISOString(), content:ghEncodeB64(content)}; if(sha) body.sha=sha;
+  const r=await fetch('https://api.github.com/repos/'+cfg.owner+'/'+SYNC_REPO+'/contents/'+SYNC_FILE, {method:'PUT', headers:_syncH(cfg), body:JSON.stringify(body)});
+  if(!r.ok) throw new Error('Escritura de sincronización '+r.status);
+}
+let _syncing=false, _syncTimer=null;
+function _syncEstado(estado, err){ const el=$('#syncEstado'); if(!el) return;
+  const c=syncCfg(); if(!syncActivo()){ el.textContent='No configurada en este dispositivo.'; return; }
+  if(estado==='ok') el.textContent='✓ Sincronizado ('+new Date().toLocaleTimeString()+') · usuario '+(c.owner||'');
+  else if(estado==='err') el.textContent='⚠ '+(err&&err.message?err.message:'error')+' · reintenta o revisa el token.';
+  else if(estado==='sync') el.textContent='Sincronizando…';
+}
+async function syncPull(silent){
+  if(!syncActivo() || _syncing) return; _syncing=true; _syncEstado('sync');
+  try{ const cfg=syncCfg(); const remote=await syncGet(cfg);
+    const m=mergeOrders(loadOrders(), loadDeleted(), remote.orders, remote.del);
+    storeOrdersRaw(m.orders); storeDeleted(m.del);
+    if($('#ordersModal') && $('#ordersModal').classList.contains('open')) openPedidos();
+    _syncEstado('ok');
+  }catch(e){ _syncEstado('err', e); if(!silent && typeof toast==='function') toast('No se pudo sincronizar: '+e.message); }
+  finally{ _syncing=false; }
+}
+async function syncPushNow(){
+  if(!syncActivo()) return; const cfg=syncCfg();
+  for(let intento=0; intento<2; intento++){
+    try{ const remote=await syncGet(cfg);
+      const m=mergeOrders(loadOrders(), loadDeleted(), remote.orders, remote.del);
+      storeOrdersRaw(m.orders); storeDeleted(m.del);
+      await syncPut(cfg, m.orders, m.del, remote.sha);
+      _syncEstado('ok'); return;
+    }catch(e){ if(intento===0){ continue; } _syncEstado('err', e); }
+  }
+}
+function syncPushDebounced(){ if(!syncActivo()) return; clearTimeout(_syncTimer); _syncTimer=setTimeout(syncPushNow, 2500); }
+function _syncRefreshUI(){
+  const on=syncActivo(), dc=$('#syncDisconnect'), nw=$('#syncNow'), cn=$('#syncConnect'), tk=$('#syncToken');
+  if(dc) dc.style.display=on?'':'none';
+  if(nw) nw.style.display=on?'':'none';
+  if(cn) cn.textContent=on?'Reconectar':'Conectar';
+  if(tk) tk.placeholder = on ? 'Ya conectado — pega un token nuevo solo si cambió' : 'github_pat_... o ghp_...';
+  const el=$('#syncEstado'); if(el){ if(on) _syncEstado('ok'); else el.textContent='No configurada en este dispositivo.'; }
+}
+function abrirSync(){ const t=$('#syncToken'); if(t) t.value=''; _syncRefreshUI(); $('#syncModal').classList.add('open'); }
+function cerrarSync(){ $('#syncModal').classList.remove('open'); }
+async function syncConectar(){
+  const tok=(($('#syncToken')||{}).value||'').trim(); const cfg=syncCfg(); const token=tok||cfg.token;
+  if(!token){ if(typeof toast==='function') toast('Pega el token de GitHub'); return; }
+  const el=$('#syncEstado'); if(el) el.textContent='Conectando…';
+  try{
+    const owner=await syncGithubUser(token);
+    const nuevo={token, owner}; await syncEnsureRepo(nuevo); syncCfgSet(nuevo);
+    await syncPushNow(); await syncPull(true); _syncRefreshUI();
+    if(typeof toast==='function') toast('Sincronización activada · usuario '+owner);
+  }catch(e){ const el=$('#syncEstado'); if(el) el.textContent='⚠ '+((e&&e.message)?e.message:'No se pudo conectar')+' · revisa el token (debe tener alcance repo).'; }
+}
+function syncDesconectar(){ syncCfgSet({}); _syncRefreshUI(); if(typeof toast==='function') toast('Sincronización desconectada en este dispositivo'); }
+function syncInit(){
+  if(syncActivo()) syncPull(true);
+  try{ document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && syncActivo()) syncPull(true); }); }catch(e){}
+  try{ window.addEventListener('online', ()=>{ if(syncActivo()){ syncPull(true); syncPushNow(); } }); }catch(e){}
+  setInterval(()=>{ if(syncActivo() && !document.hidden) syncPull(true); }, 60000);
+}
 // ---- Documentos del cliente nuevo (RIF, cédula, etc.) en IndexedDB: localStorage es muy chico para PDFs/imágenes ----
 const IDB_NAME='ofica_docs', IDB_STORE='docs'; let _idbP=null;
 function idbOpen(){ if(_idbP) return _idbP; _idbP=new Promise((res,rej)=>{ try{ const r=indexedDB.open(IDB_NAME,1); r.onupgradeneeded=()=>{ try{ r.result.createObjectStore(IDB_STORE); }catch(e){} }; r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }catch(e){ rej(e); } }); return _idbP; }
@@ -19788,7 +19940,7 @@ function cerrarListaCliente(input){
 }
 
 async function toggleAdmin(){
-  const admBtns=['#btnCargar','#btnCargarOtro','#ocSelect','#btnCargarInv','#btnNuevoProd','#btnPrecioTmp','#btnDescuentos','#btnOverInv','#btnRespaldo','#btnRestaurar','#btnReset','#btnEditarCat','#btnActualizarApp','#btnCargarHist'];
+  const admBtns=['#btnCargar','#btnCargarOtro','#ocSelect','#btnCargarInv','#btnNuevoProd','#btnPrecioTmp','#btnDescuentos','#btnOverInv','#btnRespaldo','#btnRestaurar','#btnReset','#btnEditarCat','#btnActualizarApp','#btnCargarHist','#btnSync'];
   if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display='none'; }); { const ag=$('#admGroups'); if(ag) ag.style.display='none'; } filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
   const pass=await askPassword();
   if(pass==null) return;
@@ -21838,7 +21990,14 @@ function wire(){
     f.text().then(txt=>{ restaurarRespaldo(txt); e.target.value=''; })
       .catch(err=>{ toast('No se pudo leer el archivo'); console.error(err); e.target.value=''; });
   });
-  $('#btnVerPedidos').addEventListener('click',openPedidos);
+  $('#btnVerPedidos').addEventListener('click',()=>{ if(syncActivo()) syncPull(true); openPedidos(); });
+  $('#btnSync').addEventListener('click',abrirSync);
+  $('#syncClose').addEventListener('click',cerrarSync);
+  $('#syncClose2').addEventListener('click',cerrarSync);
+  $('#syncConnect').addEventListener('click',syncConectar);
+  $('#syncNow').addEventListener('click',()=>{ syncPull(false).then(syncPushNow); });
+  $('#syncDisconnect').addEventListener('click',syncDesconectar);
+  $('#syncModal').addEventListener('click',e=>{ if(e.target===$('#syncModal')) cerrarSync(); });
   $('#opClose').addEventListener('click',cerrarPedidos);
   $('#opFiltro').addEventListener('input',opAplicarFiltro);
   $('#ofilterEst').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b)); opAplicarFiltro(); });
@@ -21917,6 +22076,7 @@ function wire(){
     if($('#catModal').classList.contains('open')){ $('#catNo').click(); return; }
     if($('#confirmModal').classList.contains('open')){ $('#cfNo').click(); return; }
     if($('#tokenModal').classList.contains('open')){ $('#tokNo').click(); return; }
+    if($('#syncModal').classList.contains('open')){ cerrarSync(); return; }
     if($('#ocModal').classList.contains('open')){ $('#ocModal').classList.remove('open'); return; }   // cerrar Cargar OC sin procesar
     if($('#precioTmpModal').classList.contains('open')){ $('#precioTmpModal').classList.remove('open'); return; }
     if($('#nuevoProdModal').classList.contains('open')){ cerrarNuevoProd(); return; }
@@ -21951,7 +22111,7 @@ function syncHeaderVars(){
 // La app SIEMPRE inicia en blanco: cantidades en 0 y sin descuentos.
 try{ localStorage.removeItem(STORE_KEY); }catch(e){}
 state = {qty:{}, meta:{}};
-buildLists(); buildChips(); initMeta(); render(); updateTotals(); wire(); pwaSetup(); cargarClientesExtra();
+buildLists(); buildChips(); initMeta(); render(); updateTotals(); wire(); pwaSetup(); cargarClientesExtra(); syncInit();
 // aviso breve con la versión al abrir la app
 try{ const _v=(document.getElementById('appver')||{}).textContent||''; setTimeout(()=>toast('Pedidos OFICA '+_v+' · '+CATALOGO.length+' referencias'),400); }catch(e){}
 syncHeaderVars();
