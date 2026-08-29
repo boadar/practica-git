@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Apps OFICA</title>
+<style>
+  body { margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:22px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:#eef1f5; color:#1b2733; padding:24px; box-sizing:border-box; }
+  h1 { margin:0 0 6px; font-size:1.4rem; }
+  p.sub { margin:0 0 10px; color:#5b6b7b; font-size:.9rem; }
+  .apps { display:flex; flex-direction:column; gap:16px; width:100%; max-width:360px; }
+  a.app { display:flex; align-items:center; gap:14px; text-decoration:none; color:#fff;
+    padding:18px 20px; border-radius:16px; font-size:1.15rem; font-weight:700;
+    box-shadow:0 3px 10px rgba(0,0,0,.12); }
+  a.pedidos { background:linear-gradient(135deg,#009DDC,#0069b4); }
+  a.medic { background:linear-gradient(135deg,#1565c0,#0d47a1); }
+  .ico { font-size:1.6rem; }
+</style>
+</head>
+<body>
+  <div>
+    <h1>Apps OFICA</h1>
+    <p class="sub">Elige una aplicación</p>
+  </div>
+  <div class="apps">
+    <a class="app pedidos" href="./pedidos/"><span class="ico">🧾</span> Pedidos OFICA</a>
+    <a class="app medic" href="./medicamentos/"><span class="ico">💊</span> Buscador de Medicamentos</a>
+  </div>
+</body>
+</html>
