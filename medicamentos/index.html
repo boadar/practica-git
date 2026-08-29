@@ -45,6 +45,8 @@
     width:78px; padding:5px 7px; border:1px solid var(--borde); border-radius:7px;
   }
   .estado { font-size:.82rem; color:var(--suave); margin:8px 0; min-height:18px; }
+  .tasa-info { font-size:.72rem; color:var(--suave); }
+  .tasa-info.ok { color:var(--verde); }
   .fuente-estado { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
   .chip {
     font-size:.75rem; padding:4px 10px; border-radius:20px; background:#fff;
@@ -93,7 +95,8 @@
   </form>
 
   <div class="opciones">
-    <label>Tasa Bs/$: <input id="tasa" type="number" value="720" min="1" step="0.01" /></label>
+    <label>Tasa BCV Bs/$: <input id="tasa" type="number" value="720" min="1" step="0.01" /></label>
+    <span id="tasaInfo" class="tasa-info"></span>
     <label><input type="checkbox" id="cLocatel" checked /> Locatel</label>
     <label><input type="checkbox" id="cFarmatodo" checked /> Farmatodo</label>
     <label><input type="checkbox" id="cFarmabien" checked /> Farmabien</label>
@@ -422,6 +425,53 @@ function escapar(t) {
   const d = document.createElement("div"); d.textContent = t; return d.innerHTML;
 }
 
+// ============ TASA BCV (misma fuente que la app de cobranza) ============
+async function obtenerTasaBCV() {
+  const fuentes = [
+    { url: "https://ve.dolarapi.com/v1/dolares/oficial",
+      get: (j) => Number(j && (j.promedio || j.venta || j.compra)) },
+    { url: "https://pydolarve.org/api/v1/dollar?page=bcv",
+      get: (j) => {
+        if (j && j.monitors) {
+          const m = j.monitors.usd || j.monitors.bcv || Object.values(j.monitors)[0];
+          if (m && m.price) return Number(m.price);
+        }
+        return Number(j && j.price);
+      } }
+  ];
+  for (const f of fuentes) {
+    const sep = f.url.includes("?") ? "&" : "?";
+    const intentos = [
+      f.url + sep + "_=" + Date.now(),
+      "https://api.allorigins.win/raw?url=" + encodeURIComponent(f.url)
+    ];
+    for (const u of intentos) {
+      try {
+        const r = await fetch(u, { cache: "no-store" });
+        if (!r.ok) continue;
+        const j = await r.json();
+        const v = f.get(j);
+        if (v > 0) return v;
+      } catch (e) {}
+    }
+  }
+  return null;
+}
+
+async function cargarTasa() {
+  const info = $("tasaInfo");
+  info.className = "tasa-info";
+  info.textContent = "(BCV: actualizando…)";
+  const usd = await obtenerTasaBCV();
+  if (usd) {
+    $("tasa").value = usd.toFixed(2);
+    info.className = "tasa-info ok";
+    info.textContent = "BCV automática ✓ (" + new Date().toLocaleDateString("es-VE") + ")";
+  } else {
+    info.textContent = "(no se pudo traer BCV; ajusta manual)";
+  }
+}
+
 $("form").addEventListener("submit", (e) => {
   e.preventDefault();
   const q = $("q").value.trim();
@@ -429,6 +479,8 @@ $("form").addEventListener("submit", (e) => {
   $("btn").disabled = true;
   buscar(q).finally(() => { $("btn").disabled = false; });
 });
+
+cargarTasa();
 </script>
 </body>
 </html>
