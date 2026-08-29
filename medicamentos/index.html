@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Medicamentos" />
+<meta name="theme-color" content="#0d47a1" />
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAB7klEQVR4nO3cwQ3CMBAAQYL4hrZCFfQWqqAuKqAB9oMUJ1JmCrD9WN3PN83LeoFfrns/gOMSB0kcJHGQxEESB0kcJHGQxEESB0kcJHGQxEESB0kcJHGQxEESB0kcJHGQxEESB0kcJHGQxEESB0kcJHGQxEESB0kcJHGQxEESB0kcJHGQxEG67f2AET7v5xbH3h+vLY49DpODJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDNM3LOvjKjXb7ncHg/YUmB0kcJHGQxEESB0kcJHGQxEESB0kcJHGQxEESB0kcJHGQxEESB0kcJHGQxEESB0kcJHGQxEESB0kcJHGQxEHa4SP1eBt93R78rXk8k4MkDpI4SOIgiYMkDpI4SOIgiYMkDpI4SOIgiYMkDpI4SOIgiYMkDpI4SOIgiYMkDpI4SOIgiYMkDpI4SOIgiYMkDpI4SOIgiYMkDpI4SOIgiYN0im2C/MfkIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEhfkbsOOxbciOYAAAAASUVORK5CYII=" />
+<title>Buscador de Medicamentos VE</title>
+<style>
+  :root {
+    --azul:#1565c0; --azul2:#0d47a1; --verde:#2e7d32; --gris:#f2f5f9;
+    --borde:#e0e5eb; --texto:#1b2733; --suave:#5b6b7b;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--gris); color:var(--texto);
+  }
+  header {
+    background:linear-gradient(135deg,var(--azul),var(--azul2));
+    color:#fff; padding:18px 16px; text-align:center;
+  }
+  header h1 { margin:0 0 4px; font-size:1.25rem; }
+  header p { margin:0; opacity:.9; font-size:.82rem; }
+  main { max-width:820px; margin:0 auto; padding:14px; }
+  .buscador { display:flex; gap:8px; margin-bottom:10px; }
+  .buscador input {
+    flex:1; padding:13px 14px; font-size:1rem; border:1px solid var(--borde);
+    border-radius:10px; -webkit-appearance:none;
+  }
+  .buscador button {
+    padding:13px 18px; font-size:1rem; font-weight:600; color:#fff;
+    background:var(--azul); border:none; border-radius:10px; cursor:pointer;
+  }
+  .buscador button:disabled { opacity:.6; }
+  .opciones {
+    display:flex; flex-wrap:wrap; align-items:center; gap:14px;
+    font-size:.82rem; color:var(--suave); margin-bottom:12px;
+  }
+  .opciones label { display:flex; align-items:center; gap:5px; }
+  .opciones input[type=number] {
+    width:78px; padding:5px 7px; border:1px solid var(--borde); border-radius:7px;
+  }
+  .estado { font-size:.82rem; color:var(--suave); margin:8px 0; min-height:18px; }
+  .fuente-estado { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+  .chip {
+    font-size:.75rem; padding:4px 10px; border-radius:20px; background:#fff;
+    border:1px solid var(--borde);
+  }
+  .chip.ok { border-color:#bfe3c2; color:var(--verde); }
+  .chip.err { border-color:#f0c4c4; color:#b71c1c; }
+  .card {
+    background:#fff; border:1px solid var(--borde); border-radius:12px;
+    padding:12px 14px; margin-bottom:10px; display:flex; gap:12px; align-items:flex-start;
+  }
+  .card.top { border-color:#bfe3c2; background:#f3fbf4; }
+  .card img { width:54px; height:54px; object-fit:contain; border-radius:8px; background:#fff; flex:none; }
+  .card .info { flex:1; min-width:0; }
+  .card .nombre { font-weight:600; font-size:.95rem; line-height:1.25; }
+  .card .meta { font-size:.78rem; color:var(--suave); margin-top:2px; }
+  .badge {
+    display:inline-block; font-size:.7rem; font-weight:700; padding:2px 8px;
+    border-radius:20px; color:#fff; margin-right:6px;
+  }
+  .badge.Locatel { background:#00843d; }
+  .badge.Farmatodo { background:#0069b4; }
+  .badge.Badan { background:#5c6bc0; }
+  .badge.Farmabien { background:#0F5A2D; }
+  .precio { text-align:right; flex:none; white-space:nowrap; }
+  .precio .bs { font-weight:700; font-size:.98rem; }
+  .precio .usd { font-size:.78rem; color:var(--verde); }
+  .precio a { display:block; font-size:.72rem; color:var(--azul); margin-top:4px; text-decoration:none; }
+  .vacio { text-align:center; color:var(--suave); padding:30px 10px; }
+  .diag { background:#fff8e1; border:1px solid #ffe082; border-radius:8px;
+    padding:10px 12px; margin-bottom:10px; font-size:.78rem; color:#6d4c00; word-break:break-word; }
+  footer { text-align:center; font-size:.72rem; color:var(--suave); padding:16px; }
+  .estrella { color:#e6a700; }
+</style>
+</head>
+<body>
+<header>
+  <h1>💊 Buscador de Medicamentos</h1>
+  <p>Compara precios: Locatel · Farmatodo · Farmabien</p>
+</header>
+
+<main>
+  <form class="buscador" id="form">
+    <input id="q" type="text" placeholder="Escribe un medicamento..." autocomplete="off" required />
+    <button id="btn" type="submit">Buscar</button>
+  </form>
+
+  <div class="opciones">
+    <label>Tasa Bs/$: <input id="tasa" type="number" value="720" min="1" step="0.01" /></label>
+    <label><input type="checkbox" id="cLocatel" checked /> Locatel</label>
+    <label><input type="checkbox" id="cFarmatodo" checked /> Farmatodo</label>
+    <label><input type="checkbox" id="cFarmabien" checked /> Farmabien</label>
+    <label><input type="checkbox" id="cBadan" /> Badan <span style="opacity:.7">(bloqueado)</span></label>
+  </div>
+
+  <div class="fuente-estado" id="fuentes"></div>
+  <div class="estado" id="estado"></div>
+  <div id="resultados"></div>
+</main>
+
+<footer>
+  Precios en Bs.; el dólar es una estimación con la tasa que indiques.<br />
+  Los datos provienen de cada farmacia; pueden variar. Uso personal.
+</footer>
+
+<script>
+"use strict";
+
+// ---- Configuracion de Farmatodo (Algolia) ----
+const FARMATODO = {
+  app: "VCOJEYD2PO",                    // Application ID en MAYUSCULAS (Algolia distingue mayus/minus)
+  host: "vcojeyd2po-dsn.algolia.net",   // el host si va en minusculas
+  key: "869a91e98550dd668b8b1dc04bca9011",
+  indices: ["products-venezuela", "products"]
+};
+
+const $ = (id) => document.getElementById(id);
+const fmtBs = new Intl.NumberFormat("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// ============ LOCATEL ============
+async function traerConProxy(url) {
+  // 1) directo  2) allorigins  3) corsproxy
+  const intentos = [
+    url,
+    "https://api.allorigins.win/raw?url=" + encodeURIComponent(url),
+    "https://corsproxy.io/?url=" + encodeURIComponent(url)
+  ];
+  let ultimoError;
+  for (const u of intentos) {
+    try {
+      const r = await fetch(u, { headers: { "Accept": "application/json" } });
+      if (!r.ok) { ultimoError = "HTTP " + r.status; continue; }
+      return await r.json();
+    } catch (e) { ultimoError = e.message; }
+  }
+  throw new Error(ultimoError || "sin respuesta");
+}
+
+async function buscarLocatel(q) {
+  const url = "https://www.locatel.com.ve/api/catalog_system/pub/products/search/"
+            + encodeURIComponent(q) + "?_from=0&_to=19";
+  const data = await traerConProxy(url);
+  if (!Array.isArray(data)) return [];
+  return data.map((p) => {
+    const nombre = p.productName;
+    if (!nombre) return null;
+    let precio = null, img = null;
+    const items = p.items || [];
+    if (items[0]) {
+      const s = items[0].sellers || [];
+      if (s[0]) precio = (s[0].commertialOffer || {}).Price;
+      const im = items[0].images || [];
+      if (im[0]) img = im[0].imageUrl;
+    }
+    let link = p.link || (p.linkText ? "https://www.locatel.com.ve/" + p.linkText + "/p" : "");
+    return { nombre: nombre.trim(), marca: p.brand || "", precio, link, img, fuente: "Locatel" };
+  }).filter(Boolean);
+}
+
+// ============ BADAN (Magento, via proxy) ============
+async function traerTexto(url) {
+  const intentos = [
+    "https://api.allorigins.win/raw?url=" + encodeURIComponent(url),
+    "https://corsproxy.io/?url=" + encodeURIComponent(url)
+  ];
+  let err;
+  for (const u of intentos) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 12000);
+      const r = await fetch(u, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (r.ok) return await r.text();
+      err = "HTTP " + r.status;
+    } catch (e) { err = e.message; }
+  }
+  throw new Error(err || "sin respuesta");
+}
+
+async function buscarBadan(q) {
+  const target = "https://farmaciabadan.com/catalogsearch/result/?q=" + encodeURIComponent(q);
+  let html;
+  try { html = await traerTexto(target); } catch (e) { return { items: [], estado: "error" }; }
+  if (/just a moment|cf-browser-verification|challenge-platform/i.test(html)) {
+    return { items: [], estado: "cloudflare" };
+  }
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const items = [];
+  doc.querySelectorAll(".product-item-info").forEach((n) => {
+    const a = n.querySelector(".product-item-link");
+    const nombre = a ? a.textContent.trim() : "";
+    if (!nombre) return;
+    let precio = null;
+    const pa = n.querySelector("[data-price-amount]");
+    if (pa) { const v = parseFloat(pa.getAttribute("data-price-amount")); if (v > 0) precio = v; }
+    if (precio == null) {
+      const pt = n.querySelector(".price");
+      if (pt) {
+        const m = pt.textContent.replace(/[^\d,.]/g, "").replace(/\./g, "").replace(",", ".");
+        const v = parseFloat(m); if (v > 0) precio = v;
+      }
+    }
+    const link = a ? a.href : "";
+    const im = n.querySelector("img");
+    const img = im ? (im.getAttribute("src") || im.getAttribute("data-src") || "") : "";
+    items.push({ nombre, marca: "", precio, link, img, fuente: "Badan" });
+  });
+  return { items, estado: "ok" };
+}
+
+// ============ FARMABIEN (Next.js, via proxy) ============
+function parsePrecioFB(s) {
+  const m = s.replace(/[^\d.,]/g, "").replace(/\./g, "").replace(",", ".");
+  const v = parseFloat(m); return v > 0 ? v : null;
+}
+
+async function buscarFarmabien(q) {
+  const url = "https://www.farmabien.com/productos?term=" + encodeURIComponent(q);
+  let html;
+  try { html = await traerTexto(url); } catch (e) { return { items: [], estado: "error" }; }
+
+  // Desempaquetar el "flight" de Next.js (self.__next_f.push([1,"..."]))
+  let flight = "";
+  for (const p of html.matchAll(/self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)/g)) {
+    try { flight += JSON.parse('"' + p[1] + '"'); } catch (e) {}
+  }
+  if (flight.length < 500) flight = html;
+
+  const nombres = [...flight.matchAll(/"h3",null,\{"className":"[^"]*","children":"([^"]*)"/g)];
+  const precios = [...flight.matchAll(/"children":"(Bs\.?S?\s*[0-9][\d.,]*)"/g)];
+  const ids = [...flight.matchAll(/\/productos\/(\d+)"/g)];
+
+  const items = [];
+  for (let i = 0; i < nombres.length; i++) {
+    const nombre = nombres[i][1].trim();
+    if (!nombre) continue;
+    const ini = nombres[i].index;
+    const fin = (i + 1 < nombres.length) ? nombres[i + 1].index : flight.length;
+    let precio = null;
+    for (const pm of precios) { if (pm.index > ini && pm.index < fin) { precio = parsePrecioFB(pm[1]); break; } }
+    let id = null;
+    for (const im of ids) { if (im.index < ini) id = im[1]; else break; }
+    items.push({ nombre, marca: "", precio, link: id ? "https://www.farmabien.com/productos/" + id : "", img: "", fuente: "Farmabien" });
+  }
+
+  if (!items.length && /<title>\s*just a moment/i.test(html)) return { items: [], estado: "cloudflare" };
+  return { items, estado: "ok" };
+}
+
+// ============ FARMATODO (Algolia) ============
+function mejorPrecio(obj) {
+  const pref = ["finalprice","offerprice","sellprice","saleprice","pricewithdiscount","fullprice","price","precio","pvp"];
+  let best = null, rank = 999;
+  for (const k in obj) {
+    let v = obj[k];
+    if (typeof v === "number" && isFinite(v) && v > 0) {
+      const lk = k.toLowerCase();
+      pref.forEach((p, i) => { if (lk.includes(p) && i < rank) { best = v; rank = i; } });
+    }
+  }
+  return best;
+}
+
+async function buscarFarmatodo(q) {
+  const diag = [];
+  for (const idx of FARMATODO.indices) {
+    const url = "https://" + FARMATODO.host + "/1/indexes/" + idx + "/query";
+    let res;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "X-Algolia-Application-Id": FARMATODO.app,
+          "X-Algolia-API-Key": FARMATODO.key,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ params: "query=" + encodeURIComponent(q) + "&hitsPerPage=24" })
+      });
+    } catch (e) { diag.push(idx + ": red/CORS " + e.message); continue; }
+    if (!res.ok) {
+      let cuerpo = "";
+      try { cuerpo = (await res.text()).replace(/\s+/g, " ").slice(0, 160); } catch (e) {}
+      diag.push(idx + ": HTTP " + res.status + " " + cuerpo);
+      continue;
+    }
+    const data = await res.json();
+    const nb = data.nbHits || 0;
+    diag.push(idx + ": " + nb + " hits");
+    if (nb > 0 && data.hits && data.hits.length) {
+      const items = data.hits.map((h) => {
+        const nombre = h.mediaDescription || h.largeDescription || h.grayDescription
+                    || h.name || h.fullName || h.productName;
+        if (!nombre) return null;
+        const marca = h.marca || h.brand || "";
+        let precio = null;
+        if (h.fullPrice != null) {
+          const p = parseFloat(String(h.fullPrice).replace(",", "."));
+          if (isFinite(p) && p > 0) precio = p;
+        }
+        if (precio == null) precio = mejorPrecio(h);
+        const link = h.id ? "https://www.farmatodo.com.ve/producto/" + h.id : "";
+        const img = h.mediaImageUrl || (Array.isArray(h.listUrlImages) ? h.listUrlImages[0] : "") || "";
+        return { nombre: String(nombre).trim(), marca, precio, link, img, fuente: "Farmatodo" };
+      }).filter(Boolean);
+      diag.push("campos: " + Object.keys(data.hits[0]).slice(0, 30).join(","));
+      return { items, diag };
+    }
+  }
+  return { items: [], diag };
+}
+
+// ============ ORQUESTADOR ============
+function chip(fuente, texto, clase) {
+  return '<span class="chip ' + clase + '">' + fuente + ": " + texto + "</span>";
+}
+
+async function buscar(q) {
+  const tasa = parseFloat($("tasa").value) || 720;
+  const usarL = $("cLocatel").checked, usarF = $("cFarmatodo").checked,
+        usarFB = $("cFarmabien").checked, usarB = $("cBadan").checked;
+  $("estado").textContent = "Buscando...";
+  $("resultados").innerHTML = "";
+  $("fuentes").innerHTML = "";
+
+  let todos = [];
+  const chips = [];
+  let ftDiag = null;
+  const jobs = [];
+
+  if (usarL) jobs.push((async () => {
+    try {
+      const res = await buscarLocatel(q);
+      todos = todos.concat(res);
+      chips.push(chip("Locatel", res.length + " resultados", res.length ? "ok" : "err"));
+    } catch (e) {
+      chips.push(chip("Locatel", "no se pudo cargar", "err"));
+    }
+  })());
+
+  if (usarF) jobs.push((async () => {
+    try {
+      const r = await buscarFarmatodo(q);
+      todos = todos.concat(r.items);
+      chips.push(chip("Farmatodo", r.items.length + " resultados", r.items.length ? "ok" : "err"));
+      if (r.items.length === 0) ftDiag = r.diag;
+      else if (r.items[0] && r.items[0].precio == null) ftDiag = r.diag; // hay productos pero sin precio: ver campos
+    } catch (e) {
+      chips.push(chip("Farmatodo", "error", "err"));
+      ftDiag = [String(e.message)];
+    }
+  })());
+
+  if (usarFB) jobs.push((async () => {
+    try {
+      const r = await buscarFarmabien(q);
+      todos = todos.concat(r.items);
+      if (r.estado === "cloudflare") chips.push(chip("Farmabien", "no disponible (Cloudflare)", "err"));
+      else if (r.estado === "error") chips.push(chip("Farmabien", "no se pudo cargar", "err"));
+      else chips.push(chip("Farmabien", r.items.length + " resultados", r.items.length ? "ok" : "err"));
+    } catch (e) {
+      chips.push(chip("Farmabien", "no se pudo cargar", "err"));
+    }
+  })());
+
+  if (usarB) jobs.push((async () => {
+    try {
+      const r = await buscarBadan(q);
+      todos = todos.concat(r.items);
+      if (r.estado === "cloudflare") chips.push(chip("Badan", "no disponible (Cloudflare)", "err"));
+      else if (r.estado === "error") chips.push(chip("Badan", "no se pudo cargar", "err"));
+      else chips.push(chip("Badan", r.items.length + " resultados", r.items.length ? "ok" : "err"));
+    } catch (e) {
+      chips.push(chip("Badan", "no se pudo cargar", "err"));
+    }
+  })());
+
+  await Promise.all(jobs);
+  $("fuentes").innerHTML = chips.join("");
+
+  // ordenar del mas barato al mas caro (sin precio al final)
+  todos.sort((a, b) => {
+    if (a.precio == null) return 1;
+    if (b.precio == null) return -1;
+    return a.precio - b.precio;
+  });
+
+  let extra = "";
+  if (ftDiag && ftDiag.length) {
+    extra = '<div class="diag"><b>Diagnóstico Farmatodo</b> (cópiamelo): ' + escapar(ftDiag.join("  |  ")) + '</div>';
+  }
+
+  if (todos.length === 0) {
+    $("estado").textContent = "";
+    $("resultados").innerHTML = extra + '<div class="vacio">No se encontraron productos para "' + escapar(q) + '".</div>';
+    return;
+  }
+
+  $("estado").textContent = todos.length + ' resultado(s) para "' + q + '", del más barato al más caro.';
+  $("resultados").innerHTML = extra + todos.map((r, i) => {
+    const usd = r.precio != null ? "~$" + (r.precio / tasa).toFixed(2) : "";
+    const bs = r.precio != null ? "Bs. " + fmtBs.format(r.precio) : "s/precio";
+    const estrella = i === 0 ? '<span class="estrella">★ </span>' : "";
+    const img = r.img ? '<img src="' + r.img + '" alt="" onerror="this.style.display=\'none\'" />' : "";
+    const link = r.link ? '<a href="' + r.link + '" target="_blank" rel="noopener">ver ▸</a>' : "";
+    const marca = r.marca ? '<div class="meta">' + r.marca + "</div>" : "";
+    return '<div class="card ' + (i === 0 ? "top" : "") + '">' + img +
+      '<div class="info"><div class="nombre">' + estrella + escapar(r.nombre) + "</div>" +
+      '<div class="meta"><span class="badge ' + r.fuente + '">' + r.fuente + "</span>" +
+      (r.marca ? escapar(r.marca) : "") + "</div></div>" +
+      '<div class="precio"><div class="bs">' + bs + '</div><div class="usd">' + usd + "</div>" + link + "</div></div>";
+  }).join("");
+}
+
+function escapar(t) {
+  const d = document.createElement("div"); d.textContent = t; return d.innerHTML;
+}
+
+$("form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const q = $("q").value.trim();
+  if (!q) return;
+  $("btn").disabled = true;
+  buscar(q).finally(() => { $("btn").disabled = false; });
+});
+</script>
+</body>
+</html>
