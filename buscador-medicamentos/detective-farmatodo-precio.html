@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Detective precios Farmatodo</title>
+<style>
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; margin:0; background:#f2f5f9; color:#1b2733; }
+  header { background:#0d47a1; color:#fff; padding:16px; text-align:center; }
+  main { max-width:900px; margin:0 auto; padding:16px; }
+  input { padding:11px 12px; font-size:1rem; border:1px solid #ccc; border-radius:8px; width:60%; }
+  button { padding:11px 18px; font-size:1rem; font-weight:600; color:#fff; background:#1565c0; border:none; border-radius:8px; cursor:pointer; }
+  .box { background:#111; color:#8f8; font-family:monospace; font-size:.74rem; padding:12px; border-radius:8px; margin-top:14px; white-space:pre-wrap; word-break:break-word; min-height:60px; }
+</style>
+</head>
+<body>
+<header><h2>🔍 Detective de precios — Farmatodo</h2></header>
+<main>
+  <p>Escribe el producto y toca Analizar. Cópiame TODO lo que salga.</p>
+  <input id="q" value="acetaminofen calox" />
+  <button onclick="run()">Analizar</button>
+  <div class="box" id="out"></div>
+</main>
+<script>
+"use strict";
+const APP = "VCOJEYD2PO";
+const HOST = "vcojeyd2po-dsn.algolia.net";
+const KEY = "869a91e98550dd668b8b1dc04bca9011";
+const IDX = "products-venezuela";
+const out = document.getElementById("out");
+const log = (t) => { out.textContent += t + "\n"; };
+
+async function run() {
+  out.textContent = "";
+  const q = document.getElementById("q").value.trim() || "paracetamol";
+  log("Buscando '" + q + "' en Farmatodo...");
+  let data;
+  try {
+    const r = await fetch("https://" + HOST + "/1/indexes/" + IDX + "/query", {
+      method: "POST",
+      headers: { "X-Algolia-Application-Id": APP, "X-Algolia-API-Key": KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ params: "query=" + encodeURIComponent(q) + "&hitsPerPage=3" })
+    });
+    if (!r.ok) { log("HTTP " + r.status); return; }
+    data = await r.json();
+  } catch (e) { log("ERROR: " + e.message); return; }
+
+  const hits = data.hits || [];
+  log(data.nbHits + " resultados. Mostrando los campos de los primeros " + Math.min(hits.length, 3) + ":\n");
+
+  hits.slice(0, 3).forEach((h, idx) => {
+    log("================ PRODUCTO " + (idx + 1) + " ================");
+    // Nombre
+    log("nombre: " + (h.mediaDescription || h.fullName || h.name || "?"));
+    // Todos los campos NUMÉRICOS (precios candidatos)
+    log("-- campos numéricos --");
+    Object.keys(h).sort().forEach((k) => {
+      if (typeof h[k] === "number") log("   " + k + " = " + h[k]);
+    });
+    // Campos con nombre relacionado a precio/descuento
+    log("-- campos precio/descuento (texto/otros) --");
+    Object.keys(h).sort().forEach((k) => {
+      if (/price|precio|descuento|discount|offer|oferta|desc|promo|tag|cupon/i.test(k) && typeof h[k] !== "number") {
+        let v = JSON.stringify(h[k]);
+        if (v && v.length > 80) v = v.slice(0, 80) + "...";
+        log("   " + k + " = " + v);
+      }
+    });
+    log("");
+  });
+  log("Copia TODO este texto y pégamelo.");
+}
+</script>
+</body>
+</html>
