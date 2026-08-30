@@ -317,10 +317,11 @@ async function buscarFarmatodo(q) {
                     || h.name || h.fullName || h.productName;
         if (!nombre) return null;
         const marca = h.marca || h.brand || "";
-        // Disponibilidad: el boton "Agregar producto" se deshabilita cuando no es vendible.
-        // Una oferta (stores_with_offer) NO implica stock; la disponibilidad depende del stock real.
-        const conStock = Array.isArray(h.stores_with_stock) && h.stores_with_stock.length > 0;
-        const noVendible = h.anywaySelling === false && h.outofstore === true && !conStock;
+        // Disponibilidad: el producto se puede comprar solo si hay stock en alguna tienda
+        // (stores_with_stock) o en el almacen (totalStock). Sin stock = "No disponible".
+        const conStock = (Array.isArray(h.stores_with_stock) && h.stores_with_stock.length > 0)
+                      || Number(h.totalStock) > 0;
+        const noVendible = !conStock;
         let precio = null, precioRegular = null, descuento = null;
         if (!noVendible) {
           const regular = Number(h.fullPrice) || mejorPrecio(h) || null;
