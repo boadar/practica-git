@@ -317,14 +317,21 @@ async function buscarFarmatodo(q) {
                     || h.name || h.fullName || h.productName;
         if (!nombre) return null;
         const marca = h.marca || h.brand || "";
-        const regular = Number(h.fullPrice) || mejorPrecio(h) || null;
-        let precio = regular, precioRegular = null, descuento = null;
-        const oferta = Number(h.offerPrice);
-        // Aplicar descuento si la oferta es menor al precio regular (asi lo muestra el sitio).
-        if (regular && oferta > 0 && oferta < regular) {
-          precio = oferta;
-          precioRegular = regular;
-          descuento = String(h.offerText || (Math.round((1 - oferta / regular) * 100) + "%")).replace(/^-/, "");
+        // Disponibilidad: el boton "Agregar producto" se deshabilita cuando no es vendible.
+        const conVenta = (Array.isArray(h.stores_with_offer) && h.stores_with_offer.length > 0)
+                      || (Array.isArray(h.stores_with_stock) && h.stores_with_stock.length > 0);
+        const noVendible = h.anywaySelling === false && h.outofstore === true && !conVenta;
+        let precio = null, precioRegular = null, descuento = null;
+        if (!noVendible) {
+          const regular = Number(h.fullPrice) || mejorPrecio(h) || null;
+          precio = regular;
+          const oferta = Number(h.offerPrice);
+          // Aplicar descuento si la oferta es menor al precio regular (asi lo muestra el sitio).
+          if (regular && oferta > 0 && oferta < regular) {
+            precio = oferta;
+            precioRegular = regular;
+            descuento = String(h.offerText || (Math.round((1 - oferta / regular) * 100) + "%")).replace(/^-/, "");
+          }
         }
         const link = h.id ? "https://www.farmatodo.com.ve/producto/" + h.id : "";
         const img = h.mediaImageUrl || (Array.isArray(h.listUrlImages) ? h.listUrlImages[0] : "") || "";
