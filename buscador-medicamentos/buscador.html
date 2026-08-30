@@ -318,9 +318,9 @@ async function buscarFarmatodo(q) {
         if (!nombre) return null;
         const marca = h.marca || h.brand || "";
         // Disponibilidad: el boton "Agregar producto" se deshabilita cuando no es vendible.
-        const conVenta = (Array.isArray(h.stores_with_offer) && h.stores_with_offer.length > 0)
-                      || (Array.isArray(h.stores_with_stock) && h.stores_with_stock.length > 0);
-        const noVendible = h.anywaySelling === false && h.outofstore === true && !conVenta;
+        // Una oferta (stores_with_offer) NO implica stock; la disponibilidad depende del stock real.
+        const conStock = Array.isArray(h.stores_with_stock) && h.stores_with_stock.length > 0;
+        const noVendible = h.anywaySelling === false && h.outofstore === true && !conStock;
         let precio = null, precioRegular = null, descuento = null;
         if (!noVendible) {
           const regular = Number(h.fullPrice) || mejorPrecio(h) || null;
