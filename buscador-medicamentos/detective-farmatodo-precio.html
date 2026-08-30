@@ -17,7 +17,7 @@
 <header><h2>🔍 Detective de precios — Farmatodo</h2></header>
 <main>
   <p>Escribe el producto y toca Analizar. Cópiame TODO lo que salga.</p>
-  <input id="q" value="acetaminofen calox" />
+  <input id="q" value="crestor rosuvastatina mck" />
   <button onclick="run()">Analizar</button>
   <div class="box" id="out"></div>
 </main>
@@ -48,23 +48,16 @@ async function run() {
   const hits = data.hits || [];
   log(data.nbHits + " resultados. Mostrando los campos de los primeros " + Math.min(hits.length, 3) + ":\n");
 
-  hits.slice(0, 3).forEach((h, idx) => {
+  hits.slice(0, 2).forEach((h, idx) => {
     log("================ PRODUCTO " + (idx + 1) + " ================");
-    // Nombre
     log("nombre: " + (h.mediaDescription || h.fullName || h.name || "?"));
-    // Todos los campos NUMÉRICOS (precios candidatos)
-    log("-- campos numéricos --");
+    log("-- TODOS los campos --");
     Object.keys(h).sort().forEach((k) => {
-      if (typeof h[k] === "number") log("   " + k + " = " + h[k]);
-    });
-    // Campos con nombre relacionado a precio/descuento
-    log("-- campos precio/descuento (texto/otros) --");
-    Object.keys(h).sort().forEach((k) => {
-      if (/price|precio|descuento|discount|offer|oferta|desc|promo|tag|cupon/i.test(k) && typeof h[k] !== "number") {
-        let v = JSON.stringify(h[k]);
-        if (v && v.length > 80) v = v.slice(0, 80) + "...";
-        log("   " + k + " = " + v);
-      }
+      let v = h[k];
+      if (typeof v === "object") v = JSON.stringify(v);
+      v = String(v);
+      if (v.length > 90) v = v.slice(0, 90) + "...";
+      log("   " + k + " = " + v);
     });
     log("");
   });
