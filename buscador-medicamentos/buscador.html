@@ -80,6 +80,9 @@
   .precio .monto { font-weight:700; font-size:1.02rem; color:var(--verde); }
   .precio .ref { font-size:.76rem; color:var(--suave); }
   .precio .nodisp { font-weight:700; font-size:.85rem; color:#b71c1c; }
+  .precio .tachado { text-decoration:line-through; color:var(--suave); font-size:.72rem; }
+  .precio .desc { display:inline-block; background:#ffd54f; color:#5d4200; font-weight:700;
+    font-size:.68rem; padding:1px 6px; border-radius:10px; }
   .precio a { display:block; font-size:.72rem; color:var(--azul); margin-top:4px; text-decoration:none; }
   .card.agotado { background:#fff5f5; border-color:#f0c4c4; }
   .vacio { text-align:center; color:var(--suave); padding:30px 10px; }
@@ -314,15 +317,18 @@ async function buscarFarmatodo(q) {
                     || h.name || h.fullName || h.productName;
         if (!nombre) return null;
         const marca = h.marca || h.brand || "";
-        let precio = null;
-        if (h.fullPrice != null) {
-          const p = parseFloat(String(h.fullPrice).replace(",", "."));
-          if (isFinite(p) && p > 0) precio = p;
+        const regular = Number(h.fullPrice) || mejorPrecio(h) || null;
+        let precio = regular, precioRegular = null, descuento = null;
+        const oferta = Number(h.offerPrice);
+        // Aplicar descuento si la oferta es menor al precio regular (asi lo muestra el sitio).
+        if (regular && oferta > 0 && oferta < regular) {
+          precio = oferta;
+          precioRegular = regular;
+          descuento = String(h.offerText || (Math.round((1 - oferta / regular) * 100) + "%")).replace(/^-/, "");
         }
-        if (precio == null) precio = mejorPrecio(h);
         const link = h.id ? "https://www.farmatodo.com.ve/producto/" + h.id : "";
         const img = h.mediaImageUrl || (Array.isArray(h.listUrlImages) ? h.listUrlImages[0] : "") || "";
-        return { nombre: String(nombre).trim(), marca, precio, link, img, fuente: "Farmatodo" };
+        return { nombre: String(nombre).trim(), marca, precio, precioRegular, descuento, link, img, fuente: "Farmatodo" };
       }).filter(Boolean);
       diag.push("campos: " + Object.keys(data.hits[0]).slice(0, 30).join(","));
       return { items, diag };
@@ -423,8 +429,13 @@ async function buscar(q) {
   $("estado").textContent = todos.length + ' resultado(s) para "' + q + '", ordenados del más barato al más caro (precio en $).';
   $("resultados").innerHTML = extra + todos.map((r, i) => {
     const disponible = r.precio != null && r.precio > 0;
+    let refLine = 'Bs. ' + fmtBs.format(r.precio);
+    if (r.precioRegular && r.precioRegular > r.precio) {
+      refLine += ' <span class="tachado">Bs. ' + fmtBs.format(r.precioRegular) + '</span>'
+              + ' <span class="desc">−' + escapar(String(r.descuento || "")) + '</span>';
+    }
     const monto = disponible
-      ? '<div class="monto">$' + (r.precio / tasa).toFixed(2) + '</div><div class="ref">Bs. ' + fmtBs.format(r.precio) + '</div>'
+      ? '<div class="monto">$' + (r.precio / tasa).toFixed(2) + '</div><div class="ref">' + refLine + '</div>'
       : '<div class="nodisp">No disponible</div>';
     const estrella = (disponible && i === 0) ? '<span class="estrella">★ </span>' : "";
     const img = r.img ? '<img src="' + r.img + '" alt="" onerror="this.style.display=\'none\'" />' : "";
