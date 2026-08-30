@@ -144,6 +144,7 @@ const FARMATODO = {
 
 const $ = (id) => document.getElementById(id);
 const fmtBs = new Intl.NumberFormat("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+let ultimos = { todos: [], q: "", ftDiag: null };
 
 // ============ LOCATEL ============
 async function traerConProxy(url) {
@@ -364,7 +365,6 @@ function chip(fuente, texto, clase) {
 }
 
 async function buscar(q) {
-  const tasa = parseFloat($("tasa").value) || 720;
   const usarL = $("cLocatel").checked, usarF = $("cFarmatodo").checked,
         usarFB = $("cFarmabien").checked, usarB = $("cBadan").checked;
   const est = $("estado");
@@ -428,6 +428,14 @@ async function buscar(q) {
   await Promise.all(jobs);
   $("fuentes").innerHTML = chips.join("");
   $("estado").className = "estado";
+  ultimos = { todos: todos, q: q, ftDiag: ftDiag };
+  renderResultados();
+}
+
+function renderResultados() {
+  if (!ultimos.q) return;
+  const todos = ultimos.todos, q = ultimos.q, ftDiag = ultimos.ftDiag;
+  const tasa = parseFloat($("tasa").value) || 720;
 
   // ordenar del mas barato al mas caro (sin precio al final)
   todos.sort((a, b) => {
@@ -538,6 +546,9 @@ $("form").addEventListener("submit", (e) => {
   $("btn").textContent = "Buscando…";
   buscar(q).finally(() => { $("btn").disabled = false; $("btn").textContent = "Buscar"; });
 });
+
+$("cSinStock").addEventListener("change", renderResultados);
+$("tasa").addEventListener("change", renderResultados);
 
 cargarTasa();
 </script>
