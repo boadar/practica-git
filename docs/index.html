@@ -484,7 +484,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v187</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v188</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -18044,28 +18044,35 @@ function _syncEstado(estado, err){ const el=$('#syncEstado'); if(!el) return;
   else if(estado==='err') el.textContent='⚠ '+(err&&err.message?err.message:'error')+' · reintenta o revisa el token.';
   else if(estado==='sync') el.textContent='Sincronizando…';
 }
-async function syncPull(silent){
+// showMsg=true muestra "Sincronización en curso…" y "Sincronizada exitosamente" (para acciones del usuario;
+// el sondeo automático de fondo va silencioso para no llenar de mensajes).
+async function syncPull(silent, showMsg){
   if(!syncActivo() || _syncing) return; _syncing=true; _syncEstado('sync');
+  if(showMsg && typeof toast==='function') toast('Sincronización en curso…');
   try{ const cfg=syncCfg(); const remote=await syncGet(cfg);
     const m=mergeOrders(loadOrders(), loadDeleted(), remote.orders, remote.del);
     storeOrdersRaw(m.orders); storeDeleted(m.del);
     if($('#ordersModal') && $('#ordersModal').classList.contains('open')) openPedidos();
     _syncEstado('ok');
-  }catch(e){ _syncEstado('err', e); if(!silent && typeof toast==='function') toast('No se pudo sincronizar: '+e.message); }
+    if(showMsg && typeof toast==='function') toast('Sincronizada exitosamente');
+  }catch(e){ _syncEstado('err', e); if((!silent||showMsg) && typeof toast==='function') toast('No se pudo sincronizar: '+e.message); }
   finally{ _syncing=false; }
 }
-async function syncPushNow(){
+async function syncPushNow(showMsg){
   if(!syncActivo()) return; const cfg=syncCfg();
+  if(showMsg && typeof toast==='function') toast('Sincronización en curso…');
   for(let intento=0; intento<2; intento++){
     try{ const remote=await syncGet(cfg);
       const m=mergeOrders(loadOrders(), loadDeleted(), remote.orders, remote.del);
       storeOrdersRaw(m.orders); storeDeleted(m.del);
       await syncPut(cfg, m.orders, m.del, remote.sha);
-      _syncEstado('ok'); return;
-    }catch(e){ if(intento===0){ continue; } _syncEstado('err', e); }
+      _syncEstado('ok');
+      if(showMsg && typeof toast==='function') toast('Sincronizada exitosamente');
+      return;
+    }catch(e){ if(intento===0){ continue; } _syncEstado('err', e); if(showMsg && typeof toast==='function') toast('No se pudo sincronizar: '+e.message); }
   }
 }
-function syncPushDebounced(){ if(!syncActivo()) return; clearTimeout(_syncTimer); _syncTimer=setTimeout(syncPushNow, 2500); }
+function syncPushDebounced(){ if(!syncActivo()) return; clearTimeout(_syncTimer); _syncTimer=setTimeout(()=>syncPushNow(true), 2500); }
 function _syncRefreshUI(){
   const on=syncActivo(), dc=$('#syncDisconnect'), nw=$('#syncNow'), cn=$('#syncConnect'), tk=$('#syncToken');
   if(dc) dc.style.display=on?'':'none';
@@ -21993,12 +22000,12 @@ function wire(){
     f.text().then(txt=>{ restaurarRespaldo(txt); e.target.value=''; })
       .catch(err=>{ toast('No se pudo leer el archivo'); console.error(err); e.target.value=''; });
   });
-  $('#btnVerPedidos').addEventListener('click',()=>{ if(syncActivo()) syncPull(true); openPedidos(); });
+  $('#btnVerPedidos').addEventListener('click',()=>{ if(syncActivo()) syncPull(true, true); openPedidos(); });
   $('#btnSync').addEventListener('click',abrirSync);
   $('#syncClose').addEventListener('click',cerrarSync);
   $('#syncClose2').addEventListener('click',cerrarSync);
   $('#syncConnect').addEventListener('click',syncConectar);
-  $('#syncNow').addEventListener('click',()=>{ syncPull(false).then(syncPushNow); });
+  $('#syncNow').addEventListener('click',()=>{ syncPushNow(true).then(()=>{ if($('#ordersModal').classList.contains('open')) openPedidos(); }); });
   $('#syncDisconnect').addEventListener('click',syncDesconectar);
   $('#syncModal').addEventListener('click',e=>{ if(e.target===$('#syncModal')) cerrarSync(); });
   $('#opClose').addEventListener('click',cerrarPedidos);
