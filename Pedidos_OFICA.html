@@ -481,7 +481,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v189</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v190</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -841,11 +841,11 @@
 
 <div class="modal" id="catModal">
   <div class="sheet">
-    <header><h2>Categoría del producto</h2><button class="closex" id="catNo">×</button></header>
+    <header><h2>Marca y categoría del producto</h2><button class="closex" id="catNo">×</button></header>
     <div class="cfbody">
-      <p id="catMsg" style="white-space:pre-line">¿En qué categoría se colocará este producto? Elige una existente o escribe una nueva.</p>
-      <input type="text" id="catInput" list="catInputList" placeholder="Ej: BLOCKS, LÁPICES DE COLORES" autocomplete="off" autocapitalize="characters" spellcheck="false">
-      <datalist id="catInputList"></datalist>
+      <p id="catMsg" style="white-space:pre-line">Elige o crea la marca y la categoría de este producto.</p>
+      <label class="cefld"><span>Marca</span><select id="catMarcaSel"></select></label>
+      <label class="cefld"><span>Categoría</span><select id="catCatSel"></select></label>
       <div class="cfbtns">
         <button class="btn" id="catCancel">Cancelar</button>
         <button class="btn primary" id="catOk">Continuar</button>
@@ -19955,18 +19955,25 @@ async function administrarDescuentos(){
   toast(frac>0 ? ('Descuento '+descFmtPct(frac)+' aplicado a este pedido') : 'Descuento 1 en 0%');
 }
 // pide la categoría de un producto; devuelve el texto o null si se cancela
-function askCategoria(msg,initial){
+// Pide MARCA y CATEGORÍA (ambas permiten crear nuevas). Devuelve {marca:clave, categoria} o null.
+function askMarcaCategoria(msg, marcaInicial){
   return new Promise(res=>{
-    const m=$('#catModal'), inp=$('#catInput'), dl=$('#catInputList'), ok=$('#catOk'), cancel=$('#catCancel'), x=$('#catNo');
+    const m=$('#catModal'), selM=$('#catMarcaSel'), selC=$('#catCatSel'), ok=$('#catOk'), cancel=$('#catCancel'), x=$('#catNo');
     if(msg!=null) $('#catMsg').textContent=msg;
-    dl.innerHTML=[...new Set(CATS)].map(c=>'<option value="'+esc(c)+'"></option>').join('');
-    inp.value=initial||'';
-    function done(v){ m.classList.remove('open'); ok.removeEventListener('click',fOk); cancel.removeEventListener('click',fNo); x.removeEventListener('click',fNo); inp.removeEventListener('keydown',fKey); res(v); }
-    function fOk(){ const val=String(inp.value||'').trim(); if(!val){ inp.focus(); return; } done(val); }
+    npCatPend={};
+    let mk=marcaInicial||'solita';
+    selM.innerHTML=npMarcaOptions(mk); selM.value=mk;
+    selC.innerHTML=npCatOptions(mk,'');
+    function onM(){ let v=selM.value;
+      if(v==='__new__'){ const nom=(prompt('Nombre de la nueva marca:')||'').trim(); if(!nom){ selM.value=mk; return; } const k=nom.toLowerCase(); if(!MARCAS.some(z=>z.k===k)) MARCAS.push({k,label:nom}); selM.innerHTML=npMarcaOptions(k); selM.value=k; v=k; }
+      mk=v; selC.innerHTML=npCatOptions(mk,''); }
+    function onC(){ let v=selC.value;
+      if(v==='__new__'){ const nom=(prompt('Nombre de la nueva categoría (marca '+marcaLabel(mk)+'):')||'').trim(); if(!nom){ selC.value=''; return; } npCatPend[nom]=mk; selC.innerHTML=npCatOptions(mk,nom); selC.value=nom; } }
+    function done(v){ m.classList.remove('open'); ok.removeEventListener('click',fOk); cancel.removeEventListener('click',fNo); x.removeEventListener('click',fNo); selM.removeEventListener('change',onM); selC.removeEventListener('change',onC); res(v); }
+    function fOk(){ const cat=String(selC.value||'').trim(); if(!cat||cat==='__new__'){ selC.focus(); return; } done({marca:mk, categoria:cat}); }
     function fNo(){ done(null); }
-    function fKey(ev){ if(ev.key==='Enter'){ev.preventDefault();fOk();} else if(ev.key==='Escape'){ev.preventDefault();fNo();} }
-    ok.addEventListener('click',fOk); cancel.addEventListener('click',fNo); x.addEventListener('click',fNo); inp.addEventListener('keydown',fKey);
-    m.classList.add('open'); setTimeout(()=>inp.focus(),50);
+    ok.addEventListener('click',fOk); cancel.addEventListener('click',fNo); x.addEventListener('click',fNo); selM.addEventListener('change',onM); selC.addEventListener('change',onC);
+    m.classList.add('open');
   });
 }
 
@@ -21489,17 +21496,18 @@ async function categorizarYAgregarNuevos(nuevos, dup){
     else { toast('No se encontraron productos para agregar (revisa las columnas B a H)'); }
     return;
   }
-  const agregados=[];
+  const agregados=[]; let ultMarca='solita';
   for(let i=0;i<nuevos.length;i++){
     const p=nuevos[i];
     const desc=(p.nombre && p.nombre!==p.codigo) ? (p.codigo+' — '+p.nombre) : p.codigo;
-    const cat=await askCategoria('Producto '+(i+1)+' de '+nuevos.length+':  '+desc+'\n¿A qué categoría pertenece?', '');
-    if(cat==null) break;   // cancelar: detiene el proceso y conserva lo ya categorizado
-    p.categoria=cat;
+    const r=await askMarcaCategoria('Producto '+(i+1)+' de '+nuevos.length+':  '+desc+'\nElige o crea la marca y la categoría.', ultMarca);
+    if(r==null) break;   // cancelar: detiene el proceso y conserva lo ya categorizado
+    p.categoria=r.categoria; p.marca=marcaLabel(r.marca); ultMarca=r.marca;
     agregados.push(p);
   }
   if(!agregados.length){ toast('No se agregó ningún producto'); return; }
   agregados.forEach(p=>{ CATALOGO.push(p); byCode[p.codigo]=p; if(!CATS.includes(p.categoria)) CATS.push(p.categoria); });
+  rebuildMarcas();   // registra marcas/categorías nuevas del archivo
   saveNewProducts(agregados);
   // resetea la vista para que los productos recién agregados se vean de inmediato
   filter.onlyOn=false; filter.cat=''; filter.q=''; const qi=$('#q'); if(qi) qi.value='';
