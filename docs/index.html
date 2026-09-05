@@ -20,6 +20,16 @@
     <p>Te estamos redirigiendo a la aplicación…</p>
     <a class="btn" href="./pedidos/">Abrir Pedidos OFICA</a>
   </div>
-  <script>location.replace('./pedidos/');</script>
+  <script>
+  (async function(){
+    try{
+      if('serviceWorker' in navigator){
+        var regs=await navigator.serviceWorker.getRegistrations();
+        for(var i=0;i<regs.length;i++){ if(!/\/pedidos\/?$/.test(regs[i].scope)){ try{ await regs[i].unregister(); }catch(e){} } }
+      }
+    }catch(e){}
+    location.replace('./pedidos/');
+  })();
+  </script>
 </body>
 </html>
