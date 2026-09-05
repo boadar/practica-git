@@ -18,8 +18,8 @@ import re, sys, pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent
 SRC = ROOT / "Pedidos_OFICA.html"
-OUT = ROOT / "docs" / "index.html"
-SW = ROOT / "docs" / "sw.js"
+OUT = ROOT / "docs" / "pedidos" / "index.html"   # la app se sirve en /practica-git/pedidos/
+SW = ROOT / "docs" / "pedidos" / "sw.js"
 
 def main():
     # 0) calcula la nueva versión a partir del caché del service worker

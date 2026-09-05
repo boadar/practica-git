@@ -9,6 +9,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Pedidos OFICA">
 <title>Pedidos OFICA</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<link rel="icon" href="./icon-192.png">
 </head>
 <body>
 <!--INNER_START-->
@@ -22291,7 +22294,7 @@ function syncHeaderVars(){
 // La app SIEMPRE inicia en blanco: cantidades en 0 y sin descuentos.
 try{ localStorage.removeItem(STORE_KEY); }catch(e){}
 state = {qty:{}, meta:{}};
-buildLists(); buildChips(); initMeta(); render(); updateTotals(); wire(); pwaSetup(); cargarClientesExtra(); syncInit();
+buildLists(); buildChips(); initMeta(); render(); updateTotals(); wire(); cargarClientesExtra(); syncInit();
 // aviso breve con la versión al abrir la app
 try{ const _v=(document.getElementById('appver')||{}).textContent||''; setTimeout(()=>toast('Pedidos OFICA '+_v+' · '+CATALOGO.length+' referencias'),400); }catch(e){}
 syncHeaderVars();
@@ -22299,5 +22302,22 @@ window.addEventListener('resize', syncHeaderVars);
 if(window.ResizeObserver){ const ro=new ResizeObserver(syncHeaderVars); ro.observe(document.querySelector('.appbar')); ro.observe(document.querySelector('.toolbar')); }
 </script>
 <!--INNER_END-->
+<script>
+if('serviceWorker' in navigator){
+  var _reloadingSW=false;
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    if(_reloadingSW) return; _reloadingSW=true; window.location.reload();
+  });
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('./sw.js').then(function(reg){
+      reg.update();
+      setInterval(function(){ reg.update(); }, 60000);
+    }).catch(function(){});
+  });
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='visible'){ navigator.serviceWorker.getRegistration().then(function(r){ if(r) r.update(); }).catch(function(){}); }
+  });
+}
+</script>
 </body>
 </html>
