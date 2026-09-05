@@ -103,6 +103,15 @@
   .rowfv #f_fecha{width:100%}
   .row3{grid-column:1 / -1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
   .row3 .field label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* Descuentos por marca: una hilera de Desc 1/2/3 por cada grupo de marca */
+  .descmarcas{grid-column:1 / -1;display:flex;flex-direction:column;gap:8px}
+  .dm-row{display:flex;flex-direction:column;gap:5px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+  .dm-lbl{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--ink-2)}
+  .dm-lbl .dm-chip{width:12px;height:12px;border-radius:3px;border:1px solid rgba(0,0,0,.15);flex:0 0 auto}
+  .dm-sels{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .dm-sels label{display:flex;flex-direction:column;gap:3px;font-size:10px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:var(--ink-3);min-width:0}
+  .dm-sels select{border:1px solid var(--line);border-radius:9px;padding:8px 9px;font-size:14px;color:var(--ink);background:var(--surface);width:100%;min-width:0}
+  .dm-sels select:disabled{opacity:.6}
   .field label{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--ink-3)}
   .field.req-empty label{color:var(--crit)}
   .field input,.field select,.field textarea{
@@ -485,7 +494,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v200</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v201</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -644,7 +653,7 @@
           <option>30 - 60 - 90 / DIVIDIR EN 30, 60 Y 90 DÍAS.</option>
         </select>
       </div>
-      <div class="row3">
+      <div class="row3" id="descGlobalRow" style="display:none">
         <div class="field"><label>Descuento 1</label>
           <select id="f_desc1">
             <option value="0">0%</option>
@@ -666,6 +675,10 @@
             <option value="0.15">15%</option><option value="0.2">20%</option><option value="0.3">30%</option>
           </select>
         </div>
+      </div>
+      <div class="field full">
+        <label>Descuentos por marca</label>
+        <div id="descMarcasWrap" class="descmarcas"></div>
       </div>
       <div class="field full"><label>Observaciones</label><textarea id="f_obs" rows="2" placeholder="Notas del pedido…"></textarea></div>
     </div>
@@ -18714,6 +18727,71 @@ function descDe(p){
 }
 function descCombPct(arr){ const a=+arr[0]||0,b=+arr[1]||0,c=+arr[2]||0; return Math.round((1-(1-a)*(1-b)*(1-c))*1000)/10; }
 function descGlobalPct(){ return descCombPct([+state.meta.desc1||0,+state.meta.desc2||0,+state.meta.desc3||0]); }
+
+// ===== Descuentos por MARCA (una hilera de Desc 1/2/3 por grupo de marca) =====
+// Grupos: SOLITA+OFICA juntos, ALHER, y cada marca personalizada (KW-triO, etc.) en su
+// propia hilera. Al agregar una marca nueva aparece su hilera automáticamente.
+// Cada hilera escribe en state.meta.descMarca[clave]={d1,d2,d3}; descDe() ya lo aplica.
+const DESC_OPTS=[['0','0%'],['0.05','5%'],['0.1','10%'],['0.15','15%'],['0.2','20%'],['0.3','30%']];
+function descMarcaGrupos(){
+  const grupos=[{id:'solof',label:'SOLITA + OFICA',keys:['solita','ofica']},
+                {id:'alher',label:'ALHER',keys:['alher']}];
+  (MARCAS||[]).forEach(m=>{ if(m.k==='solita'||m.k==='ofica'||m.k==='alher') return;
+    grupos.push({id:'m_'+m.k,label:m.label||String(m.k).toUpperCase(),keys:[m.k]}); });
+  return grupos;
+}
+function descMarcaValOf(keys){ // valor {d1,d2,d3} representativo del grupo (del 1er key)
+  const dm=(state.meta&&state.meta.descMarca)?state.meta.descMarca[keys[0]]:null;
+  return {d1:(dm&&+dm.d1)||0, d2:(dm&&+dm.d2)||0, d3:(dm&&+dm.d3)||0};
+}
+function descMarcaRender(){
+  const wrap=document.getElementById('descMarcasWrap'); if(!wrap) return;
+  const grupos=descMarcaGrupos(); const ger=esVendedorSobreInv();
+  const chipBg=k=>{ try{ const h=brandHex(k); return h&&h.bg?h.bg:'#ccc'; }catch(e){ return '#ccc'; } };
+  wrap.innerHTML=grupos.map(g=>{
+    const sel=n=>{
+      let o=DESC_OPTS.map(x=>'<option value="'+x[0]+'">'+x[1]+'</option>').join('');
+      if(ger) o+='<option value="'+DESC_OTRO+'">Otro…</option>';
+      return '<label>Desc '+n+'<select data-mgrp="'+g.id+'" data-mn="'+n+'">'+o+'</select></label>';
+    };
+    return '<div class="dm-row"><span class="dm-lbl"><span class="dm-chip" style="background:'+esc(chipBg(g.keys[0]))+'"></span>'+esc(g.label)+'</span>'+
+      '<div class="dm-sels">'+sel(1)+sel(2)+sel(3)+'</div></div>';
+  }).join('');
+  grupos.forEach(g=>{ const v=descMarcaValOf(g.keys);
+    [1,2,3].forEach(n=>{ const s=wrap.querySelector('select[data-mgrp="'+g.id+'"][data-mn="'+n+'"]'); if(!s) return;
+      const val=String(+v['d'+n]||0); descAsegurarOpcion(s,val); s.value=val; s.disabled=locked; }); });
+}
+function descMarcaAplicar(g,n,val){
+  const frac=+val||0;
+  state.meta.descMarca=state.meta.descMarca||{};
+  g.keys.forEach(k=>{
+    const cur=Object.assign({d1:0,d2:0,d3:0}, state.meta.descMarca[k]||{});
+    cur['d'+n]=frac;
+    if((+cur.d1||0)===0 && (+cur.d2||0)===0 && (+cur.d3||0)===0) delete state.meta.descMarca[k];
+    else state.meta.descMarca[k]=cur;
+  });
+  if(state.meta.descMarca && !Object.keys(state.meta.descMarca).length) delete state.meta.descMarca;
+  save(); render(); updateTotals(); updateReqLabels(); descMarcaRender();
+}
+let descMarcaBound=false;
+function descMarcaBind(){
+  const wrap=document.getElementById('descMarcasWrap'); if(!wrap || descMarcaBound) return; descMarcaBound=true;
+  wrap.addEventListener('input', async e=>{
+    const s=e.target; if(!s || s.tagName!=='SELECT' || !s.dataset || !s.dataset.mgrp) return;
+    if(locked){ descMarcaRender(); return; }
+    const g=descMarcaGrupos().find(x=>x.id===s.dataset.mgrp); if(!g) return;
+    const n=+s.dataset.mn;
+    if(s.value===DESC_OTRO){   // descuento libre (Gerencia de Ventas)
+      const cur=(+descMarcaValOf(g.keys)['d'+n]||0)*100;
+      const txt=await askDescuento('Descuento personalizado — '+g.label+' (Desc '+n+') %:', cur?String(Math.round(cur*100)/100).replace('.',','):'');
+      if(txt==null){ descMarcaRender(); return; }
+      const pct=parseFloat(String(txt).replace('%','').replace(',','.').trim());
+      if(!isFinite(pct)||pct<0||pct>100){ toast('Descuento inválido: escribe un número entre 0 y 100'); descMarcaRender(); return; }
+      descMarcaAplicar(g,n,Math.round(pct*100)/10000); return;
+    }
+    descMarcaAplicar(g,n,s.value);
+  });
+}
 function precioNeto(p){
   const d=descDe(p);
   const ov=precioTmpDe(p);
@@ -18844,7 +18922,17 @@ function ptmpSave(){
   const nP=Object.keys(clean).length, nD=Object.keys(nd).length, nG=Object.keys(ncat).length+Object.keys(nmarca).length;
   toast('Aplicado: '+nP+' precio'+(nP===1?'':'s')+' temporal'+(nP===1?'':'es')+' \u00b7 '+nD+' desc. por producto \u00b7 '+nG+' por grupo \u2713');
 }
-function descLabel(){const ds=[+state.meta.desc1||0,+state.meta.desc2||0,+state.meta.desc3||0];const p=ds.filter(d=>d>0).map(d=>Math.round(d*100)+'%');return p.length?p.join(' + '):'—';}
+function descLabel(){
+  const ds=[+state.meta.desc1||0,+state.meta.desc2||0,+state.meta.desc3||0].filter(d=>d>0).map(d=>Math.round(d*100)+'%');
+  if(ds.length) return ds.join(' + ');
+  const dm=state.meta&&state.meta.descMarca;
+  if(dm){ const sets=new Set();
+    Object.keys(dm).forEach(k=>{ const d=dm[k]||{}; const p=[+d.d1||0,+d.d2||0,+d.d3||0].filter(x=>x>0).map(x=>Math.round(x*100)+'%').join(' + '); if(p) sets.add(p); });
+    if(sets.size===1) return [...sets][0];
+    if(sets.size>1) return 'por marca';
+  }
+  return '—';
+}
 // Texto "Descuentos X%+Y%+Z%" con los descuentos seleccionados en la ficha del cliente (vacío si no hay)
 function descuentosTexto(){const ds=[+state.meta.desc1||0,+state.meta.desc2||0,+state.meta.desc3||0].filter(d=>d>0).map(d=>Math.round(d*100)+'%');return ds.length?'Descuentos '+ds.join('+'):'';}
 function ivaRateOf(p){return String(p.exento).toUpperCase()==='SI'?0:IVA_RATE;}
@@ -19048,6 +19136,7 @@ function setLocked(on){
   const bSave=$('#aSave'), bEdit=$('#aEdit');
   if(bSave) bSave.style.display = on?'none':'';
   if(bEdit) bEdit.style.display = on?'':'none';
+  descMarcaRender();   // aplica/quita el disabled a las hileras de descuento por marca
 }
 
 // ---- División de pedido por condición de pago (30-60 / 30-60-90) ----
@@ -19878,6 +19967,7 @@ function npGuardarProducto(){
   };
   CATALOGO.push(prod); byCode[codigo]=prod; if(CATS.indexOf(categoria)<0) CATS.push(categoria);
   rebuildMarcas();   // registra la marca/categoría nueva para agrupación, colores, descuentos y listas de precio
+  descMarcaRender();   // si es una marca nueva, aparece su hilera de descuentos
   saveNewProducts([prod]);
   if(nuevoProdImg){ setImgOverride(codigo, nuevoProdImg); }
   try{ buildChips(); }catch(e){}
@@ -20755,6 +20845,7 @@ function descOtroToggle(){
     if(on && !opt){ const o=document.createElement('option'); o.value=DESC_OTRO; o.textContent='Otro…'; sel.appendChild(o); }
     else if(!on && opt){ sel.removeChild(opt); }
   });
+  descMarcaBind(); descMarcaRender();   // refresca las hileras de descuento por marca (y su opción "Otro…")
 }
 async function descElegirOtro(id){
   const sel=document.getElementById(id); if(!sel) return;
@@ -20825,20 +20916,17 @@ function askDescuento(msg, initial){
 }
 async function administrarDescuentos(){
   if(locked){ toast('Pulsa EDITAR PEDIDO para modificar'); return; }
-  const actual=(+state.meta.desc1||0)*100;
+  const g=descMarcaGrupos()[0];   // SOLITA + OFICA (la fila más usada)
+  const actual=(+descMarcaValOf(g.keys).d1||0)*100;
   const txt=await askDescuento(
-    'Descuento adicional para ESTE pedido (%).\nSe coloca en Descuento 1 de la ficha del cliente.',
+    'Descuento adicional para ESTE pedido (%).\nSe aplica en Descuento 1 de '+g.label+'.',
     actual? String(Math.round(actual*100)/100).replace('.',',') : '');
   if(txt==null) return;
   const pct=parseFloat(String(txt).replace('%','').replace(',','.').trim());
   if(!isFinite(pct) || pct<0 || pct>100){ toast('Descuento inválido: escribe un número entre 0 y 100'); return; }
   const frac=Math.round(pct*100)/10000;           // 12,5 -> 0.125
-  const sel=$('#f_desc1');
-  descAsegurarOpcion(sel, frac);
-  if(sel) sel.value=String(frac);
-  state.meta.desc1=String(frac);
-  save(); render(); updateTotals();
-  toast(frac>0 ? ('Descuento '+descFmtPct(frac)+' aplicado a este pedido') : 'Descuento 1 en 0%');
+  descMarcaAplicar(g, 1, frac);
+  toast(frac>0 ? ('Descuento '+descFmtPct(frac)+' aplicado a '+g.label) : (g.label+' · Descuento 1 en 0%'));
 }
 // pide la categoría de un producto; devuelve el texto o null si se cancela
 // Pide MARCA y CATEGORÍA (ambas permiten crear nuevas). Devuelve {marca:clave, categoria} o null.
@@ -22406,6 +22494,7 @@ async function categorizarYAgregarNuevos(nuevos, dup){
   if(!agregados.length){ toast('No se agregó ningún producto'); return; }
   agregados.forEach(p=>{ CATALOGO.push(p); byCode[p.codigo]=p; if(!CATS.includes(p.categoria)) CATS.push(p.categoria); });
   rebuildMarcas();   // registra marcas/categorías nuevas del archivo
+  descMarcaRender();   // si hay marcas nuevas, aparecen sus hileras de descuentos
   saveNewProducts(agregados);
   // resetea la vista para que los productos recién agregados se vean de inmediato
   filter.onlyOn=false; filter.cat=''; filter.q=''; const qi=$('#q'); if(qi) qi.value='';
@@ -22503,15 +22592,16 @@ function doPrint(){
 async function newOrder(){
   const hayTmp = state.meta.precioTmp && Object.keys(state.meta.precioTmp).length>0;
   if((totals().lineas>0 || hayTmp) && !(await askConfirm((hayTmp?'Este pedido tiene precios temporales que se perderán. ':'')+'¿Borrar el pedido actual y empezar uno nuevo? Esta acción no se puede deshacer.','Sí, borrar'))) return;
-  const keep=state.meta.vendedor, kd1=state.meta.desc1, kd2=state.meta.desc2, kd3=state.meta.desc3;
+  const keep=state.meta.vendedor, kd1=state.meta.desc1, kd2=state.meta.desc2, kd3=state.meta.desc3, kdm=state.meta.descMarca;
   state.qty={}; state.meta={vendedor:keep||'',desc1:kd1||'0',desc2:kd2||'0',desc3:kd3||'0'};
+  if(kdm && Object.keys(kdm).length) state.meta.descMarca=kdm;   // conserva los descuentos por marca para el siguiente pedido
   const d=new Date(); state.meta.fecha=d.toISOString().slice(0,10);
   save();
   currentOrderId=null; setLocked(false);
   ['f_cliente','f_codcliente','f_condicion','f_numped','f_obs'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('f_fecha').value=state.meta.fecha;
   filter.onlyOn=false; syncChips();
-  render(); updateTotals(); toast('Nuevo pedido listo');
+  render(); updateTotals(); descMarcaRender(); toast('Nuevo pedido listo');
 }
 
 // ---- limpiar pedido (borra todos los datos: cliente y cantidades) ----
@@ -22525,7 +22615,7 @@ async function limpiarPedido(){
   ['f_desc1','f_desc2','f_desc3'].forEach(id=>document.getElementById(id).value='0');
   document.getElementById('f_fecha').value=state.meta.fecha;
   filter.onlyOn=false; filter.cat=''; syncChips();
-  render(); updateTotals(); toast('Pedido limpiado');
+  render(); updateTotals(); descMarcaRender(); toast('Pedido limpiado');
 }
 
 // ================= eventos =================
