@@ -133,8 +133,21 @@
   }
   .search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--ink-3)}
   .search .clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:none;color:var(--ink-3);font-size:18px;cursor:pointer;padding:4px 8px;display:none}
+  /* fila: categorías (mitad izquierda) + botones de marca (mitad derecha) */
+  .chipsrow{display:flex;gap:8px;align-items:stretch}
+  .chipsrow .chips{flex:1 1 50%;min-width:0}
   .chips{display:flex;gap:7px;overflow-x:auto;padding:9px 2px 3px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .chips::-webkit-scrollbar{display:none}
+  .marcabtns{flex:1 1 50%;min-width:0;display:flex;gap:6px;overflow-x:auto;padding:9px 2px 3px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .marcabtns::-webkit-scrollbar{display:none}
+  .marcachip{
+    flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);
+    background:var(--surface);color:var(--ink-2);padding:7px 12px;border-radius:999px;
+    font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap
+  }
+  .marcachip .mc-dot{width:11px;height:11px;border-radius:3px;border:1px solid rgba(0,0,0,.15);flex:0 0 auto}
+  .marcachip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+  .marcachip[aria-pressed="true"] .mc-dot{border-color:rgba(255,255,255,.5)}
   .chip{
     flex:0 0 auto;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);
     padding:7px 13px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap
@@ -494,7 +507,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v201</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v202</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -690,7 +703,10 @@
       <input type="search" id="q" placeholder="Buscar producto o código…" autocomplete="off">
       <button class="clear" id="qclear" aria-label="Limpiar búsqueda">×</button>
     </div>
-    <div class="chips" id="chips"></div>
+    <div class="chipsrow">
+      <div class="chips" id="chips"></div>
+      <div class="marcabtns" id="marcaBtns"></div>
+    </div>
   </div>
 
   <div class="list" id="list"></div>
@@ -19968,6 +19984,7 @@ function npGuardarProducto(){
   CATALOGO.push(prod); byCode[codigo]=prod; if(CATS.indexOf(categoria)<0) CATS.push(categoria);
   rebuildMarcas();   // registra la marca/categoría nueva para agrupación, colores, descuentos y listas de precio
   descMarcaRender();   // si es una marca nueva, aparece su hilera de descuentos
+  if(typeof buildMarcaBtns==='function') buildMarcaBtns();   // y su botón de filtro por marca
   saveNewProducts([prod]);
   if(nuevoProdImg){ setImgOverride(codigo, nuevoProdImg); }
   try{ buildChips(); }catch(e){}
@@ -20461,12 +20478,13 @@ function abrirRegistroCliente(nombreInicial){
 function cerrarRegistroCliente(){ $('#regCliModal').classList.remove('open'); }
 
 // ---- filtros ----
-let filter = {q:'', cat:'', onlyOn:false, hideNoStock:true};
+let filter = {q:'', cat:'', marca:'', onlyOn:false, hideNoStock:true};
 
 function visibleProducts(){
   const q = filter.q.trim().toLowerCase();
   return CATALOGO.filter(p=>{
     if(p.off && !adminMode) return false;
+    if(filter.marca && brandOf(p.categoria)!==filter.marca) return false;   // filtro por marca (botones de marca)
     if(filter.cat && p.categoria!==filter.cat) return false;
     if(filter.onlyOn && !(state.qty[p.codigo]>0)) return false;
     if(filter.hideNoStock && !overInvCode(p.codigo) && Math.round(+p.inv||0)<=0 && !(state.qty[p.codigo]>0)) return false;
@@ -20741,9 +20759,15 @@ function updateTotals(){
 }
 function fechaFmt(iso){ if(!iso)return''; const p=String(iso).split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:iso; }
 
-// ---- chips de categoría ----
-function buildChips(){
-  const c=$('#chips'); c.innerHTML='';
+// ---- chips de categoría + botones de marca ----
+// syncChips reconstruye la cinta de categorías: si hay una marca seleccionada
+// (botones de marca), solo muestra las categorías de esa marca. Conserva el
+// scroll horizontal para que al pulsar un chip la cinta no salte al inicio.
+function buildChips(){ syncChips(); }   // compat: la construcción vive en syncChips
+function syncChips(){
+  const c=$('#chips'); if(!c) return;
+  const sl=c.scrollLeft;
+  c.innerHTML='';
   const mk=(label,val,flag)=>{
     const b=el('button','chip'+(flag?' flag':''));
     b.textContent=label; b.setAttribute('aria-pressed','false'); b.dataset.cat=val; if(flag)b.dataset.flag='1';
@@ -20751,16 +20775,30 @@ function buildChips(){
   };
   mk('Todas','');
   const onChip=mk('PEDIDO','__on__',true); onChip.dataset.on='1';
-  CATS.forEach(cat=>mk(catDisplay(cat),cat));
-  syncChips();
-}
-function syncChips(){
-  document.querySelectorAll('.chip').forEach(b=>{
+  const cats = filter.marca ? CATS.filter(cat=>brandOf(cat)===filter.marca) : CATS;   // acota a la marca elegida
+  cats.forEach(cat=>mk(catDisplay(cat),cat));
+  c.querySelectorAll('.chip').forEach(b=>{
     let active=false;
     if(b.dataset.on) active=filter.onlyOn;
     else if(b.dataset.cat==='') active=(!filter.cat && !filter.onlyOn);
     else active=(filter.cat===b.dataset.cat);
     b.setAttribute('aria-pressed',active?'true':'false');
+  });
+  try{ c.scrollLeft=sl; }catch(e){}
+  buildMarcaBtns();
+}
+// Botones de marca (una por cada marca en MARCAS): filtran todo el catálogo por
+// esa marca y acotan la cinta de categorías. Se re-arman cada vez (4 botones).
+function buildMarcaBtns(){
+  const c=$('#marcaBtns'); if(!c) return;
+  c.innerHTML='';
+  (MARCAS||[]).forEach(m=>{
+    const b=el('button','marcachip');
+    b.dataset.marca=m.k;
+    let bg='#ccc'; try{ const h=brandHex(m.k); if(h&&h.bg) bg=h.bg; }catch(e){}
+    b.innerHTML='<span class="mc-dot" style="background:'+esc(bg)+'"></span><span class="mc-lbl">'+esc(m.label||String(m.k).toUpperCase())+'</span>';
+    b.setAttribute('aria-pressed', filter.marca===m.k?'true':'false');
+    c.appendChild(b);
   });
 }
 
@@ -22495,6 +22533,7 @@ async function categorizarYAgregarNuevos(nuevos, dup){
   agregados.forEach(p=>{ CATALOGO.push(p); byCode[p.codigo]=p; if(!CATS.includes(p.categoria)) CATS.push(p.categoria); });
   rebuildMarcas();   // registra marcas/categorías nuevas del archivo
   descMarcaRender();   // si hay marcas nuevas, aparecen sus hileras de descuentos
+  if(typeof buildMarcaBtns==='function') buildMarcaBtns();   // y sus botones de filtro por marca
   saveNewProducts(agregados);
   // resetea la vista para que los productos recién agregados se vean de inmediato
   filter.onlyOn=false; filter.cat=''; filter.q=''; const qi=$('#q'); if(qi) qi.value='';
@@ -22752,8 +22791,16 @@ function wire(){
   // chips
   $('#chips').addEventListener('click',e=>{
     const b=e.target.closest('.chip'); if(!b) return;
-    if(b.dataset.on){filter.onlyOn=!filter.onlyOn; if(filter.onlyOn)filter.cat='';}
+    if(b.dataset.on){filter.onlyOn=!filter.onlyOn; if(filter.onlyOn){filter.cat='';filter.marca='';}}   // PEDIDO: ver todo lo pedido, sin filtro de marca
     else {filter.cat=b.dataset.cat; filter.onlyOn=false;}
+    syncChips(); render();
+  });
+  // botones de marca: filtran todo por marca y acotan las categorías de la cinta
+  $('#marcaBtns').addEventListener('click',e=>{
+    const b=e.target.closest('.marcachip'); if(!b) return;
+    const mk=b.dataset.marca;
+    filter.marca = (filter.marca===mk) ? '' : mk;   // volver a pulsar la marca activa la quita
+    filter.cat=''; filter.onlyOn=false;
     syncChips(); render();
   });
   // meta panel
