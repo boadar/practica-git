@@ -485,7 +485,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v196</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v197</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -18217,7 +18217,7 @@ function syncInit(){
   try{ document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && syncActivo()) syncPull(true); }); }catch(e){}
   try{ window.addEventListener('focus', ()=>{ if(syncActivo()) syncPull(true); }); }catch(e){}   // al volver a la ventana
   try{ window.addEventListener('online', ()=>{ if(syncActivo()){ syncPull(true); syncPushNow(); } }); }catch(e){}
-  setInterval(()=>{ if(syncActivo() && !document.hidden) syncPull(true); }, 20000);   // revisa cambios del otro dispositivo cada 20 s
+  setInterval(()=>{ if(syncActivo() && !document.hidden) syncPull(true); }, 600000);   // revisa cambios del otro dispositivo cada 10 min (además de al abrir, enfocar y Ver pedidos)
 }
 // ---- Documentos del cliente nuevo (RIF, cédula, etc.) en IndexedDB: localStorage es muy chico para PDFs/imágenes ----
 const IDB_NAME='ofica_docs', IDB_STORE='docs'; let _idbP=null;
