@@ -481,7 +481,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v191</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v192</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -19956,13 +19956,14 @@ async function administrarDescuentos(){
 }
 // pide la categoría de un producto; devuelve el texto o null si se cancela
 // Pide MARCA y CATEGORÍA (ambas permiten crear nuevas). Devuelve {marca:clave, categoria} o null.
-function askMarcaCategoria(msg, marcaInicial){
+function askMarcaCategoria(msg, marcaInicial, catInicial){
   return new Promise(res=>{
     const m=$('#catModal'), selM=$('#catMarcaSel'), selC=$('#catCatSel'), ok=$('#catOk'), cancel=$('#catCancel'), x=$('#catNo');
     if(msg!=null) $('#catMsg').textContent=msg;
     let mk=marcaInicial||'solita';
     selM.innerHTML=npMarcaOptions(mk); selM.value=mk;
-    selC.innerHTML=npCatOptions(mk,'');
+    selC.innerHTML=npCatOptions(mk, catInicial||'');   // preselecciona la categoría del producto anterior si aplica
+    if(catInicial && [...selC.options].some(o=>o.value===catInicial)) selC.value=catInicial;
     function onM(){ let v=selM.value;
       if(v==='__new__'){ const nom=(prompt('Nombre de la nueva marca:')||'').trim(); if(!nom){ selM.value=mk; return; } const k=nom.toLowerCase(); if(!MARCAS.some(z=>z.k===k)) MARCAS.push({k,label:nom}); selM.innerHTML=npMarcaOptions(k); selM.value=k; v=k; }
       mk=v; selC.innerHTML=npCatOptions(mk,''); }
@@ -21495,13 +21496,13 @@ async function categorizarYAgregarNuevos(nuevos, dup){
     else { toast('No se encontraron productos para agregar (revisa las columnas B a H)'); }
     return;
   }
-  const agregados=[]; let ultMarca='solita'; npCatPend={};   // las categorías nuevas creadas persisten durante TODO el lote
+  const agregados=[]; let ultMarca='solita', ultCat=''; npCatPend={};   // recuerda marca y categoría del producto anterior; las categorías nuevas persisten todo el lote
   for(let i=0;i<nuevos.length;i++){
     const p=nuevos[i];
     const desc=(p.nombre && p.nombre!==p.codigo) ? (p.codigo+' — '+p.nombre) : p.codigo;
-    const r=await askMarcaCategoria('Producto '+(i+1)+' de '+nuevos.length+':  '+desc+'\nElige o crea la marca y la categoría.', ultMarca);
+    const r=await askMarcaCategoria('Producto '+(i+1)+' de '+nuevos.length+':  '+desc+'\nElige o crea la marca y la categoría.', ultMarca, ultCat);
     if(r==null) break;   // cancelar: detiene el proceso y conserva lo ya categorizado
-    p.categoria=r.categoria; p.marca=marcaLabel(r.marca); ultMarca=r.marca;
+    p.categoria=r.categoria; p.marca=marcaLabel(r.marca); ultMarca=r.marca; ultCat=r.categoria;
     agregados.push(p);
   }
   if(!agregados.length){ toast('No se agregó ningún producto'); return; }
