@@ -485,7 +485,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v197</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v198</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -21537,6 +21537,18 @@ async function cargarInventarioDesdeXlsx(buf){
 }
 
 // ===== Cargar Producto Nuevo desde .xlsx =====
+// Plantilla de ejemplo con las columnas que lee el cargador (B..H). Fila 1 = encabezados, fila 2 = ejemplo.
+function buildPlantillaProductos(){
+  const rows=[
+    ['', 'Código','Nombre','Exento (SI/NO)','Inventario','Precio $','UMV','Bulto'],
+    ['', 'SLC099','Producto de ejemplo (reemplázalo por los tuyos)','NO',100,1.50,12,72]
+  ];
+  return buildXlsxMulti([{name:'Productos', rows}]);
+}
+function descargarPlantillaProductos(){
+  try{ download('Plantilla-Productos.xlsx', buildPlantillaProductos(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); return true; }
+  catch(e){ console.error('plantilla productos', e); return false; }
+}
 // Lee: código (B), nombre (C), exento (D: SI/NO), inventario (E), precio $ (F), UMV (G), BULTO (H).
 // La categoría se pregunta luego, producto por producto.
 function parseProductosNuevos(buf){
@@ -22068,7 +22080,15 @@ function wire(){
   // cargar productos nuevos desde xlsx (admin): primero el archivo, luego categoría por línea
   $('#btnNuevoProd').addEventListener('click',async ()=>{
     const desdeArchivo=await askConfirm('¿Cómo quieres agregar productos nuevos?','Desde un archivo (varios)','Manualmente (uno)');
-    if(desdeArchivo){ $('#fileNuevoProd').click(); }
+    if(desdeArchivo){
+      const gen=descargarPlantillaProductos();
+      const cont=await askConfirm(
+        (gen?'Se generó el archivo de ejemplo "Plantilla-Productos.xlsx" en tu carpeta de Descargas.':'No se pudo generar la plantilla de ejemplo.')
+        +'\n\nLlena la plantilla con tus productos (columnas: Código, Nombre, Exento, Inventario, Precio $, UMV, Bulto). La marca y la categoría se eligen al cargar.'
+        +'\n\n¿Deseas continuar y seleccionar tu archivo, o configurarlo primero con la plantilla?',
+        'Continuar','Configurar primero');
+      if(cont){ $('#fileNuevoProd').click(); }
+    }
     else { openCatEdit(); openNuevoProd(); }   // manual: abre el editor de catálogo y el formulario de agregar
   });
   $('#fileNuevoProd').addEventListener('change',e=>{
