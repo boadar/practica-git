@@ -470,7 +470,10 @@
     #print table.pricelist tr.cat{page-break-inside:avoid;break-inside:avoid;page-break-after:avoid;break-after:avoid}
     #print table.pricelist td.imgc img{display:block;margin:0 auto}
   }
-  .admgroups{flex-basis:100%;flex-direction:column;gap:8px;margin-top:8px}
+  .admtoggle{flex-basis:100%;width:100%;margin-top:8px;padding:9px 12px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.14);color:#fff;border-radius:9px;font-size:12.5px;font-weight:800;cursor:pointer;align-items:center;justify-content:space-between;gap:8px}
+  .admtoggle .admchev{transition:transform .15s;font-size:11px}
+  .admtoggle[aria-expanded="true"] .admchev{transform:rotate(180deg)}
+  .admgroups{flex-basis:100%;flex-direction:column;gap:8px;margin-top:8px;max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch;border:1px solid rgba(255,255,255,.2);border-radius:9px;padding:8px}
   .admgroup{display:flex;align-items:flex-start;gap:10px;flex-wrap:nowrap}
   .admgroup-lbl{flex:0 0 118px;padding-top:7px;color:#eaf6fd;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
   .admgroup-btns{display:flex;flex-wrap:wrap;gap:8px;flex:1 1 0;min-width:0}
@@ -481,7 +484,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v192</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v193</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -495,6 +498,7 @@
       
       
       
+      <button class="admtoggle" id="admToggle" type="button" style="display:none" aria-expanded="false"><span>⚙ Herramientas de administrador</span><span class="admchev">▾</span></button>
       <div class="admgroups" id="admGroups" style="display:none">
       <div class="admgroup"><span class="admgroup-lbl">Importar pedido</span><div class="admgroup-btns">
         <button class="iconbtn cargartop" id="btnCargar" type="button" style="display:none">
@@ -20007,10 +20011,10 @@ function cerrarListaCliente(input){
 
 async function toggleAdmin(){
   const admBtns=['#btnCargar','#btnCargarOtro','#ocSelect','#btnCargarInv','#btnNuevoProd','#btnPrecioTmp','#btnDescuentos','#btnOverInv','#btnRespaldo','#btnRestaurar','#btnReset','#btnEditarCat','#btnActualizarApp','#btnCargarHist','#btnSync'];
-  if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display='none'; }); { const ag=$('#admGroups'); if(ag) ag.style.display='none'; } filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
+  if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display='none'; }); { const ag=$('#admGroups'); if(ag) ag.style.display='none'; } { const t=$('#admToggle'); if(t){ t.style.display='none'; t.setAttribute('aria-expanded','false'); } } filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
   const pass=await askPassword();
   if(pass==null) return;
-  if(pass===ADMIN_KEY){ adminMode=true; $('#btnAdmin').setAttribute('aria-pressed','true'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display=''; }); { const ag=$('#admGroups'); if(ag) ag.style.display='flex'; } filter.hideNoStock=false; updateHideBtn(); render(); updateTotals(); toast('Modo administrador activado'); }
+  if(pass===ADMIN_KEY){ adminMode=true; $('#btnAdmin').setAttribute('aria-pressed','true'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display=''; }); { const ag=$('#admGroups'); if(ag) ag.style.display='none'; } { const t=$('#admToggle'); if(t){ t.style.display='flex'; t.setAttribute('aria-expanded','false'); } } filter.hideNoStock=false; updateHideBtn(); render(); updateTotals(); toast('Modo administrador activado · toca "Herramientas de administrador" para ver las opciones'); }
   else toast('Clave incorrecta');
 }
 
@@ -21716,6 +21720,7 @@ function wire(){
   });
   // edicion de precios (modo administrador)
   $('#btnAdmin').addEventListener('click',toggleAdmin);
+  $('#admToggle').addEventListener('click',()=>{ const t=$('#admToggle'), ag=$('#admGroups'); const abrir=t.getAttribute('aria-expanded')!=='true'; t.setAttribute('aria-expanded',abrir?'true':'false'); ag.style.display=abrir?'flex':'none'; });
   $('#list').addEventListener('change',e=>{
     const pe=e.target.closest('input[data-price]'); if(!pe) return;
     const row=pe.closest('.prod'); const p=byCode[row.dataset.code]; if(!p) return;
