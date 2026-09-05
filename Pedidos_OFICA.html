@@ -481,7 +481,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v190</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v191</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -19960,7 +19960,6 @@ function askMarcaCategoria(msg, marcaInicial){
   return new Promise(res=>{
     const m=$('#catModal'), selM=$('#catMarcaSel'), selC=$('#catCatSel'), ok=$('#catOk'), cancel=$('#catCancel'), x=$('#catNo');
     if(msg!=null) $('#catMsg').textContent=msg;
-    npCatPend={};
     let mk=marcaInicial||'solita';
     selM.innerHTML=npMarcaOptions(mk); selM.value=mk;
     selC.innerHTML=npCatOptions(mk,'');
@@ -21496,7 +21495,7 @@ async function categorizarYAgregarNuevos(nuevos, dup){
     else { toast('No se encontraron productos para agregar (revisa las columnas B a H)'); }
     return;
   }
-  const agregados=[]; let ultMarca='solita';
+  const agregados=[]; let ultMarca='solita'; npCatPend={};   // las categorías nuevas creadas persisten durante TODO el lote
   for(let i=0;i<nuevos.length;i++){
     const p=nuevos[i];
     const desc=(p.nombre && p.nombre!==p.codigo) ? (p.codigo+' — '+p.nombre) : p.codigo;
