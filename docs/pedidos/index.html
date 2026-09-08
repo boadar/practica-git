@@ -511,7 +511,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v208</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v209</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -22823,6 +22823,18 @@ function wire(){
     filter.hideNoStock=!filter.hideNoStock;
     updateHideBtn();
     render();
+    // Feedback: si en la vista/búsqueda actual no hay ninguna referencia sin inventario,
+    // el botón no tiene nada que mostrar/ocultar. Avisamos para que no parezca que "no hace nada".
+    const q=(filter.q||'').trim().toLowerCase();
+    const haySinInv=CATALOGO.some(p=>{
+      if(p.off && !adminMode) return false;
+      if(filter.marca && brandOf(p.categoria)!==filter.marca) return false;
+      if(filter.cat && p.categoria!==filter.cat) return false;
+      if(filter.onlyOn && !(state.qty[p.codigo]>0)) return false;
+      if(q && !((p.nombre+' '+p.codigo).toLowerCase().includes(q))) return false;
+      return !overInvCode(p.codigo) && Math.round(+p.inv||0)<=0 && !(state.qty[p.codigo]>0);
+    });
+    if(!haySinInv) toast(q ? 'No hay referencias sin inventario en esta búsqueda' : 'No hay referencias sin inventario en esta vista');
   });
   // breakdown
   $('#tToggle').addEventListener('click',()=>{
