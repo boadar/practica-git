@@ -508,7 +508,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v209</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v210</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -20488,7 +20488,7 @@ function visibleProducts(){
     if(filter.marca && brandOf(p.categoria)!==filter.marca) return false;   // filtro por marca (botones de marca)
     if(filter.cat && p.categoria!==filter.cat) return false;
     if(filter.onlyOn && !(state.qty[p.codigo]>0)) return false;
-    if(filter.hideNoStock && !overInvCode(p.codigo) && Math.round(+p.inv||0)<=0 && !(state.qty[p.codigo]>0)) return false;
+    if(filter.hideNoStock && Math.round(+p.inv||0)<=0 && !(state.qty[p.codigo]>0)) return false;   // ocultar por stock real (aunque sea ref. de sobre-inventario)
     if(q){
       const hay=(p.nombre+' '+p.codigo).toLowerCase();
       if(!hay.includes(q)) return false;
@@ -22829,7 +22829,7 @@ function wire(){
       if(filter.cat && p.categoria!==filter.cat) return false;
       if(filter.onlyOn && !(state.qty[p.codigo]>0)) return false;
       if(q && !((p.nombre+' '+p.codigo).toLowerCase().includes(q))) return false;
-      return !overInvCode(p.codigo) && Math.round(+p.inv||0)<=0 && !(state.qty[p.codigo]>0);
+      return Math.round(+p.inv||0)<=0 && !(state.qty[p.codigo]>0);
     });
     if(!haySinInv) toast(q ? 'No hay referencias sin inventario en esta búsqueda' : 'No hay referencias sin inventario en esta vista');
   });
