@@ -508,7 +508,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v210</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v211</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -21483,7 +21483,8 @@ function buildPricePrint(){
 }
 // ===== LISTA DE PRECIOS: seleccion por marca/linea con descuentos =====
 var lpActive=false, lpCatSel={}, lpBrandDisc={}, lpCount={}, lpGlobalDisc=null, lpExpanded={}, lpProdOff={}, lpProdInit=false;
-var LP_BRANDS=[{key:'solita',name:'SOLITA'},{key:'ofica',name:'OFICA'},{key:'alher',name:'ALHER'}];
+// marcas de la lista de precios: DINÁMICAS desde MARCAS (incluye KW-triO y toda marca nueva)
+function lpBrands(){ return (typeof MARCAS!=='undefined'&&MARCAS.length?MARCAS:[{k:'solita',label:'SOLITA'},{k:'ofica',label:'OFICA'},{k:'alher',label:'ALHER'}]).map(function(m){return {key:m.k,name:m.label||String(m.k).toUpperCase()};}); }
 function lpIncluded(p){ if(!lpActive) return true; var cs=lpCatSel[p.categoria]; return !!(cs && cs.on && !lpProdOff[p.codigo]); }
 function lpLineNet(p){
   var cs=lpCatSel[p.categoria]||{d1:0,d2:0,d3:0};
@@ -21495,13 +21496,17 @@ function lpPriceHtml(p){ var lista=round2(p.precioUsd), of=lpLineNet(p); return 
 function lpRefreshPrices(){ var sp=$('#lpBody').querySelectorAll('.lp-pprice[data-lppcode]'); for(var i=0;i<sp.length;i++){ var code=sp[i].getAttribute('data-lppcode'); var p=(typeof byCode!=='undefined'&&byCode[code])?byCode[code]:null; if(p) sp[i].innerHTML=lpPriceHtml(p); } }
 function lpAnyDesc(prods){ for(var i=0;i<prods.length;i++){ if(lpNet(prods[i]) < round2(prods[i].precioUsd)-1e-9) return true; } return false; }
 function lpTree(){
-  var byBrand={solita:[],ofica:[],alher:[]};
+  var brands=lpBrands();
+  var byBrand={}; brands.forEach(function(b){ byBrand[b.key]=[]; });
   CATS.forEach(function(cat){
     var b=brandOf(cat);
+    if(!byBrand[b]) byBrand[b]=[];   // marca no listada (defensivo)
     if(lpCount[cat]==null) lpCount[cat]=CATALOGO.filter(function(p){return p.categoria===cat;}).length;
-    (byBrand[b]||byBrand.solita).push({cat:cat,display:catDisplay(cat),count:lpCount[cat]});
+    byBrand[b].push({cat:cat,display:catDisplay(cat),count:lpCount[cat]});
   });
-  return LP_BRANDS.map(function(b){return {key:b.key,name:b.name,cats:byBrand[b.key]};}).filter(function(b){return b.cats.length;});
+  var out=brands.map(function(b){return {key:b.key,name:b.name,cats:byBrand[b.key]||[]};});
+  Object.keys(byBrand).forEach(function(k){ if(!brands.some(function(b){return b.key===k;})){ out.push({key:k,name:(typeof marcaLabel==='function'?marcaLabel(k):k.toUpperCase()),cats:byBrand[k]}); } });
+  return out.filter(function(b){return b.cats.length;});
 }
 function lpPct(x){ return Math.round((+x||0)*100); }
 function lpInit(){
