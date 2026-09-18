@@ -175,6 +175,12 @@
   .cathead.alher .catname{color:#8B57A5}
   .cathead.alher .n{color:#9A7BB0}
   .cathead-custom .catname,.cathead-custom .n{color:inherit}
+  /* sub-encabezado de sub-categoría dentro de una categoría */
+  .subcathead{position:relative;z-index:1;display:flex;align-items:center;gap:8px;
+    padding:5px 16px 5px 26px;background:var(--surface-2);border-bottom:1px solid var(--line-2);
+    font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--ink-2)}
+  .subcathead::before{content:"";position:absolute;left:14px;top:50%;transform:translateY(-50%);width:4px;height:4px;border-radius:50%;background:var(--ink-3)}
+  .subcathead .n{margin-left:auto;color:var(--ink-3);font-weight:700}
   .prod{
     display:flex;flex-direction:row;gap:12px;align-items:flex-start;
     padding:11px 16px;background:var(--surface);border-bottom:1px solid var(--line-2);
@@ -508,7 +514,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v212</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v213</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -807,6 +813,7 @@
     <div class="catedit-note">Los cambios se guardan en este dispositivo. Para que apliquen a todos, usa Respaldo y envíamelo para publicarlos.</div>
     <div class="body catedit-list" id="catEditList"></div>
     <datalist id="catEditCats"></datalist>
+    <datalist id="catEditSubcats"></datalist>
     <input type="file" id="catImgFile" accept="image/*" style="display:none">
   </div>
 </div>
@@ -19855,6 +19862,7 @@ const CATEDIT_FIELDS=[
   {k:'exento',label:'Exento',type:'sel',opts:['NO','SI']},
   {k:'codigoBarra',label:'Cód. barra',type:'text'},
   {k:'categoria',label:'Categoría',type:'text',list:'catEditCats'},
+  {k:'subcategoria',label:'Sub-categoría',type:'text',list:'catEditSubcats'},
   {k:'umv',label:'UMV',type:'num'},
   {k:'bulto',label:'Bulto',type:'num'},
   {k:'inv',label:'Inventario',type:'num'},
@@ -19910,6 +19918,7 @@ function catEditRender(q){
 function openCatEdit(){
   catEditDraft={}; catImgDraft={};   // arranca sin cambios pendientes
   const dl=$('#catEditCats'); if(dl) dl.innerHTML=[...new Set(CATALOGO.map(p=>p.categoria))].sort().map(c=>`<option value="${esc(c)}"></option>`).join('');
+  const dls=$('#catEditSubcats'); if(dls) dls.innerHTML=[...new Set(CATALOGO.map(p=>(p.subcategoria||'').trim()).filter(Boolean))].sort().map(c=>`<option value="${esc(c)}"></option>`).join('');
   const s=$('#catEditSearch'); if(s) s.value='';
   catEditRender(''); updateSaveBtn();
   $('#catEditModal').classList.add('open');
@@ -19973,7 +19982,7 @@ function npGuardarProducto(){
   if(!categoria || categoria==='__new__'){ toast('Elige o crea una categoría'); return; }
   const prod={
     codigo:codigo, codigoBarra:(get('codigoBarra')||'').trim(),
-    nombre:nombre||codigo, categoria:categoria,
+    nombre:nombre||codigo, categoria:categoria, subcategoria:(get('subcategoria')||'').trim(),
     exento:(String(get('exento')||'NO').toUpperCase()==='SI'?'SI':'NO'),
     inv:Math.round(parseFloat(get('inv'))||0),
     precioUsd:parseFloat(String(get('precioUsd')).replace(',','.'))||0,
@@ -20047,7 +20056,7 @@ function catEditRefresh(){ const s=$('#catEditSearch'); catEditRender(s?s.value:
 // ===== ACTUALIZAR APP: publica los cambios locales a GitHub (token temporal, NO se guarda) =====
 const GH_OWNER='boadar', GH_REPO='practica-git', GH_BRANCH='claude/artifact-modifications-fw94c4';
 const GH_API='https://api.github.com/repos/'+GH_OWNER+'/'+GH_REPO;
-const CAT_CAMPOS=['codigo','codigoBarra','nombre','categoria','exento','inv','precioUsd','desc1','desc2','desc3','umv','bulto','descGlobal','marca'];
+const CAT_CAMPOS=['codigo','codigoBarra','nombre','categoria','subcategoria','exento','inv','precioUsd','desc1','desc2','desc3','umv','bulto','descGlobal','marca'];
 function catalogoLimpio(){ return CATALOGO.map(p=>{ const o={}; CAT_CAMPOS.forEach(k=>{ if(p[k]!==undefined) o[k]=p[k]; }); return o; }); }
 function pimgConOverrides(){ const data=PIMG.data.slice(), map=Object.assign({},PIMG.map);
   Object.keys(IMG_OVR).forEach(code=>{ const v=IMG_OVR[code]; if(v){ data.push(v); map[code]=data.length-1; } else { delete map[code]; } });
@@ -20577,11 +20586,19 @@ function render(){
   // a los de su categoría y el conteo del encabezado coincide con lo visible.
   const catOrder={}; CATS.forEach((c,i)=>{ catOrder[c]=i; });
   const ord=c=>(catOrder[c]!==undefined?catOrder[c]:1e9);
-  items.sort((a,b)=>ord(a.categoria)-ord(b.categoria));
-  let html=''; let cat=null;
+  const scOf=p=>String(p.subcategoria||'').trim();
+  // ordena por categoría y, dentro, por sub-categoría (las SIN sub-categoría van primero)
+  items.sort((a,b)=>{
+    const c=ord(a.categoria)-ord(b.categoria); if(c) return c;
+    const sa=scOf(a), sb=scOf(b);
+    if(sa===sb) return 0;
+    if(!sa) return -1; if(!sb) return 1;
+    return sa.localeCompare(sb,'es');
+  });
+  let html=''; let cat=null, subcat=null;
   for(const p of items){
     if(p.categoria!==cat){
-      cat=p.categoria;
+      cat=p.categoria; subcat=null;
       const n=items.filter(x=>x.categoria===cat).length;
       const brand = brandOf(cat);
       const cfg = MARCA_CFG[brand];
@@ -20589,6 +20606,11 @@ function render(){
       const st = cfg ? ` style="background:${esc(cfg.bg)};color:${esc(cfg.fg)};border-top-color:${esc(cfg.bg)};border-bottom-color:${esc(cfg.bg)}"` : '';
       const cls = cfg ? (brand+' cathead-custom') : brand;
       html+=`<div class="cathead ${cls}"${st}><span class="catname">${esc(catDisplay(cat))}</span>${rlogo?`<img class="catlogo" src="${rlogo}" alt="">`:'<span></span>'}<span class="n">${n}</span></div>`;
+    }
+    const subc=scOf(p);
+    if(subc!==subcat){   // sub-encabezado al cambiar de sub-categoría (solo si tiene nombre)
+      subcat=subc;
+      if(subc){ const nsc=items.filter(x=>x.categoria===cat && scOf(x)===subc).length; html+=`<div class="subcathead"><span>${esc(subc)}</span><span class="n">${nsc}</span></div>`; }
     }
     const qty=+state.qty[p.codigo]||0;
     const on=qty>0;
