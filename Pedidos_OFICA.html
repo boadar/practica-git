@@ -334,6 +334,29 @@
   .catedit-add{padding:8px 12px;font-size:13px;white-space:nowrap}
   .cerow{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;background:var(--card,#fff)}
   .cerow.modif{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand) inset}
+  .cerow.ce-dragging{opacity:.5}
+  .cerow.ce-drop-before{box-shadow:0 -3px 0 0 var(--brand)}
+  .cerow.ce-drop-after{box-shadow:0 3px 0 0 var(--brand)}
+  /* editor: encabezados de categoría / sub-categoría y controles de orden */
+  .ce-note-order{font-size:11.5px;color:var(--muted,#8A97A4);padding:2px 4px 8px}
+  .ce-cathead{display:flex;align-items:center;gap:8px;margin:12px 0 6px;padding:8px 10px;border-radius:9px;
+    background:var(--brand,#009DDC);color:#fff;font-weight:800;font-size:13px;letter-spacing:.3px;text-transform:uppercase}
+  .ce-cathead.ce-drop-before{box-shadow:0 -3px 0 0 var(--ink,#14202B)}
+  .ce-cathead.ce-drop-after{box-shadow:0 3px 0 0 var(--ink,#14202B)}
+  .ce-cathead-name{flex:1 1 auto;min-width:0}
+  .ce-cathead-n{opacity:.85;font-weight:700}
+  .ce-subhead{display:flex;align-items:center;gap:8px;margin:6px 0 4px;padding:4px 10px;border-left:3px solid var(--line);
+    color:var(--ink-2);font-weight:800;font-size:11px;letter-spacing:.3px;text-transform:uppercase}
+  .ce-ord{display:flex;align-items:center;gap:3px;flex:0 0 auto}
+  .ce-ord-cat{margin-right:2px}
+  .ce-drag{cursor:grab;touch-action:none;border:1px solid var(--line);background:var(--surface,#fff);color:var(--ink-2);
+    border-radius:7px;width:30px;height:30px;font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0}
+  .ce-ord-cat .ce-drag{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.45);color:#fff}
+  .ce-drag:active{cursor:grabbing}
+  .ce-arrow{border:1px solid var(--line);background:var(--surface,#fff);color:var(--brand-ink,#016A9B);border-radius:7px;
+    width:26px;height:30px;font-size:11px;line-height:1;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
+  .ce-ord-cat .ce-arrow{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.45);color:#fff}
+  .ce-arrow:disabled{opacity:.35;cursor:not-allowed}
   .cehdr{display:flex;align-items:center;gap:10px;margin-bottom:8px}
   .cecode{font-weight:800;font-size:13px;color:var(--brand);letter-spacing:.03em;background:#e9f6fd;border:1px solid #bfe6f7;border-radius:8px;padding:3px 8px}
   .ceimgbox{display:flex;align-items:center;gap:8px;margin-left:auto}
@@ -514,7 +537,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v214</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v215</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -19897,6 +19920,53 @@ const CATEDIT_FIELDS=[
   {k:'marca',label:'Marca',type:'text'},
   {k:'descGlobal',label:'Desc. global',type:'sel',opts:['SI','NO']}
 ];
+function scOf(p){ return String((p&&p.subcategoria)||'').trim(); }   // sub-categoría normalizada
+// ===== Orden MANUAL del catálogo (dentro de cada grupo categoría+sub-categoría), local por dispositivo =====
+const ORDEN_KEY='ofica_orden_v1';
+function saveOrden(){ try{ localStorage.setItem(ORDEN_KEY, JSON.stringify(CATALOGO.map(p=>p.codigo))); }catch(e){} }
+function loadOrden(){
+  try{ const raw=localStorage.getItem(ORDEN_KEY); if(!raw) return; const arr=JSON.parse(raw); if(!Array.isArray(arr)||!arr.length) return;
+    const idx={}; arr.forEach((c,i)=>{ if(idx[c]==null) idx[c]=i; });
+    let seq=0; const orig={}; CATALOGO.forEach(p=>{ orig[p.codigo]=seq++; });   // desempate estable (orden publicado)
+    CATALOGO.sort((a,b)=>{ const ia=idx[a.codigo]!=null?idx[a.codigo]:1e9, ib=idx[b.codigo]!=null?idx[b.codigo]:1e9; if(ia!==ib) return ia-ib; return orig[a.codigo]-orig[b.codigo]; });
+  }catch(e){}
+}
+// mueve `code` para quedar justo antes/después de `targetCode` en el arreglo CATALOGO
+function moverProductoJunto(code, targetCode, after){
+  const ci=CATALOGO.findIndex(p=>p.codigo===code); if(ci<0) return false;
+  const it=CATALOGO.splice(ci,1)[0];
+  const ti=CATALOGO.findIndex(p=>p.codigo===targetCode);
+  if(ti<0){ CATALOGO.splice(ci,0,it); return false; }
+  CATALOGO.splice(after?ti+1:ti, 0, it);
+  return true;
+}
+// ===== Orden MANUAL de las CATEGORÍAS: se mueven BLOQUES enteros en CATALOGO =====
+// (así el orden de categorías vive en el arreglo y se propaga al publicar; las
+//  sub-categorías y productos conservan su orden dentro del bloque)
+// deja CATALOGO con las categorías en bloques contiguos, respetando el orden de 1ª aparición
+function normalizeCatalogOrder(){
+  const order=[]; const buckets={};
+  CATALOGO.forEach(p=>{ const c=p.categoria; if(!buckets[c]){ buckets[c]=[]; order.push(c); } buckets[c].push(p); });
+  const out=[]; order.forEach(c=>{ buckets[c].forEach(p=>out.push(p)); });
+  CATALOGO.length=0; out.forEach(p=>CATALOGO.push(p));
+}
+// re-deriva el orden de CATS (categorías) según 1ª aparición en CATALOGO
+function resyncCATS(){ const seen=[]; CATALOGO.forEach(p=>{ if(seen.indexOf(p.categoria)<0) seen.push(p.categoria); }); CATS.length=0; seen.forEach(c=>CATS.push(c)); }
+// mueve el BLOQUE de la categoría `cat` para quedar antes/después del bloque de `targetCat`
+function moverCategoriaJunto(cat, targetCat, after){
+  if(cat===targetCat) return false;
+  const block=CATALOGO.filter(p=>p.categoria===cat); if(!block.length) return false;
+  for(let i=CATALOGO.length-1;i>=0;i--){ if(CATALOGO[i].categoria===cat) CATALOGO.splice(i,1); }
+  let ti;
+  if(after){ ti=-1; for(let i=0;i<CATALOGO.length;i++){ if(CATALOGO[i].categoria===targetCat) ti=i; } ti=(ti<0?CATALOGO.length:ti+1); }
+  else { ti=CATALOGO.findIndex(p=>p.categoria===targetCat); if(ti<0) ti=CATALOGO.length; }
+  CATALOGO.splice(ti,0,...block); return true;
+}
+function catReordenAplicar(){ resyncCATS(); saveOrden(); try{buildChips();}catch(_){} render(); const s=$('#catEditSearch'); catEditRender(s?s.value:''); }
+function moverCategoria(cat, dir){   // dir -1 sube, +1 baja
+  const pos=CATS.indexOf(cat); const np=pos+dir; if(np<0||np>=CATS.length) return;
+  if(moverCategoriaJunto(cat, CATS[np], dir>0)) catReordenAplicar();
+}
 function loadCatOverrides(){
   try{ const raw=localStorage.getItem(CATEDIT_KEY); if(!raw) return;
     const ov=JSON.parse(raw)||{};
@@ -19925,23 +19995,65 @@ function catEditFldHtml(p,f){
   const list=f.list?` list="${f.list}"`:'';
   return `<label class="cefld${f.k==='nombre'?' wide':''}"><span>${f.label}</span><input type="${type}"${extra}${list} data-cod="${esc(p.codigo)}" data-field="${f.k}" value="${esc(String(v))}"></label>`;
 }
+function catEditSorted(){
+  const catOrder={}; CATS.forEach((c,i)=>{catOrder[c]=i;});
+  const ordc=c=>(catOrder[c]!==undefined?catOrder[c]:1e9);
+  return CATALOGO.slice().sort((a,b)=>{
+    const c=ordc(a.categoria)-ordc(b.categoria); if(c) return c;
+    const sa=scOf(a), sb=scOf(b); if(sa!==sb){ if(!sa) return -1; if(!sb) return 1; return sa.localeCompare(sb,'es'); }
+    return 0;   // estable = orden actual de CATALOGO
+  });
+}
+function catEditRowHtml(p, opts){
+  opts=opts||{};
+  const src=Object.prototype.hasOwnProperty.call(catImgDraft,p.codigo)?(catImgDraft[p.codigo]||null):imgFor(p.codigo);
+  const mod=((catEditDraft[p.codigo]&&Object.keys(catEditDraft[p.codigo]).length)||Object.prototype.hasOwnProperty.call(catImgDraft,p.codigo))?' modif':'';
+  const foto=`<div class="ceimgbox">`+
+    (src?`<div class="ceimg"><img src="${src}" alt=""></div>`:`<div class="ceimg ph">Sin foto</div>`)+
+    `<div class="ceimgbtns"><button type="button" class="ceimgbtn" data-imgload="${esc(p.codigo)}">Cargar foto</button>`+
+    (src?`<button type="button" class="ceimgbtn del" data-imgdel="${esc(p.codigo)}">Quitar</button>`:'')+
+    `</div></div>`;
+  const orden = opts.orden ? `<div class="ce-ord"><button type="button" class="ce-drag" data-drag="${esc(p.codigo)}" title="Arrastrar para reordenar" aria-label="Arrastrar para reordenar">☰</button><button type="button" class="ce-arrow" data-moveup="${esc(p.codigo)}" title="Subir" aria-label="Subir"${opts.first?' disabled':''}>▲</button><button type="button" class="ce-arrow" data-movedown="${esc(p.codigo)}" title="Bajar" aria-label="Bajar"${opts.last?' disabled':''}>▼</button></div>` : '';
+  const grupo = esc(p.categoria+''+scOf(p));
+  return `<div class="cerow${mod}" data-code="${esc(p.codigo)}" data-grupo="${grupo}"><div class="cehdr">${orden}<span class="cecode">${esc(p.codigo)}</span>${foto}</div><div class="cegrid">`+
+    CATEDIT_FIELDS.map(f=>catEditFldHtml(p,f)).join('')+`</div></div>`;
+}
 function catEditRender(q){
   q=(q||'').trim().toLowerCase();
-  const list=q?CATALOGO.filter(p=>String(p.codigo).toLowerCase().includes(q)||String(p.nombre||'').toLowerCase().includes(q)):CATALOGO;
-  const cnt=$('#catEditCount'); if(cnt) cnt.textContent=list.length+' de '+CATALOGO.length;
   const box=$('#catEditList'); if(!box) return;
-  box.innerHTML = list.length ? list.map(p=>{
-    const src=Object.prototype.hasOwnProperty.call(catImgDraft,p.codigo)?(catImgDraft[p.codigo]||null):imgFor(p.codigo);
-    const mod=((catEditDraft[p.codigo]&&Object.keys(catEditDraft[p.codigo]).length)||Object.prototype.hasOwnProperty.call(catImgDraft,p.codigo))?' modif':'';
-    const foto=`<div class="ceimgbox">`+
-      (src?`<div class="ceimg"><img src="${src}" alt=""></div>`:`<div class="ceimg ph">Sin foto</div>`)+
-      `<div class="ceimgbtns"><button type="button" class="ceimgbtn" data-imgload="${esc(p.codigo)}">Cargar foto</button>`+
-      (src?`<button type="button" class="ceimgbtn del" data-imgdel="${esc(p.codigo)}">Quitar</button>`:'')+
-      `</div></div>`;
-    return `<div class="cerow${mod}"><div class="cehdr"><span class="cecode">${esc(p.codigo)}</span>${foto}</div><div class="cegrid">`+
-      CATEDIT_FIELDS.map(f=>catEditFldHtml(p,f)).join('')+`</div></div>`;
-  }).join('')
-    : '<div class="ordersempty">Sin resultados.</div>';
+  if(q){   // buscando: lista plana, sin reordenar
+    const list=CATALOGO.filter(p=>String(p.codigo).toLowerCase().includes(q)||String(p.nombre||'').toLowerCase().includes(q));
+    const cnt=$('#catEditCount'); if(cnt) cnt.textContent=list.length+' de '+CATALOGO.length;
+    box.innerHTML = list.length ? ('<div class="ce-note-order">Borra la búsqueda para reordenar los productos.</div>'+list.map(p=>catEditRowHtml(p,{orden:false})).join('')) : '<div class="ordersempty">Sin resultados.</div>';
+    return;
+  }
+  const sorted=catEditSorted();
+  const cnt=$('#catEditCount'); if(cnt) cnt.textContent=sorted.length+' de '+CATALOGO.length;
+  const groups=[]; let cur=null;
+  sorted.forEach(p=>{ const key=p.categoria+''+scOf(p); if(!cur||cur.key!==key){ cur={key,cat:p.categoria,subc:scOf(p),items:[]}; groups.push(cur);} cur.items.push(p); });
+  const catsSeq=[]; groups.forEach(g=>{ if(!catsSeq.includes(g.cat)) catsSeq.push(g.cat); });
+  let html='<div class="ce-note-order">Arrastra ☰ o usa ▲▼ para reordenar productos dentro de su grupo, o categorías completas.</div>'; let lastCat=null;
+  groups.forEach(g=>{
+    if(g.cat!==lastCat){ lastCat=g.cat;
+      const total=groups.filter(x=>x.cat===g.cat).reduce((s,x)=>s+x.items.length,0);
+      const ci=catsSeq.indexOf(g.cat);
+      const catCtl=`<div class="ce-ord ce-ord-cat"><button type="button" class="ce-drag" data-dragcat="${esc(g.cat)}" title="Arrastrar categoría" aria-label="Arrastrar categoría">☰</button><button type="button" class="ce-arrow" data-catup="${esc(g.cat)}" title="Subir categoría" aria-label="Subir categoría"${ci===0?' disabled':''}>▲</button><button type="button" class="ce-arrow" data-catdown="${esc(g.cat)}" title="Bajar categoría" aria-label="Bajar categoría"${ci===catsSeq.length-1?' disabled':''}>▼</button></div>`;
+      html+=`<div class="ce-cathead" data-cat="${esc(g.cat)}">${catCtl}<span class="ce-cathead-name">${esc(catDisplay(g.cat))}</span><span class="ce-cathead-n">${total}</span></div>`;
+    }
+    if(g.subc){ html+=`<div class="ce-subhead">${esc(g.subc)} <span class="ce-cathead-n">${g.items.length}</span></div>`; }
+    g.items.forEach((p,i)=>{ html+=catEditRowHtml(p,{orden:true, first:i===0, last:i===g.items.length-1}); });
+  });
+  box.innerHTML = html;
+}
+function moverEnGrupo(code, dir){   // dir -1 sube, +1 baja (dentro de su grupo categoría+sub-categoría)
+  const p=byCode[code]; if(!p) return;
+  const key=p.categoria+''+scOf(p);
+  const grupo=catEditSorted().filter(x=>(x.categoria+''+scOf(x))===key);
+  const pos=grupo.findIndex(x=>x.codigo===code);
+  const np=pos+dir; if(np<0||np>=grupo.length) return;
+  moverProductoJunto(code, grupo[np].codigo, dir>0);   // baja: tras el siguiente; sube: antes del anterior
+  saveOrden(); render(); const s=$('#catEditSearch'); catEditRender(s?s.value:'');
+  const row=document.querySelector('#catEditList .cerow[data-code="'+CSS.escape(code)+'"]'); if(row) row.scrollIntoView({block:'nearest'});
 }
 function openCatEdit(){
   catEditDraft={}; catImgDraft={};   // arranca sin cambios pendientes
@@ -20192,7 +20304,10 @@ loadInvOverrides();
 loadCatOverrides();
 loadImgOverrides();
 const CATS = [...new Set(CATALOGO.map(p=>p.categoria))];
-rebuildMarcas();   // registra marcas/categorías personalizadas de productos guardados o publicados
+loadOrden();               // aplica el orden manual guardado (productos y bloques de categoría)
+normalizeCatalogOrder();   // deja las categorías en bloques contiguos
+resyncCATS();              // orden de categorías = 1ª aparición en el CATALOGO ya ordenado
+rebuildMarcas();           // registra marcas/categorías personalizadas de productos guardados o publicados
 
 // mapas de clientes para autocompletado enlazado (nombre <-> código)
 const cliByNombre={}, cliByCod={};
@@ -20614,7 +20729,6 @@ function render(){
   // a los de su categoría y el conteo del encabezado coincide con lo visible.
   const catOrder={}; CATS.forEach((c,i)=>{ catOrder[c]=i; });
   const ord=c=>(catOrder[c]!==undefined?catOrder[c]:1e9);
-  const scOf=p=>String(p.subcategoria||'').trim();
   // ordena por categoría y, dentro, por sub-categoría (las SIN sub-categoría van primero)
   items.sort((a,b)=>{
     const c=ord(a.categoria)-ord(b.categoria); if(c) return c;
@@ -23115,11 +23229,65 @@ function wire(){
   $('#catEditSearch').addEventListener('input',e=>catEditRender(e.target.value));
   // fotos: cargar / quitar
   $('#catEditList').addEventListener('click',e=>{
+    const mu=e.target.closest('[data-moveup]'); if(mu){ moverEnGrupo(mu.dataset.moveup,-1); return; }
+    const md=e.target.closest('[data-movedown]'); if(md){ moverEnGrupo(md.dataset.movedown,+1); return; }
+    const cu=e.target.closest('[data-catup]'); if(cu){ moverCategoria(cu.dataset.catup,-1); return; }
+    const cd=e.target.closest('[data-catdown]'); if(cd){ moverCategoria(cd.dataset.catdown,+1); return; }
     const load=e.target.closest('[data-imgload]');
     if(load){ catImgTargetCode=load.dataset.imgload; const fi=$('#catImgFile'); if(fi){ fi.value=''; fi.click(); } return; }
     const del=e.target.closest('[data-imgdel]');
     if(del){ catImgDraft[del.dataset.imgdel]=''; catEditRefresh(); updateSaveBtn(); return; }   // borrador
   });
+  // ---- Arrastre para reordenar (productos y categorías) — pointer events (PC + táctil) ----
+  (function(){
+    const box=$('#catEditList'); if(!box) return;
+    let drag=null;   // {tipo:'prod'|'cat', code, grupo, target, after}
+    function clearTargets(){ box.querySelectorAll('.ce-drop-before,.ce-drop-after').forEach(el=>el.classList.remove('ce-drop-before','ce-drop-after')); }
+    box.addEventListener('pointerdown',e=>{
+      const h=e.target.closest('[data-drag],[data-dragcat]'); if(!h) return;
+      e.preventDefault();
+      if(h.hasAttribute('data-dragcat')){
+        drag={tipo:'cat', code:h.getAttribute('data-dragcat')};
+      } else {
+        const row=h.closest('.cerow'); if(!row) return;
+        drag={tipo:'prod', code:row.dataset.code, grupo:row.dataset.grupo};
+        row.classList.add('ce-dragging');
+      }
+      try{ h.setPointerCapture(e.pointerId); }catch(_){}
+    });
+    box.addEventListener('pointermove',e=>{
+      if(!drag) return;
+      const el=document.elementFromPoint(e.clientX,e.clientY);
+      clearTargets(); drag.target=null;
+      if(!el) return;
+      if(drag.tipo==='prod'){
+        const row=el.closest && el.closest('.cerow');
+        if(row && row.dataset.code!==drag.code && row.dataset.grupo===drag.grupo){
+          const r=row.getBoundingClientRect(); const after=e.clientY> r.top+r.height/2;
+          row.classList.add(after?'ce-drop-after':'ce-drop-before'); drag.target=row.dataset.code; drag.after=after;
+        }
+      } else {
+        const head=el.closest && el.closest('.ce-cathead');
+        if(head && head.dataset.cat!==drag.code){
+          const r=head.getBoundingClientRect(); const after=e.clientY> r.top+r.height/2;
+          head.classList.add(after?'ce-drop-after':'ce-drop-before'); drag.target=head.dataset.cat; drag.after=after;
+        }
+      }
+    });
+    function finish(){
+      if(!drag){ return; }
+      const d=drag; drag=null; clearTargets();
+      box.querySelectorAll('.ce-dragging').forEach(el=>el.classList.remove('ce-dragging'));
+      if(!d.target) return;
+      if(d.tipo==='prod'){
+        if(moverProductoJunto(d.code, d.target, d.after)){ saveOrden(); render(); const s=$('#catEditSearch'); catEditRender(s?s.value:''); toast('Orden actualizado'); }
+      } else {
+        if(moverCategoriaJunto(d.code, d.target, d.after)){ catReordenAplicar(); toast('Orden de categorías actualizado'); }
+      }
+    }
+    box.addEventListener('pointerup',finish);
+    box.addEventListener('pointercancel',()=>{ drag=null; clearTargets(); box.querySelectorAll('.ce-dragging').forEach(el=>el.classList.remove('ce-dragging')); });
+  })();
   $('#catImgFile').addEventListener('change',e=>{
     const f=e.target.files&&e.target.files[0]; if(!f||!catImgTargetCode){ e.target.value=''; return; }
     const cod=catImgTargetCode;
