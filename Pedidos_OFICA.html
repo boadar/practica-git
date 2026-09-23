@@ -537,7 +537,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v215</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v216</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -567,6 +567,7 @@
           <option value="mangobajito">MANGO BAJITO</option>
           <option value="grupoabreu">GRUPO ABREU</option>
           <option value="redvital">REDVITAL</option>
+          <option value="todohogar">TODO HOGAR</option>
         </select>
         <input type="file" id="fileCargarOC" accept=".pdf,application/pdf" multiple style="display:none">
       </div></div>
@@ -22167,7 +22168,7 @@ function cargarPedidoDesdeXlsx(buf){
 // Cada cliente puede enviar un formato distinto -> un parser por cliente. Empezamos con MANGO BAJITO.
 let ocDraft=[];   // OC leídas, pendientes de generar
 let ocFormatoActual='';   // formato/empresa del lote actual (mangobajito|grupoabreu|redvital)
-const OC_EMPRESA_LABEL={ mangobajito:'Mango_Bajito', grupoabreu:'Grupo_Abreu', redvital:'REDVITAL' };
+const OC_EMPRESA_LABEL={ mangobajito:'Mango_Bajito', grupoabreu:'Grupo_Abreu', redvital:'REDVITAL', todohogar:'Todo_Hogar' };
 // normaliza razón social para cruzar con la base (quita C.A/S.A/SUC, acentos, símbolos)
 function _normCli(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\b(C\.?A\.?|S\.?A\.?|COMPANIA|COMPA[NÑ]IA|ANONIMA|SUC\.?|SUCURSAL)\b/g,' ').replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
 // cruza la razón social de la OC con la base CLIENTES: exacto, o substring fuerte (evita falsos positivos)
@@ -22314,7 +22315,36 @@ async function parseOCRedvital(buf, filename){
   if(dep) dir += (dir?' · ':'')+'Depto: '+dep.trim();
   return {numped, nombre, direccion:dir, qty, precios, missing};
 }
-const OC_PARSERS={ mangobajito: parseOCMangoBajito, grupoabreu: parseOCAbreu, redvital: parseOCRedvital };
+// Parser TODO HOGAR: PDF con fuente CID (Type0) -> se lee con pdf.js (como REDVITAL). Asocia por CÓDIGO DE BARRA.
+// Columnas: Código(barra) | Descripción | Unidades | Cajas | Total Unidades | Costo | Monto Total.
+// De cada fila se toma la 5ª columna (Total Unidades) como cantidad y la 6ª (Costo) como precio unitario.
+async function parseOCTodoHogar(buf, filename){
+  const j=await pdfTextoPdfjs(buf);
+  const nm=((filename||'').match(/Orden\s*0*([0-9]+)/i)||[])[1] || (j.match(/\b0*([0-9]{6,})\b/)||[])[1] || '';
+  const numped = nm ? ('OC '+nm) : (filename||'').replace(/\.pdf$/i,'');
+  const bmap=ocBarMap();
+  const qty={}, precios={}, missing=[];
+  const ms=[]; const bre=/759114\d{7}/g; let mm;
+  while(mm=bre.exec(j)) ms.push({b:mm[0], i:mm.index});
+  const re5=/(\d[\d.]*)\s+(\d[\d.]*)\s+(\d[\d.]*)\s+(\d[\d.]*,\d{2})\s+(\d[\d.]*,\d{2})/g;   // Unidades Cajas TotalUnid Costo Monto
+  for(let k=0;k<ms.length;k++){
+    const seg=j.slice(ms[k].i+13, (k+1<ms.length?ms[k+1].i:ms[k].i+13+300));
+    re5.lastIndex=0; let last=null, r; while(r=re5.exec(seg)) last=r;   // los 5 números de la fila son los últimos que calzan
+    if(!last) continue;
+    const q=parseInt(last[3].replace(/\./g,''),10)||0;                  // 5ª columna: Total Unidades
+    const precio=parseFloat(last[4].replace(/\./g,'').replace(',','.'))||0;   // 6ª columna: Costo por unidad
+    const code=bmap[ms[k].b];
+    if(code && byCode[code] && q>0){ qty[code]=(qty[code]||0)+q; if(precio>0) precios[code]=precio; }
+    else if(q>0){ missing.push(ms[k].b+' x'+q); }
+  }
+  // El PDF no trae la razón social del comprador (solo dirección de entrega) -> nombre "TODO HOGAR"
+  // y el usuario asigna el código de cliente (la sucursal/dirección va a Observaciones).
+  let dir='';
+  const md=j.match(/Entrega:\s*([\s\S]*?)\s*759114\d{7}/i);
+  if(md){ dir=md[1].replace(/^\s*0\d{5,}\s*/,'').replace(/\s+/g,' ').trim(); if(dir.length>170) dir=dir.slice(0,170); }
+  return {numped, nombre:'TODO HOGAR', direccion: dir?('Entrega: '+dir):'', qty, precios, missing};
+}
+const OC_PARSERS={ mangobajito: parseOCMangoBajito, grupoabreu: parseOCAbreu, redvital: parseOCRedvital, todohogar: parseOCTodoHogar };
 async function cargarOCArchivos(files, formato){
   const parser=OC_PARSERS[formato]; if(!parser){ toast('Formato de OC no reconocido'); return; }
   ocFormatoActual=formato;
