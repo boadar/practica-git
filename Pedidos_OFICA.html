@@ -537,7 +537,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v216</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v217</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -19311,7 +19311,7 @@ async function guardarPedidoDividido(dias){
     (nuevos.length<dias.length ? ('Solo había referencias para '+nuevos.length+' pedido'+(nuevos.length===1?'':'s')+'. ') : ('El pedido se dividió en '+nuevos.length+' pedidos. '))
     + nuevos.map(function(r,i){return grupos[i].dias+' días: '+fmt.format(r.total);}).join('   ·   ')
     + '. ¿Deseas enviarlos ahora?','Sí, enviar','No');
-  if(enviar){ await enviarPedidos(nuevos.map(function(r){return r.id;})); }
+  if(enviar){ var ok=await enviarPedidos(nuevos.map(function(r){return r.id;})); if(ok!==false) limpiarPedidoTodo(); }
   else { limpiarPedidoTodo(); toast('Guardado: '+nuevos.length+' pedido'+(nuevos.length===1?'':'s')+' ('+montos+')'); }
 }
 // ---- BackOrder: separa el pedido en lo cubierto por inventario y el faltante ----
@@ -19373,7 +19373,7 @@ async function guardarPedidoBackOrder(bo){
     'El pedido supera el inventario disponible. Se dividió en 2 pedidos:   '
     +'Disponible '+fmt.format(s1)+'   ·   BackOrder '+fmt.format(s2)
     +'.   ¿Deseas enviarlos ahora?','Sí, enviar','No');
-  if(enviar){ await enviarPedidos([rec1.id, rec2.id]); }
+  if(enviar){ var ok=await enviarPedidos([rec1.id, rec2.id]); if(ok!==false) limpiarPedidoTodo(); }
   else { limpiarPedidoTodo(); toast('Guardado: pedido Disponible + BackOrder'); }
 }
 async function guardarPedido(){
@@ -19432,7 +19432,8 @@ async function guardarPedido(){
       const otros=await askConfirm('Hay '+pendientes.length+' pedido'+(pendientes.length===1?'':'s')+' más pendiente'+(pendientes.length===1?'':'s')+' por enviar. ¿Deseas enviarlos también?','Sí, ver pedidos','No, solo este');
       if(otros){ limpiarPedidoTodo(); openPedidos(); return; }
     }
-    await enviarPedidos([rec.id]);
+    const ok=await enviarPedidos([rec.id]);
+    if(ok!==false) limpiarPedidoTodo();   // enviado -> deja la app lista para un pedido nuevo
   } else { limpiarPedidoTodo(); toast('Pedido guardado'); }
 }
 // limpia por completo el pedido actual (deja el formulario en blanco)
@@ -19802,7 +19803,7 @@ async function enviarPedidos(ids){
       catch(e){ if(e && e.name==='AbortError'){ cancelado=true; } else { console.error(e); } }
     }
   }
-  if(cancelado) return; // canceló: no cambia estatus
+  if(cancelado) return false; // canceló: no cambia estatus ni limpia
 
   // 2) PC (o móvil sin compartir): genera un .eml con el Excel YA adjunto; al abrirlo, el correo se abre con el archivo
   if(!enviado){
@@ -19831,6 +19832,7 @@ async function enviarPedidos(ids){
     : modo==='mailto' ? 'Excel descargado: adjúntalo al correo'
     : 'Pedido'+(sel.length>1?'s':'')+' enviado'+(sel.length>1?'s':'')+' ✓';
   toast(msg);
+  return enviado;   // true si se envió/generó el archivo; false si el usuario canceló
 }
 
 async function abrirPedido(id){
