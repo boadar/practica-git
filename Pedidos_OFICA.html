@@ -537,7 +537,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v220</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v221</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -22598,6 +22598,21 @@ async function cargarPedidoDeCorreo(buf, fileName, opts){ opts=opts||{};
   return { id:rec.id, enviadoCentral:yaCentral, nref:nref, missing:missing.length };
 }
 // ===== Cargar Inventario desde .xlsx (hoja "Data Detalle": código en col B, inventario en col E) =====
+// Referencias que en el archivo de inventario vienen DIVIDIDAS por color (con punto al final):
+// al cargar, se SUMAN las variantes en la referencia del catálogo.
+const INV_AGRUPAR={
+  'KWT-0508B-OFFICE':['KWT-0508B-OFFIGRIS.','KWT-0508B-OFFINEGR.'],
+  'KWT-0508B-STUDENT':['KWT-0508B-STUDROSA.','KWT-0508B-STUDVERD.'],
+  'KWT-055G9':['KWT-055G9ROJO.','KWT-055G9AZUL.'],
+  'KWT-055X6':['KWT-055X6ROSA.','KWT-055X6VERD.','KWT-055X6AMAR.'],
+  'KWT-05843':['KWT-05843AZUL.','KWT-05843NEGR.'],
+  'KWT-055C6':['KWT-055C6NEGR.','KWT-055C6BLAN.','KWT-055C6AZUL.'],
+  'KWT-09165':['KWT-09165AZUL.','KWT-09165BLAN.','NEGR.KWT-09165'],
+  'KWT-09190':['KWT-09190ROSA.','KWT-09190BLAN.','KWT-09190VERD.','KWT-09190AZMA.'],
+  'KWT-09652':['KWT-09652AZUL.','KWT-09652ROSA.'],
+  'KWT-13045':['KWT-13045ROSA.','KWT-13045VERD.'],
+  'KWT-13831':['KWT-13831AZMA.','KWT-13831ROSA.','KWT-13831VERD.']
+};
 async function cargarInventarioDesdeXlsx(buf){
   const zip=xlsxOpenZip(buf);
   const shared=[]; const ssB=zip.get('xl/sharedStrings.xml');
@@ -22622,6 +22637,8 @@ async function cargarInventarioDesdeXlsx(buf){
   }
   const norm=s=>String(s).replace(/[^A-Za-z0-9]/g,'').toUpperCase();
   const normMap={}; CATALOGO.forEach(p=>{ normMap[norm(p.codigo)]=p.codigo; });
+  // variantes de color (normalizadas) -> referencia del catálogo, para SUMARLAS
+  const invVariante={}; Object.keys(INV_AGRUPAR).forEach(cod=>{ INV_AGRUPAR[cod].forEach(v=>{ invVariante[norm(v)]=cod; }); });
   const HEADERS={'CODIGO':1,'COD':1,'CODIGODEPRODUCTO':1,'CODIGOPRODUCTO':1,'REFERENCIA':1,'REF':1,'ITEM':1,'PRODUCTO':1,'DATADETALLE':1,'INVENTARIO':1,'EXISTENCIA':1};
   const updated={}; const foundSet={}; let count=0, dataRows=0;
   for(let r=1;r<=maxRow;r++){
@@ -22629,13 +22646,17 @@ async function cargarInventarioDesdeXlsx(buf){
     const codeStr=String(rawB).trim(); if(!codeStr) continue;
     const nb=norm(codeStr); if(!nb || HEADERS[nb]) continue;
     dataRows++;
-    const found = byCode[codeStr] ? codeStr : (normMap[nb] || null);
     const invNum=parseFloat(cells['E'+r]); const cant=isFinite(invNum)?invNum:0;
-    if(found){ updated[found]=cant; foundSet[found]=1; count++; }
+    if(invVariante[nb]){   // variante de color -> SUMAR a la referencia del catálogo
+      const cod=invVariante[nb]; updated[cod]=(updated[cod]||0)+cant; foundSet[cod]=1; continue;
+    }
+    const found = byCode[codeStr] ? codeStr : (normMap[nb] || null);
+    if(found){ updated[found]=cant; foundSet[found]=1; }
     // Las referencias que NO están en el catálogo (usos no comerciales: empaques, insertos, etc.)
     // se ignoran. "Cargar Inventario" solo actualiza productos existentes; NUNCA crea productos
     // (la creación de productos es aparte, con el botón "Cargar nuevo producto").
   }
+  count=Object.keys(foundSet).length;   // referencias del catálogo actualizadas (las variantes suman a una sola)
   if(count===0 && dataRows===0){ throw new Error('La hoja "Data Detalle" no tiene datos de inventario (revisa columnas B y E)'); }
   if(count===0){
     await askConfirm('Ninguna de las '+dataRows+' referencia'+(dataRows===1?'':'s')+' del archivo coincide con el catálogo. No se cambió el inventario. Revisa que el archivo sea el correcto (código en columna B).','Entendido','Cerrar');
