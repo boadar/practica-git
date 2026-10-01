@@ -537,7 +537,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v223</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v224</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -19604,9 +19604,21 @@ function buildOrderXlsxStyled(o){
       const ov=precioTmpDe(p);
       const base=round2((ov!=null)?ov:(+(p&&p.precioUsd)||0));  // PRECIO UNIT $ = precio original (base del descuento)
       const net=round2(precioNeto(p));                          // PRECIO FINAL $ = con descuento
-      prods.push({codigo:p.codigo, nombre:String(p.nombre||''), inv:(+p.inv||0),
-        precioUnit:base, d1:dsc[0], d2:dsc[1], d3:dsc[2], precio:net,
-        umv:(+p.umv||0), bulto:(+p.bulto||0), pedido:qty, total:round2(net*qty)});
+      const vars=INV_AGRUPAR[p.codigo];
+      if(vars && vars.length){
+        // referencia con variantes de color: se reparte la cantidad entre las variantes
+        const n=vars.length, bq=Math.floor(qty/n), rem=qty-bq*n;
+        vars.forEach((vc,vi)=>{
+          const vq=bq+(vi<rem?1:0); if(vq<=0) return;
+          prods.push({codigo:vc, nombre:String(p.nombre||''), inv:(+p.inv||0),
+            precioUnit:base, d1:dsc[0], d2:dsc[1], d3:dsc[2], precio:net,
+            umv:(+p.umv||0), bulto:(+p.bulto||0), pedido:vq, total:round2(net*vq)});
+        });
+      } else {
+        prods.push({codigo:p.codigo, nombre:String(p.nombre||''), inv:(+p.inv||0),
+          precioUnit:base, d1:dsc[0], d2:dsc[1], d3:dsc[2], precio:net,
+          umv:(+p.umv||0), bulto:(+p.bulto||0), pedido:qty, total:round2(net*qty)});
+      }
     });
     data={ m, t,
       fecha: fechaDMY((o&&o.fecha)||m.fecha||''),
@@ -22540,12 +22552,17 @@ async function cargarPedidoDeCorreo(buf, fileName, opts){ opts=opts||{};
     else if(lab==='OBSERVACIONES') meta.obs=val!=null?String(val):'';
   }
   // productos
+  // mapa inverso: variante de color (normalizada) -> referencia del catálogo, para re-agrupar
+  const invVar={}; Object.keys(INV_AGRUPAR).forEach(cod=>{ INV_AGRUPAR[cod].forEach(v=>{ invVar[norm(v)]=cod; }); });
   const qty={}, ptmp={}, missing=[];
   for(let r=hdrRow+1;r<=maxRow;r++){
     const code=cells[colCode+r]; if(code==null) continue; const c=String(code).trim(); if(!c) continue;
     const pv=parseFloat(cells[colQty+r]); if(!(pv>0)) continue;
-    if(byCode[c]){ qty[c]=Math.round(pv); const pr=colPrice?parseFloat(cells[colPrice+r]):NaN; if(isFinite(pr)&&pr>=0) ptmp[c]=round2(pr); }
-    else missing.push(c+' x'+Math.round(pv));
+    const target = byCode[c] ? c : (invVar[norm(c)] || null);   // variante -> su referencia del catálogo
+    if(target && byCode[target]){
+      qty[target]=(qty[target]||0)+Math.round(pv);
+      const pr=colPrice?parseFloat(cells[colPrice+r]):NaN; if(isFinite(pr)&&pr>=0) ptmp[target]=round2(pr);
+    } else missing.push(c+' x'+Math.round(pv));
   }
   if(Object.keys(qty).length===0) throw new Error('El archivo no tiene productos del catálogo');
   let obs=meta.obs||'';
