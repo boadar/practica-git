@@ -550,7 +550,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v226</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v227</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -642,6 +642,10 @@
         <button class="iconbtn cargarinv" id="btnSync" type="button" style="display:none" title="Sincronizar los pedidos entre el teléfono y la computadora (repositorio privado tuyo en GitHub).">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
         <span class="btnlabel">Sincronizar</span>
+      </button>
+        <button class="iconbtn cargarinv" id="btnSincOrden" type="button" style="display:none" title="Publicar el ORDEN actual de los productos (como lo dejaste en Editar Catálogo) para que TODOS los dispositivos lo adopten. Pide un token que no se guarda.">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/><path d="M8 10l2 2 4-4"/></svg>
+        <span class="btnlabel">Sincronizar Orden</span>
       </button>
       </div></div>
       <input type="file" id="fileCargarHist" accept=".xlsx" style="display:none">
@@ -20114,13 +20118,52 @@ const CATEDIT_FIELDS=[
 function scOf(p){ return String((p&&p.subcategoria)||'').trim(); }   // sub-categoría normalizada
 // ===== Orden MANUAL del catálogo (dentro de cada grupo categoría+sub-categoría), local por dispositivo =====
 const ORDEN_KEY='ofica_orden_v1';
-function saveOrden(){ try{ localStorage.setItem(ORDEN_KEY, JSON.stringify(CATALOGO.map(p=>p.codigo))); }catch(e){} }
-function loadOrden(){
-  try{ const raw=localStorage.getItem(ORDEN_KEY); if(!raw) return; const arr=JSON.parse(raw); if(!Array.isArray(arr)||!arr.length) return;
-    const idx={}; arr.forEach((c,i)=>{ if(idx[c]==null) idx[c]=i; });
-    let seq=0; const orig={}; CATALOGO.forEach(p=>{ orig[p.codigo]=seq++; });   // desempate estable (orden publicado)
-    CATALOGO.sort((a,b)=>{ const ia=idx[a.codigo]!=null?idx[a.codigo]:1e9, ib=idx[b.codigo]!=null?idx[b.codigo]:1e9; if(ia!==ib) return ia-ib; return orig[a.codigo]-orig[b.codigo]; });
-  }catch(e){}
+const ORDEN_STAMP_KEY='ofica_orden_stamp_v1';   // marca de tiempo del orden local (para sincronizar: gana el más reciente)
+function saveOrden(){ try{ localStorage.setItem(ORDEN_KEY, JSON.stringify(CATALOGO.map(p=>p.codigo))); localStorage.setItem(ORDEN_STAMP_KEY, String(Date.now())); }catch(e){} }
+// reordena CATALOGO según una lista de códigos (desempate estable por el orden actual)
+function aplicarOrdenCodigos(arr){
+  if(!Array.isArray(arr)||!arr.length) return;
+  const idx={}; arr.forEach((c,i)=>{ if(idx[c]==null) idx[c]=i; });
+  let seq=0; const orig={}; CATALOGO.forEach(p=>{ orig[p.codigo]=seq++; });
+  CATALOGO.sort((a,b)=>{ const ia=idx[a.codigo]!=null?idx[a.codigo]:1e9, ib=idx[b.codigo]!=null?idx[b.codigo]:1e9; if(ia!==ib) return ia-ib; return orig[a.codigo]-orig[b.codigo]; });
+}
+function loadOrden(){ try{ const raw=localStorage.getItem(ORDEN_KEY); if(raw) aplicarOrdenCodigos(JSON.parse(raw)); }catch(e){} }
+// Trae el orden publicado (orden.json) y lo ADOPTA si es más reciente que el local. El orden se comparte
+// entre dispositivos vía docs/pedidos/orden.json (lo sube el botón "Sincronizar Orden").
+async function cargarOrdenPublicado(){
+  try{
+    const r=await fetch('https://boadar.github.io/practica-git/pedidos/orden.json?t='+Date.now(), {cache:'no-store'});
+    if(!r.ok) return;
+    const o=await r.json(); if(!o || !Array.isArray(o.codigos) || !o.codigos.length) return;
+    const pub=+o.stamp||0, loc=+(localStorage.getItem(ORDEN_STAMP_KEY)||0);
+    if(pub<=loc) return;   // el orden local es igual o más nuevo: no se toca
+    try{ localStorage.setItem(ORDEN_KEY, JSON.stringify(o.codigos)); localStorage.setItem(ORDEN_STAMP_KEY, String(pub)); }catch(e){}
+    aplicarOrdenCodigos(o.codigos); normalizeCatalogOrder(); resyncCATS();
+    try{ buildChips(); }catch(e){}
+    render(); updateTotals();
+  }catch(e){}   // sin internet / no existe aún -> se queda el orden local
+}
+async function sincronizarOrden(){
+  const ok=await askConfirm('Se publicará el ORDEN actual de los productos (como lo dejaste) para que TODOS los dispositivos lo adopten al reabrir la app.\n\nNecesitarás un token de GitHub (no se guarda). ¿Continuar?','Sí, sincronizar','Cancelar');
+  if(!ok) return;
+  const token=await pedirToken(); if(!token) return;
+  const H={ 'Authorization':'Bearer '+token, 'Accept':'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28' };
+  try{
+    toast('Sincronizando orden…');
+    const stamp=Date.now();
+    const codigos=CATALOGO.map(p=>p.codigo);
+    const payload=JSON.stringify({stamp, codigos});
+    const ref=await ghFetch(GH_API+'/git/ref/heads/'+GH_BRANCH, {headers:H});
+    const commitSha=ref.object.sha; const commit=await ghFetch(GH_API+'/git/commits/'+commitSha, {headers:H}); const baseTree=commit.tree.sha;
+    const blobSha=(await ghFetch(GH_API+'/git/blobs',{method:'POST',headers:H,body:JSON.stringify({content:ghEncodeB64(payload),encoding:'base64'})})).sha;
+    const tree=await ghFetch(GH_API+'/git/trees',{method:'POST',headers:H,body:JSON.stringify({base_tree:baseTree,tree:[{path:'docs/pedidos/orden.json',mode:'100644',type:'blob',sha:blobSha}]})});
+    const newCommit=await ghFetch(GH_API+'/git/commits',{method:'POST',headers:H,body:JSON.stringify({message:'Sincronizar orden de productos',tree:tree.sha,parents:[commitSha]})});
+    await ghFetch(GH_API+'/git/refs/heads/'+GH_BRANCH,{method:'PATCH',headers:H,body:JSON.stringify({sha:newCommit.sha,force:false})});
+    try{ localStorage.setItem(ORDEN_KEY, JSON.stringify(codigos)); localStorage.setItem(ORDEN_STAMP_KEY, String(stamp)); }catch(e){}
+    await askConfirm('¡Orden sincronizado! Los demás dispositivos lo adoptarán al reabrir la app (puede tardar 1-2 min).','Entendido','Cerrar');
+  }catch(err){
+    await askConfirm('No se pudo sincronizar el orden: '+(err&&err.message?err.message:err)+'\n\nVerifica el token (Contents: Read and write en practica-git) y tu conexión.','Entendido','Cerrar');
+  }
 }
 // mueve `code` para quedar justo antes/después de `targetCode` en el arreglo CATALOGO
 function moverProductoJunto(code, targetCode, after){
@@ -21408,7 +21451,7 @@ function cerrarListaCliente(input){
 }
 
 async function toggleAdmin(){
-  const admBtns=['#btnCargar','#btnCargarOtro','#ocSelect','#btnCargarInv','#btnNuevoProd','#btnPrecioTmp','#btnDescuentos','#btnOverInv','#btnRespaldo','#btnRestaurar','#btnReset','#btnEditarCat','#btnMarcas','#btnActualizarApp','#btnCargarHist','#btnSync'];
+  const admBtns=['#btnCargar','#btnCargarOtro','#ocSelect','#btnCargarInv','#btnNuevoProd','#btnPrecioTmp','#btnDescuentos','#btnOverInv','#btnRespaldo','#btnRestaurar','#btnReset','#btnEditarCat','#btnMarcas','#btnActualizarApp','#btnCargarHist','#btnSync','#btnSincOrden'];
   if(adminMode){ adminMode=false; $('#btnAdmin').setAttribute('aria-pressed','false'); admBtns.forEach(s=>{ const b=$(s); if(b) b.style.display='none'; }); { const ag=$('#admGroups'); if(ag) ag.style.display='none'; } { const t=$('#admToggle'); if(t){ t.style.display='none'; t.setAttribute('aria-expanded','false'); } } filter.hideNoStock=true; updateHideBtn(); render(); updateTotals(); toast('Modo administrador desactivado'); return; }
   const pass=await askPassword();
   if(pass==null) return;
@@ -23640,6 +23683,7 @@ function wire(){
   });
   $('#btnVerPedidos').addEventListener('click',()=>{ if(syncActivo()) syncPull(true, true); openPedidos(); });
   $('#btnSync').addEventListener('click',abrirSync);
+  $('#btnSincOrden').addEventListener('click',sincronizarOrden);
   $('#syncClose').addEventListener('click',cerrarSync);
   $('#syncClose2').addEventListener('click',cerrarSync);
   $('#syncConnect').addEventListener('click',syncConectar);
@@ -23761,7 +23805,7 @@ function syncHeaderVars(){
 // La app SIEMPRE inicia en blanco: cantidades en 0 y sin descuentos.
 try{ localStorage.removeItem(STORE_KEY); }catch(e){}
 state = {qty:{}, meta:{}};
-buildLists(); buildChips(); initMeta(); render(); updateTotals(); wire(); cargarClientesExtra(); syncInit();
+buildLists(); buildChips(); initMeta(); render(); updateTotals(); wire(); cargarClientesExtra(); syncInit(); cargarOrdenPublicado();
 // aviso breve con la versión al abrir la app
 try{ const _v=(document.getElementById('appver')||{}).textContent||''; setTimeout(()=>toast('Pedidos OFICA '+_v+' · '+CATALOGO.length+' referencias'),400); }catch(e){}
 syncHeaderVars();
