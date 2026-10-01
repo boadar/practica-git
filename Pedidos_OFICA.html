@@ -357,6 +357,16 @@
     width:26px;height:30px;font-size:11px;line-height:1;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
   .ce-ord-cat .ce-arrow{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.45);color:#fff}
   .ce-arrow:disabled{opacity:.35;cursor:not-allowed}
+  /* editor de variaciones de color en la ficha */
+  .cevar{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
+  .cevar-tog{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:800;color:var(--ink-2);cursor:pointer;text-transform:uppercase;letter-spacing:.3px}
+  .cevar-tog input{width:16px;height:16px}
+  .cevar-body{margin-top:8px}
+  .cevar-hd{display:grid;grid-template-columns:1fr 1.4fr 1.4fr 30px;gap:6px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-3);padding:0 2px 3px}
+  .cevar-row{display:grid;grid-template-columns:1fr 1.4fr 1.4fr 30px;gap:6px;margin-bottom:5px}
+  .cevar-row input{border:1px solid var(--line-2);border-radius:7px;padding:6px 8px;font-size:13px;background:#fff;min-width:0}
+  .cevar-x{border:1px solid #e6b8b1;background:#fff;color:#C0392B;border-radius:7px;cursor:pointer;font-size:12px;padding:0;line-height:1}
+  .cevar-add{margin-top:2px;border:1px dashed var(--line);background:var(--surface-2,#f6f8fb);color:var(--brand-ink,#016A9B);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer}
   .cehdr{display:flex;align-items:center;gap:10px;margin-bottom:8px}
   .cecode{font-weight:800;font-size:13px;color:var(--brand);letter-spacing:.03em;background:#e9f6fd;border:1px solid #bfe6f7;border-radius:8px;padding:3px 8px}
   .ceimgbox{display:flex;align-items:center;gap:8px;margin-left:auto}
@@ -537,7 +547,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v224</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v225</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -4816,7 +4826,19 @@ const CATALOGO = [
   "desc3": 0,
   "umv": 12,
   "bulto": 480,
-  "marca": "KW-triO"
+  "marca": "KW-triO",
+  "variaciones": [
+   {
+    "color": "GRIS",
+    "codigo": "KWT-0508B-OFFIGRIS.",
+    "barra": ""
+   },
+   {
+    "color": "NEGRO",
+    "codigo": "KWT-0508B-OFFINEGR.",
+    "barra": ""
+   }
+  ]
  },
  {
   "codigo": "KWT-0508B-STUDENT",
@@ -4830,7 +4852,19 @@ const CATALOGO = [
   "desc3": 0,
   "umv": 12,
   "bulto": 480,
-  "marca": "KW-triO"
+  "marca": "KW-triO",
+  "variaciones": [
+   {
+    "color": "ROSADO",
+    "codigo": "KWT-0508B-STUDROSA.",
+    "barra": ""
+   },
+   {
+    "color": "VERDE",
+    "codigo": "KWT-0508B-STUDVERD.",
+    "barra": ""
+   }
+  ]
  },
  {
   "codigo": "KWT-05092-BLACK",
@@ -5009,7 +5043,24 @@ const CATALOGO = [
   "desc3": 0,
   "umv": 3,
   "bulto": 48,
-  "marca": "KW-triO"
+  "marca": "KW-triO",
+  "variaciones": [
+   {
+    "color": "NEGRO",
+    "codigo": "KWT-055C6NEGR.",
+    "barra": ""
+   },
+   {
+    "color": "BLANCO",
+    "codigo": "KWT-055C6BLAN.",
+    "barra": ""
+   },
+   {
+    "color": "AZUL",
+    "codigo": "KWT-055C6AZUL.",
+    "barra": ""
+   }
+  ]
  },
  {
   "codigo": "KWT-055G9",
@@ -5024,7 +5075,19 @@ const CATALOGO = [
   "desc3": 0,
   "umv": 2,
   "bulto": 96,
-  "marca": "KW-triO"
+  "marca": "KW-triO",
+  "variaciones": [
+   {
+    "color": "ROJO",
+    "codigo": "KWT-055G9ROJO.",
+    "barra": ""
+   },
+   {
+    "color": "AZUL",
+    "codigo": "KWT-055G9AZUL.",
+    "barra": ""
+   }
+  ]
  },
  {
   "codigo": "KWT-055X6",
@@ -5039,7 +5102,24 @@ const CATALOGO = [
   "desc3": 0,
   "umv": 3,
   "bulto": 96,
-  "marca": "KW-triO"
+  "marca": "KW-triO",
+  "variaciones": [
+   {
+    "color": "ROSADO",
+    "codigo": "KWT-055X6ROSA.",
+    "barra": ""
+   },
+   {
+    "color": "VERDE",
+    "codigo": "KWT-055X6VERD.",
+    "barra": ""
+   },
+   {
+    "color": "AMARILLO",
+    "codigo": "KWT-055X6AMAR.",
+    "barra": ""
+   }
+  ]
  },
  {
   "codigo": "KWT-055Y2-BLACK",
@@ -5204,7 +5284,19 @@ const CATALOGO = [
   "desc3": 0,
   "umv": 2,
   "bulto": 48,
-  "marca": "KW-triO"
+  "marca": "KW-triO",
+  "variaciones": [
+   {
+    "color": "AZUL",
+    "codigo": "KWT-05843AZUL.",
+    "barra": ""
+   },
+   {
+    "color": "NEGRO",
+    "codigo": "KWT-05843NEGR.",
+    "barra": ""
+   }
+  ]
  },
  {
   "codigo": "KWT-05894",
@@ -5362,7 +5454,24 @@ const CATALOGO = [
   "desc3": 0,
   "umv": 3,
   "bulto": 48,
-  "marca": "KW-triO"
+  "marca": "KW-triO",
+  "variaciones": [
+   {
+    "color": "AZUL",
+    "codigo": "KWT-09165AZUL.",
+    "barra": ""
+   },
+   {
+    "color": "BLANCO",
+    "codigo": "KWT-09165BLAN.",
+    "barra": ""
+   },
+   {
+    "color": "NEGRO",
+    "codigo": "KWT-09165NEGR.",
+    "barra": ""
+   }
+  ]
  },
  {
   "codigo": "KWT-09190",
@@ -5376,7 +5485,29 @@ const CATALOGO = [
   "desc3": 0,
   "umv": 4,
   "bulto": 144,
-  "marca": "KW-triO"
+  "marca": "KW-triO",
+  "variaciones": [
+   {
+    "color": "ROSADO",
+    "codigo": "KWT-09190ROSA.",
+    "barra": ""
+   },
+   {
+    "color": "BLANCO",
+    "codigo": "KWT-09190BLAN.",
+    "barra": ""
+   },
+   {
+    "color": "VERDE",
+    "codigo": "KWT-09190VERD.",
+    "barra": ""
+   },
+   {
+    "color": "AZUL MARINO",
+    "codigo": "KWT-09190AZMA.",
+    "barra": ""
+   }
+  ]
  },
  {
   "codigo": "KWT-09635",
@@ -5404,7 +5535,19 @@ const CATALOGO = [
   "desc3": 0,
   "umv": 2,
   "bulto": 48,
-  "marca": "KW-triO"
+  "marca": "KW-triO",
+  "variaciones": [
+   {
+    "color": "AZUL",
+    "codigo": "KWT-09652AZUL.",
+    "barra": ""
+   },
+   {
+    "color": "ROSADO",
+    "codigo": "KWT-09652ROSA.",
+    "barra": ""
+   }
+  ]
  },
  {
   "codigo": "KWT-09760",
@@ -5502,7 +5645,19 @@ const CATALOGO = [
   "desc3": 0,
   "umv": 2,
   "bulto": 32,
-  "marca": "KW-triO"
+  "marca": "KW-triO",
+  "variaciones": [
+   {
+    "color": "ROSADO",
+    "codigo": "KWT-13045ROSA.",
+    "barra": ""
+   },
+   {
+    "color": "VERDE",
+    "codigo": "KWT-13045VERD.",
+    "barra": ""
+   }
+  ]
  },
  {
   "codigo": "KWT-13048",
@@ -5544,7 +5699,24 @@ const CATALOGO = [
   "desc3": 0,
   "umv": 3,
   "bulto": 48,
-  "marca": "KW-triO"
+  "marca": "KW-triO",
+  "variaciones": [
+   {
+    "color": "AZUL MARINO",
+    "codigo": "KWT-13831AZMA.",
+    "barra": ""
+   },
+   {
+    "color": "ROSADO",
+    "codigo": "KWT-13831ROSA.",
+    "barra": ""
+   },
+   {
+    "color": "VERDE",
+    "codigo": "KWT-13831VERD.",
+    "barra": ""
+   }
+  ]
  },
  {
   "codigo": "KWT-9Z194",
@@ -19604,13 +19776,14 @@ function buildOrderXlsxStyled(o){
       const ov=precioTmpDe(p);
       const base=round2((ov!=null)?ov:(+(p&&p.precioUsd)||0));  // PRECIO UNIT $ = precio original (base del descuento)
       const net=round2(precioNeto(p));                          // PRECIO FINAL $ = con descuento
-      const vars=INV_AGRUPAR[p.codigo];
-      if(vars && vars.length){
+      const vars=prodVariaciones(p.codigo);
+      if(vars){
         // referencia con variantes de color: se reparte la cantidad entre las variantes
         const n=vars.length, bq=Math.floor(qty/n), rem=qty-bq*n;
-        vars.forEach((vc,vi)=>{
+        vars.forEach((v,vi)=>{
           const vq=bq+(vi<rem?1:0); if(vq<=0) return;
-          prods.push({codigo:vc, nombre:String(p.nombre||''), inv:(+p.inv||0),
+          const vnom=String(p.nombre||'')+(v.color?(' '+v.color):'');
+          prods.push({codigo:v.codigo, nombre:vnom, inv:(+p.inv||0),
             precioUnit:base, d1:dsc[0], d2:dsc[1], d3:dsc[2], precio:net,
             umv:(+p.umv||0), bulto:(+p.bulto||0), pedido:vq, total:round2(net*vq)});
         });
@@ -20019,6 +20192,36 @@ function catEditSorted(){
     return 0;   // estable = orden actual de CATALOGO
   });
 }
+// ---- Variaciones de color (editor en la ficha) ----
+// datos a mostrar: del borrador si existe, si no del producto
+function catEditVarsData(code){
+  if(catEditDraft[code] && catEditDraft[code].variaciones) return catEditDraft[code].variaciones;
+  const v=byCode[code]&&byCode[code].variaciones; return Array.isArray(v)?v:[];
+}
+// asegura un borrador editable (copia) de variaciones
+function varDraft(code){
+  catEditDraft[code]=catEditDraft[code]||{};
+  if(!catEditDraft[code].variaciones){ const s=catEditVarsData(code); catEditDraft[code].variaciones=s.map(v=>({color:v.color||'',codigo:v.codigo||'',barra:v.barra||''})); }
+  return catEditDraft[code].variaciones;
+}
+function catEditVarsHtml(p){
+  const code=p.codigo, vd=catEditVarsData(code), on=vd.length>0;
+  let rows='';
+  vd.forEach((v,i)=>{
+    rows+='<div class="cevar-row">'+
+      '<input class="cevf" data-varf="color" data-varcode="'+esc(code)+'" data-varidx="'+i+'" placeholder="Color" value="'+esc(v.color||'')+'">'+
+      '<input class="cevf" data-varf="codigo" data-varcode="'+esc(code)+'" data-varidx="'+i+'" placeholder="Código" value="'+esc(v.codigo||'')+'">'+
+      '<input class="cevf" data-varf="barra" data-varcode="'+esc(code)+'" data-varidx="'+i+'" placeholder="Cód. barra" value="'+esc(v.barra||'')+'">'+
+      '<button type="button" class="cevar-x" data-varx="'+esc(code)+'" data-varidx="'+i+'" title="Quitar variación" aria-label="Quitar">✕</button>'+
+    '</div>';
+  });
+  return '<div class="cevar" data-varfor="'+esc(code)+'">'+
+    '<label class="cevar-tog"><input type="checkbox" data-vartog="'+esc(code)+'"'+(on?' checked':'')+'> Variaciones de color'+(on?(' ('+vd.length+')'):'')+'</label>'+
+    (on?('<div class="cevar-body"><div class="cevar-hd"><span>Color</span><span>Código</span><span>Cód. barra</span><span></span></div>'+rows+'<button type="button" class="cevar-add" data-varadd="'+esc(code)+'">+ Agregar variación</button></div>'):'')+
+  '</div>';
+}
+function catVarMarkModif(code){ const row=document.querySelector('#catEditList .cerow[data-code="'+(window.CSS&&CSS.escape?CSS.escape(code):code)+'"]'); if(row) row.classList.add('modif'); }
+function catVarRerender(code){ const el=document.querySelector('#catEditList .cevar[data-varfor="'+(window.CSS&&CSS.escape?CSS.escape(code):code)+'"]'); const p=byCode[code]; if(el&&p) el.outerHTML=catEditVarsHtml(p); catVarMarkModif(code); updateSaveBtn(); }
 function catEditRowHtml(p, opts){
   opts=opts||{};
   const src=Object.prototype.hasOwnProperty.call(catImgDraft,p.codigo)?(catImgDraft[p.codigo]||null):imgFor(p.codigo);
@@ -20031,7 +20234,7 @@ function catEditRowHtml(p, opts){
   const orden = opts.orden ? `<div class="ce-ord"><button type="button" class="ce-drag" data-drag="${esc(p.codigo)}" title="Arrastrar para reordenar" aria-label="Arrastrar para reordenar">☰</button><button type="button" class="ce-arrow" data-moveup="${esc(p.codigo)}" title="Subir" aria-label="Subir"${opts.first?' disabled':''}>▲</button><button type="button" class="ce-arrow" data-movedown="${esc(p.codigo)}" title="Bajar" aria-label="Bajar"${opts.last?' disabled':''}>▼</button></div>` : '';
   const grupo = esc(p.categoria+''+scOf(p));
   return `<div class="cerow${mod}" data-code="${esc(p.codigo)}" data-grupo="${grupo}"><div class="cehdr">${orden}<span class="cecode">${esc(p.codigo)}</span>${foto}</div><div class="cegrid">`+
-    CATEDIT_FIELDS.map(f=>catEditFldHtml(p,f)).join('')+`</div></div>`;
+    CATEDIT_FIELDS.map(f=>catEditFldHtml(p,f)).join('')+`</div>`+catEditVarsHtml(p)+`</div>`;
 }
 function catEditRender(q){
   q=(q||'').trim().toLowerCase();
@@ -20169,7 +20372,10 @@ function catEditResumenCambios(){
   const parts=[];
   codes.forEach(cod=>{
     const items=[]; const ch=catEditDraft[cod]||{};
-    Object.keys(ch).forEach(k=>{ const oldv=(byCode[cod]&&byCode[cod][k]!=null)?byCode[cod][k]:''; items.push(labelOf(k)+': '+trunc(oldv)+' → '+trunc(ch[k])); });
+    Object.keys(ch).forEach(k=>{
+      if(k==='variaciones'){ items.push('Variaciones: '+(Array.isArray(ch[k])?ch[k].length:0)); return; }
+      const oldv=(byCode[cod]&&byCode[cod][k]!=null)?byCode[cod][k]:''; items.push(labelOf(k)+': '+trunc(oldv)+' → '+trunc(ch[k]));
+    });
     if(Object.prototype.hasOwnProperty.call(catImgDraft,cod)){ items.push('Foto: '+(catImgDraft[cod]?'nueva':'eliminada')); }
     if(items.length) parts.push(cod+' — '+items.join('; '));
   });
@@ -20211,7 +20417,7 @@ function catEditRefresh(){ const s=$('#catEditSearch'); catEditRender(s?s.value:
 // ===== ACTUALIZAR APP: publica los cambios locales a GitHub (token temporal, NO se guarda) =====
 const GH_OWNER='boadar', GH_REPO='practica-git', GH_BRANCH='claude/artifact-modifications-fw94c4';
 const GH_API='https://api.github.com/repos/'+GH_OWNER+'/'+GH_REPO;
-const CAT_CAMPOS=['codigo','codigoBarra','nombre','categoria','subcategoria','exento','inv','precioUsd','desc1','desc2','desc3','umv','bulto','descGlobal','marca'];
+const CAT_CAMPOS=['codigo','codigoBarra','nombre','categoria','subcategoria','exento','inv','precioUsd','desc1','desc2','desc3','umv','bulto','descGlobal','marca','variaciones'];
 function catalogoLimpio(){ return CATALOGO.map(p=>{ const o={}; CAT_CAMPOS.forEach(k=>{ if(p[k]!==undefined) o[k]=p[k]; }); return o; }); }
 function pimgConOverrides(){ const data=PIMG.data.slice(), map=Object.assign({},PIMG.map);
   Object.keys(IMG_OVR).forEach(code=>{ const v=IMG_OVR[code]; if(v){ data.push(v); map[code]=data.length-1; } else { delete map[code]; } });
@@ -22553,7 +22759,7 @@ async function cargarPedidoDeCorreo(buf, fileName, opts){ opts=opts||{};
   }
   // productos
   // mapa inverso: variante de color (normalizada) -> referencia del catálogo, para re-agrupar
-  const invVar={}; Object.keys(INV_AGRUPAR).forEach(cod=>{ INV_AGRUPAR[cod].forEach(v=>{ invVar[norm(v)]=cod; }); });
+  const invVar=mapaVariantes(norm);   // variante (código o barra) -> producto maestro
   const qty={}, ptmp={}, missing=[];
   for(let r=hdrRow+1;r<=maxRow;r++){
     const code=cells[colCode+r]; if(code==null) continue; const c=String(code).trim(); if(!c) continue;
@@ -22615,21 +22821,11 @@ async function cargarPedidoDeCorreo(buf, fileName, opts){ opts=opts||{};
   return { id:rec.id, enviadoCentral:yaCentral, nref:nref, missing:missing.length };
 }
 // ===== Cargar Inventario desde .xlsx (hoja "Data Detalle": código en col B, inventario en col E) =====
-// Referencias que en el archivo de inventario vienen DIVIDIDAS por color (con punto al final):
-// al cargar, se SUMAN las variantes en la referencia del catálogo.
-const INV_AGRUPAR={
-  'KWT-0508B-OFFICE':['KWT-0508B-OFFIGRIS.','KWT-0508B-OFFINEGR.'],
-  'KWT-0508B-STUDENT':['KWT-0508B-STUDROSA.','KWT-0508B-STUDVERD.'],
-  'KWT-055G9':['KWT-055G9ROJO.','KWT-055G9AZUL.'],
-  'KWT-055X6':['KWT-055X6ROSA.','KWT-055X6VERD.','KWT-055X6AMAR.'],
-  'KWT-05843':['KWT-05843AZUL.','KWT-05843NEGR.'],
-  'KWT-055C6':['KWT-055C6NEGR.','KWT-055C6BLAN.','KWT-055C6AZUL.'],
-  'KWT-09165':['KWT-09165AZUL.','KWT-09165BLAN.','KWT-09165NEGR.'],
-  'KWT-09190':['KWT-09190ROSA.','KWT-09190BLAN.','KWT-09190VERD.','KWT-09190AZMA.'],
-  'KWT-09652':['KWT-09652AZUL.','KWT-09652ROSA.'],
-  'KWT-13045':['KWT-13045ROSA.','KWT-13045VERD.'],
-  'KWT-13831':['KWT-13831AZMA.','KWT-13831ROSA.','KWT-13831VERD.']
-};
+// Variaciones de color por producto (campo `variaciones` en la ficha): reemplaza el mapa fijo anterior.
+// Cada variación = {color, codigo, barra}. Se usa para SUMAR inventario y para EXPANDIR el pedido en Excel.
+function prodVariaciones(code){ const p=byCode[code]; const v=p&&p.variaciones; return (Array.isArray(v)&&v.length)?v:null; }
+// construye { normFn(codigoVariante|barra) -> codigo del producto maestro }
+function mapaVariantes(normFn){ const m={}; CATALOGO.forEach(p=>{ const vs=p.variaciones; if(Array.isArray(vs)) vs.forEach(v=>{ if(v&&v.codigo) m[normFn(v.codigo)]=p.codigo; if(v&&v.barra) m[normFn(String(v.barra))]=p.codigo; }); }); return m; }
 async function cargarInventarioDesdeXlsx(buf){
   const zip=xlsxOpenZip(buf);
   const shared=[]; const ssB=zip.get('xl/sharedStrings.xml');
@@ -22655,7 +22851,7 @@ async function cargarInventarioDesdeXlsx(buf){
   const norm=s=>String(s).replace(/[^A-Za-z0-9]/g,'').toUpperCase();
   const normMap={}; CATALOGO.forEach(p=>{ normMap[norm(p.codigo)]=p.codigo; });
   // variantes de color (normalizadas) -> referencia del catálogo, para SUMARLAS
-  const invVariante={}; Object.keys(INV_AGRUPAR).forEach(cod=>{ INV_AGRUPAR[cod].forEach(v=>{ invVariante[norm(v)]=cod; }); });
+  const invVariante=mapaVariantes(norm);   // variante (código o barra) -> producto maestro
   const HEADERS={'CODIGO':1,'COD':1,'CODIGODEPRODUCTO':1,'CODIGOPRODUCTO':1,'REFERENCIA':1,'REF':1,'ITEM':1,'PRODUCTO':1,'DATADETALLE':1,'INVENTARIO':1,'EXISTENCIA':1};
   const updated={}; const foundSet={}; let count=0, dataRows=0;
   for(let r=1;r<=maxRow;r++){
@@ -23309,6 +23505,8 @@ function wire(){
     const md=e.target.closest('[data-movedown]'); if(md){ moverEnGrupo(md.dataset.movedown,+1); return; }
     const cu=e.target.closest('[data-catup]'); if(cu){ moverCategoria(cu.dataset.catup,-1); return; }
     const cd=e.target.closest('[data-catdown]'); if(cd){ moverCategoria(cd.dataset.catdown,+1); return; }
+    const vadd=e.target.closest('[data-varadd]'); if(vadd){ varDraft(vadd.dataset.varadd).push({color:'',codigo:'',barra:''}); catVarRerender(vadd.dataset.varadd); return; }
+    const vx=e.target.closest('[data-varx]'); if(vx){ const vd=varDraft(vx.dataset.varx); vd.splice(+vx.dataset.varidx,1); catVarRerender(vx.dataset.varx); return; }
     const load=e.target.closest('[data-imgload]');
     if(load){ catImgTargetCode=load.dataset.imgload; const fi=$('#catImgFile'); if(fi){ fi.value=''; fi.click(); } return; }
     const del=e.target.closest('[data-imgdel]');
@@ -23374,6 +23572,12 @@ function wire(){
     e.target.value='';
   });
   $('#catEditList').addEventListener('change',e=>{
+    const tog=e.target.closest('[data-vartog]');   // interruptor "Variaciones de color"
+    if(tog){ const code=tog.dataset.vartog; const vd=varDraft(code);
+      if(tog.checked){ if(vd.length===0) vd.push({color:'',codigo:'',barra:''}); }
+      else { catEditDraft[code].variaciones=[]; }
+      catVarRerender(code); return;
+    }
     const el=e.target.closest('[data-cod][data-field]'); if(!el) return;
     const cod=el.dataset.cod, field=el.dataset.field; let val=el.value;
     if(field==='precioUsd'){ val=parseFloat(String(val).replace(',','.'))||0; }
@@ -23383,6 +23587,14 @@ function wire(){
     (catEditDraft[cod]=catEditDraft[cod]||{})[field]=val;   // BORRADOR: se aplica al pulsar "Guardar cambios"
     const row=el.closest('.cerow'); if(row) row.classList.add('modif');
     updateSaveBtn();
+  });
+  // inputs de variación (color/código/barra): actualizan el borrador en vivo
+  $('#catEditList').addEventListener('input',e=>{
+    const vf=e.target.closest('[data-varf]'); if(!vf) return;
+    const code=vf.dataset.varcode, idx=+vf.dataset.varidx, f=vf.dataset.varf;
+    const vd=varDraft(code); if(!vd[idx]) return;
+    vd[idx][f]=vf.value;
+    catVarMarkModif(code); updateSaveBtn();
   });
   $('#catEditSave').addEventListener('click',catEditGuardar);
   // ---- Agregar producto nuevo (manual) ----
