@@ -537,7 +537,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v219</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v220</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -20643,7 +20643,7 @@ function visibleProducts(){
     if(filter.marca && brandOf(p.categoria)!==filter.marca) return false;   // filtro por marca (botones de marca)
     if(filter.cat && p.categoria!==filter.cat) return false;
     if(filter.onlyOn && !(state.qty[p.codigo]>0)) return false;
-    if(filter.hideNoStock && Math.round(+p.inv||0)<=0 && !(state.qty[p.codigo]>0)) return false;   // ocultar por stock real (aunque sea ref. de sobre-inventario)
+    if(filter.hideNoStock && Math.round(+p.inv||0) < ((+p.umv>0)?+p.umv:1) && !(state.qty[p.codigo]>0)) return false;   // ocultar si no alcanza ni una UMV (incluye inv 0), aunque sea ref. de sobre-inventario
     if(q){
       const hay=(p.nombre+' '+p.codigo).toLowerCase();
       if(!hay.includes(q)) return false;
@@ -20770,8 +20770,8 @@ function render(){
         ? `<span class="price"><span class="was">${fmt.format(p.precioUsd)}</span>${fmt.format(net)}</span>`
         : `<span class="price">${fmt.format(p.precioUsd)}</span>`);
     const inv=Math.round(+p.inv||0);
-    let sc='ok'; if(inv<=0)sc='no'; else if(inv<(+p.bulto||0))sc='low';
-    const agotado = inv<=0;
+    const agotado = inv < step;   // step = UMV: sin inventario suficiente ni para una UMV -> se trata como agotado
+    let sc='ok'; if(agotado)sc='no'; else if(inv<(+p.bulto||0))sc='low';
     const dis = ((agotado && !adminMode && !overInvCode(p.codigo))||locked)?' disabled':'';
     const src = imgFor(p.codigo);
     const thumb = src
@@ -20792,7 +20792,7 @@ function render(){
       </div>
       ${histHintHtml(p.codigo)}
       <div class="prow">
-        <div class="invline"><span class="inv ${sc}"><b>INV.</b> ${fmtN.format(inv)} <span class="u">und</span></span>${agotado?`<span class="nostock">Sin stock</span>`:''}${step>1?`<span class="umvbox">UMV ${fmtN.format(step)}</span>`:''}${(+p.bulto>0)?`<span class="umvbox">BULTO ${fmtN.format(+p.bulto)}</span>`:''}</div>
+        <div class="invline"><span class="inv ${sc}"><b>INV.</b> ${fmtN.format(inv)} <span class="u">und</span></span>${inv<=0?`<span class="nostock">Sin stock</span>`:(agotado?`<span class="nostock">Menor a UMV</span>`:'')}${step>1?`<span class="umvbox">UMV ${fmtN.format(step)}</span>`:''}${(+p.bulto>0)?`<span class="umvbox">BULTO ${fmtN.format(+p.bulto)}</span>`:''}</div>
         <div class="right">
           <div class="stepper">
             <button class="minus" data-act="dec" aria-label="Quitar ${step}"${dis}>−</button>
@@ -23036,7 +23036,7 @@ function wire(){
       if(filter.cat && p.categoria!==filter.cat) return false;
       if(filter.onlyOn && !(state.qty[p.codigo]>0)) return false;
       if(q && !((p.nombre+' '+p.codigo).toLowerCase().includes(q))) return false;
-      return Math.round(+p.inv||0)<=0 && !(state.qty[p.codigo]>0);
+      return Math.round(+p.inv||0) < ((+p.umv>0)?+p.umv:1) && !(state.qty[p.codigo]>0);
     });
     if(!haySinInv) toast(q ? 'No hay referencias sin inventario en esta búsqueda' : 'No hay referencias sin inventario en esta vista');
   });
