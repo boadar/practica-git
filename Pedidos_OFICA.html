@@ -537,7 +537,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v218</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v219</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -21472,7 +21472,7 @@ function priceSheetXml(rows, hasDrawing, prodW, headers, freezeRows){
     `<col min="2" max="2" width="22" customWidth="1"/>`,
     `<col min="3" max="3" width="${prodW}" customWidth="1"/>`
   ];
-  for(let i=3;i<headers.length;i++){ const h=String(headers[i]||''); let w; if(h==='COD. BARRA') w=16; else if(h==='INVENTARIO') w=11; else if(h==='UMV') w=7; else if(h==='BULTO') w=8; else if(/PRECIO/.test(h)) w=Math.max(h.length,12); else w=h.length+1; colsArr.push(`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`); }
+  for(let i=3;i<headers.length;i++){ const h=String(headers[i]||''); let w; if(h==='COD. BARRA') w=16; else if(h==='INV') w=8; else if(h==='UMV') w=7; else if(h==='BULTO') w=8; else if(/PRECIO/.test(h)) w=Math.max(h.length,12); else w=h.length+1; colsArr.push(`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`); }
   const cols=`<cols>${colsArr.join('')}</cols>`;
   const draw = hasDrawing ? `<drawing r:id="rId1"/>` : '';
   const fr=freezeRows||1;
@@ -21491,7 +21491,7 @@ function buildPriceXlsx(){
 
   // encabezados dinámicos (etiquetas como en la imagen)
   const headers=['IMAGEN','CÓDIGO ARTÍCULO','NOMBRE DEL PRODUCTO'];
-  if(lpIncludeInv) headers.push('INVENTARIO');
+  if(lpIncludeInv) headers.push('INV');
   headers.push('UMV','BULTO','PRECIO UNIT $');
   if(hasDesc) headers.push('PRECIO C/DESC');
   headers.push('PRECIO + IVA');
@@ -21629,7 +21629,7 @@ function buildPricePrint(){
   const hasDesc = lpActive ? true : (factorGlobal()<1);
   const ncols = 8 + (hasDesc?1:0) + (lpIncludeInv?1:0);
   const thBlue='background:#BDD7EE;color:#14202B';
-  let head=`<tr><th style="${thBlue}">IMAGEN</th><th style="${thBlue}">CÓDIGO ARTÍCULO</th><th style="${thBlue}">NOMBRE DEL PRODUCTO</th>`+(lpIncludeInv?`<th class="n" style="${thBlue}">INVENTARIO</th>`:'')+`<th class="n" style="${thBlue}">UMV</th><th class="n" style="${thBlue}">BULTO</th><th class="n" style="${thBlue}">PRECIO UNIT $</th>`+(hasDesc?`<th class="n" style="${thBlue}">PRECIO C/DESC</th>`:'')+`<th class="n" style="${thBlue}">PRECIO + IVA</th><th style="${thBlue};text-align:center">COD. BARRA</th></tr>`;
+  let head=`<tr><th style="${thBlue}">IMAGEN</th><th style="${thBlue}">CÓDIGO ARTÍCULO</th><th style="${thBlue}">NOMBRE DEL PRODUCTO</th>`+(lpIncludeInv?`<th class="n" style="${thBlue}">INV</th>`:'')+`<th class="n" style="${thBlue}">UMV</th><th class="n" style="${thBlue}">BULTO</th><th class="n" style="${thBlue}">PRECIO UNIT $</th>`+(hasDesc?`<th class="n" style="${thBlue}">PRECIO C/DESC</th>`:'')+`<th class="n" style="${thBlue}">PRECIO + IVA</th><th style="${thBlue};text-align:center">COD. BARRA</th></tr>`;
   let cat=null, rowsHtml='';
   prods.forEach(p=>{
     if(p.categoria!==cat){ cat=p.categoria; const bc=brandHex(brandOf(cat)); rowsHtml+=`<tr class="cat"><td colspan="${ncols}" style="background:${bc.bg};color:${bc.fg};font-weight:800;text-align:center">${esc(catDisplay(cat))}</td></tr>`; }
