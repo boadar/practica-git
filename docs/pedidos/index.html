@@ -550,7 +550,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v227</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v228</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -22928,11 +22928,21 @@ async function cargarInventarioDesdeXlsx(buf){
   CATALOGO.forEach(p=>{ if(!foundSet[p.codigo]){ updated[p.codigo]=0; if(Math.round(+p.inv||0)!==0) zeroed++; } });
   const okInv = await askConfirm('El archivo trae '+count+' referencia'+(count===1?'':'s')+' con inventario.\n\nLas referencias del catálogo que no aparecen en el archivo pasarán a inventario 0'+(zeroed?(' ('+zeroed+' tenían stock y quedarán en 0)'):'')+'.\n\n¿Actualizar el inventario?','Sí, actualizar','Cancelar');
   if(!okInv){ toast('Carga de inventario cancelada'); return; }
-  Object.keys(updated).forEach(c=>{ if(byCode[c]) byCode[c].inv=updated[c]; });
+  // Reactivar (encender) automáticamente las referencias que estaban APAGADAS por quedarse en 0
+  // y ahora pasaron a tener stock (0 -> >0). Las que ya tenían inventario (aunque bajo) y siguen
+  // igual NO se tocan: el apagado por otras razones se respeta mientras no hubo transición 0 -> >0.
+  let reactivadas=0;
+  Object.keys(updated).forEach(c=>{
+    const p=byCode[c]; if(!p) return;
+    const prev=Math.round(+p.inv||0), nuevo=Math.round(+updated[c]||0);
+    if(p.off && prev===0 && nuevo>0){ p.off=false; reactivadas++; }
+    p.inv=updated[c];
+  });
+  if(reactivadas) persistProdState();
   saveInvOverrides(updated); render(); updateTotals();
   try{ localStorage.setItem(INVDATE_KEY, isoHoy()); }catch(e){}
   refreshInvDate();   // actualiza la fecha "INV. dd/mm/yyyy" del encabezado
-  toast('Inventario actualizado: '+count+' referencia'+(count===1?'':'s')+' del archivo'+(zeroed?(' · '+zeroed+' en 0'):'')+' ✓');
+  toast('Inventario actualizado: '+count+' referencia'+(count===1?'':'s')+' del archivo'+(zeroed?(' · '+zeroed+' en 0'):'')+(reactivadas?(' · '+reactivadas+' reactivada'+(reactivadas===1?'':'s')):'')+' ✓');
 }
 
 // ===== Cargar Producto Nuevo desde .xlsx =====
