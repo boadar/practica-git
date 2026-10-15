@@ -488,7 +488,7 @@
   .cfbody p{margin:0 0 16px;font-size:14px;color:var(--ink);line-height:1.45;white-space:pre-line;overflow-y:auto;min-height:0;flex:1 1 auto}
   .cfbtns{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:0 0 auto}
   .cfbtns .btn{padding:12px;font-size:13px}
-  #admPass,#catInput{width:100%;border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-size:15px;background:var(--surface-2);margin-bottom:16px}
+  #admPass,#catInput,#txtInput{width:100%;border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-size:15px;background:var(--surface-2);margin-bottom:16px}
   .logo{-webkit-appearance:none;appearance:none;cursor:pointer;padding:0}
   .logo[aria-pressed="true"]{background:#fff;color:var(--brand);border-color:#fff}
   .price.editing{display:inline-flex;align-items:center;gap:2px;font-weight:800;color:var(--brand-ink)}
@@ -550,7 +550,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v228</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v229</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -936,6 +936,21 @@
       <div class="cfbtns">
         <button class="btn" id="catCancel">Cancelar</button>
         <button class="btn primary" id="catOk">Continuar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="txtModal">
+  <div class="sheet">
+    <header><h2 id="txtTitle">Descuento personalizado</h2><button class="closex" id="txtNo">×</button></header>
+    <div class="cfbody">
+      <p id="txtMsg" style="white-space:pre-line"></p>
+      <input type="text" id="txtInput" list="txtInputList" autocomplete="off">
+      <datalist id="txtInputList"></datalist>
+      <div class="cfbtns">
+        <button class="btn" id="txtCancel">Cancelar</button>
+        <button class="btn primary" id="txtOk">Aplicar</button>
       </div>
     </div>
   </div>
@@ -21337,12 +21352,16 @@ async function descElegirOtro(id){
   save(); render(); updateTotals(); updateReqLabels();
 }
 // prompt de texto libre reutilizando el modal genérico (para la condición personalizada)
-function askTexto(msg, initial, sugerencias){
+function askTexto(msg, initial, sugerencias){ return askEntrada('Condición personalizada', msg, initial, sugerencias, false); }
+// ventana propia de entrada (#txtModal): título, mensaje, casilla con sugerencias
+function askEntrada(titulo, msg, initial, sugerencias, decimal){
   return new Promise(res=>{
-    const m=$('#catModal'), inp=$('#catInput'), dl=$('#catInputList'), ok=$('#catOk'), cancel=$('#catCancel'), x=$('#catNo');
-    if(msg!=null) $('#catMsg').textContent=msg;
+    const m=$('#txtModal'), inp=$('#txtInput'), dl=$('#txtInputList'), ok=$('#txtOk'), cancel=$('#txtCancel'), x=$('#txtNo');
+    $('#txtTitle').textContent=titulo||'';
+    $('#txtMsg').textContent=msg||'';
     dl.innerHTML=(sugerencias||[]).map(c=>'<option value="'+esc(c)+'"></option>').join('');
     inp.value=initial||'';
+    if(decimal) inp.setAttribute('inputmode','decimal'); else inp.removeAttribute('inputmode');
     function done(v){ m.classList.remove('open'); dl.innerHTML=''; ok.removeEventListener('click',fOk); cancel.removeEventListener('click',fNo); x.removeEventListener('click',fNo); inp.removeEventListener('keydown',fKey); res(v); }
     function fOk(){ const val=String(inp.value||'').trim(); if(!val){ inp.focus(); return; } done(val); }
     function fNo(){ done(null); }
@@ -21371,19 +21390,7 @@ async function condElegirOtro(){
 }
 // Pide un porcentaje reutilizando el modal generico
 function askDescuento(msg, initial){
-  return new Promise(res=>{
-    const m=$('#catModal'), inp=$('#catInput'), dl=$('#catInputList'), ok=$('#catOk'), cancel=$('#catCancel'), x=$('#catNo');
-    if(msg!=null) $('#catMsg').textContent=msg;
-    dl.innerHTML=['5','10','12','15','18','20','25','30','35','40','45','50'].map(v=>'<option value="'+v+'"></option>').join('');
-    inp.value=initial||''; inp.setAttribute('inputmode','decimal');
-    function done(v){ m.classList.remove('open'); dl.innerHTML=''; inp.removeAttribute('inputmode');
-      ok.removeEventListener('click',fOk); cancel.removeEventListener('click',fNo); x.removeEventListener('click',fNo); inp.removeEventListener('keydown',fKey); res(v); }
-    function fOk(){ const val=String(inp.value||'').trim(); if(!val){ inp.focus(); return; } done(val); }
-    function fNo(){ done(null); }
-    function fKey(ev){ if(ev.key==='Enter'){ev.preventDefault();fOk();} else if(ev.key==='Escape'){ev.preventDefault();fNo();} }
-    ok.addEventListener('click',fOk); cancel.addEventListener('click',fNo); x.addEventListener('click',fNo); inp.addEventListener('keydown',fKey);
-    m.classList.add('open'); setTimeout(()=>{inp.focus(); if(inp.select) inp.select();},50);
-  });
+  return askEntrada('Descuento personalizado', msg, initial, ['5','10','12','15','18','20','25','30','35','40','45','50'], true);
 }
 async function administrarDescuentos(){
   if(locked){ toast('Pulsa EDITAR PEDIDO para modificar'); return; }
@@ -23777,6 +23784,7 @@ function wire(){
     if($('#regCliModal').classList.contains('open')){ cerrarRegistroCliente(); return; }
     if($('#marcaEditModal').classList.contains('open')){ $('#meNo').click(); return; }
     if($('#marcasModal').classList.contains('open')){ cerrarMarcas(); return; }
+    if($('#txtModal').classList.contains('open')){ $('#txtNo').click(); return; }
     if($('#catModal').classList.contains('open')){ $('#catNo').click(); return; }
     if($('#confirmModal').classList.contains('open')){ $('#cfNo').click(); return; }
     if($('#tokenModal').classList.contains('open')){ $('#tokNo').click(); return; }
