@@ -444,6 +444,7 @@
   .obadge.st-pend{background:#FFF1CC;color:#8a6d00}
   .obadge.st-env{background:#D6F0E3;color:#0a7d47}
   .obadge.st-ref{background:#E3E7EC;color:#334}
+  .obadge.st-borr{background:#E1EEFF;color:#1d5fa8}
   .obadge.st-edit{box-shadow:inset 0 0 0 1.5px currentColor}
   #ordersModal .body{flex:1 1 auto;min-height:0}
   .ofooter{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;border-top:1px solid var(--line-2)}
@@ -547,7 +548,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v229</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v230</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -914,7 +915,7 @@
   <div class="sheet">
     <header><h2 id="cfTitle">Confirmar</h2><button class="closex" id="cfNo">×</button></header>
     <div class="cfbody">
-      <p id="cfMsg"></p>
+      <p id="cfMsg" style="white-space:pre-line"></p>
       <div class="cfbtns">
         <button class="btn" id="cfCancel">Cancelar</button>
         <button class="btn primary" id="cfOk">Aceptar</button>
@@ -19587,6 +19588,10 @@ async function guardarPedido(){
     state.meta.numped = p(d.getDate())+p(d.getMonth()+1)+String(d.getFullYear()).slice(-2)+'_'+p(d.getHours())+p(d.getMinutes())+' '+nombre;
     const fn=document.getElementById('f_numped'); if(fn) fn.value=state.meta.numped;
   }
+  // modo de guardado: continuar editando (borrador, conserva el detalle) o definitivo (flujo normal)
+  const modo=await askModoGuardar();
+  if(!modo) return;
+  if(modo==='continuar'){ await guardarPedidoBorrador(); return; }
   const _plan = condSplitPlan(condicion);
   if(_plan){ await guardarPedidoDividido(_plan); return; }
   // BackOrder: si el pedido supera el inventario disponible (y NO es 30-60/30-60-90),
@@ -19606,7 +19611,7 @@ async function guardarPedido(){
   const prev = idx>=0 ? list[idx] : null;
   // estatus: al guardar (nuevo o editado) queda PENDIENTE; si se actualiza uno existente se marca EDITADO (permanece)
   rec.status = 'PENDIENTE';
-  rec.editado = prev ? true : false;
+  rec.editado = prev ? (prev.borrador ? !!prev.editado : true) : false;   // terminar un borrador no lo marca como editado
   rec.origen = state.meta.origen || (prev && prev.origen) || undefined;
   rec.enviadoCentral = (state.meta.enviadoCentral!=null)?state.meta.enviadoCentral:(prev?prev.enviadoCentral:undefined);
   if(idx>=0) list[idx]=rec; else list.push(rec);
@@ -19618,7 +19623,7 @@ async function guardarPedido(){
   const enviar=await askConfirm('Pedido guardado. ¿Deseas enviarlo ahora?','Sí, enviar','No');
   if(enviar){
     // ¿hay otros pedidos pendientes por enviar (distintos a este)?
-    const pendientes=loadOrders().filter(o=>o.status!=='ENVIADO' && o.id!==rec.id && !o.referencial);
+    const pendientes=loadOrders().filter(o=>o.status!=='ENVIADO' && o.id!==rec.id && !o.referencial && !o.borrador);
     if(pendientes.length){
       const otros=await askConfirm('Hay '+pendientes.length+' pedido'+(pendientes.length===1?'':'s')+' más pendiente'+(pendientes.length===1?'':'s')+' por enviar. ¿Deseas enviarlos también?','Sí, ver pedidos','No, solo este');
       if(otros){ limpiarPedidoTodo(); openPedidos(); return; }
@@ -19626,6 +19631,40 @@ async function guardarPedido(){
     const ok=await enviarPedidos([rec.id]);
     if(ok!==false) limpiarPedidoTodo();   // enviado -> deja la app lista para un pedido nuevo
   } else { limpiarPedidoTodo(); toast('Pedido guardado'); }
+}
+// pregunta cómo guardar: 'continuar' (borrador, sigue editando), 'definitivo' (flujo normal) o null (cerrar con ×)
+function askModoGuardar(){
+  return new Promise(res=>{
+    const m=$('#confirmModal');
+    $('#cfMsg').textContent='¿Cómo deseas guardar el pedido?\n\n• Guardar y continuar: guarda lo que llevas y puedes seguir editando (no se borra el detalle).\n• Guardar definitivo: cierra el pedido para enviarlo y deja la app lista para uno nuevo.';
+    $('#cfOk').textContent='Guardar definitivo'; $('#cfCancel').textContent='Guardar y continuar';
+    const ok=$('#cfOk'), cancel=$('#cfCancel'), x=$('#cfNo');
+    function done(v){ m.classList.remove('open'); ok.removeEventListener('click',fOk); cancel.removeEventListener('click',fCont); x.removeEventListener('click',fNo); res(v); }
+    function fOk(){done('definitivo');} function fCont(){done('continuar');} function fNo(){done(null);}
+    ok.addEventListener('click',fOk); cancel.addEventListener('click',fCont); x.addEventListener('click',fNo);
+    m.classList.add('open');
+  });
+}
+// guarda el pedido como BORRADOR sin dividirlo ni limpiar el formulario (se sigue editando)
+async function guardarPedidoBorrador(){
+  const list=loadOrders();
+  const id=currentOrderId || ('P'+Date.now()+'-'+Math.floor(Math.random()*1000));
+  const idx=list.findIndex(o=>o.id===id);
+  const prev=idx>=0?list[idx]:null;
+  const rec={
+    id, nombre:(state.meta.cliente||'').trim(), codcliente:state.meta.codcliente||'', fecha:state.meta.fecha||'',
+    numped:state.meta.numped||'', total:totals().total, savedAt:new Date().toISOString(),
+    meta:JSON.parse(JSON.stringify(state.meta)), qty:JSON.parse(JSON.stringify(state.qty)),
+    status:'PENDIENTE', borrador:true, editado: prev ? !!prev.editado || !prev.borrador : false,
+    origen: state.meta.origen || (prev && prev.origen) || undefined,
+    enviadoCentral: (state.meta.enviadoCentral!=null)?state.meta.enviadoCentral:(prev?prev.enviadoCentral:undefined)
+  };
+  if(idx>=0) list[idx]=rec; else list.push(rec);
+  await persistirDocsDePedidos([rec]);
+  const okSave=storeOrders(list); currentOrderId=rec.id;
+  if(!okSave){ await askConfirm('No se pudo guardar el pedido: la memoria del dispositivo está llena. Envía y elimina pedidos antiguos para liberar espacio.','Entendido','Cerrar'); return; }
+  save();
+  toast('Pedido guardado como borrador. Puedes seguir editando.');
 }
 // limpia por completo el pedido actual (deja el formulario en blanco)
 function limpiarPedidoTodo(){
@@ -19747,12 +19786,14 @@ function statusLabel(o){
     if(o.enviadoCentral===false) base += ', No enviado a Pedidos@ofica.com';
     return base;
   }
+  if(o && o.borrador && o.status!=='ENVIADO'){ return 'BORRADOR (en edición)'; }
   const base=(o&&o.status==='ENVIADO')?'ENVIADO':'PENDIENTE';
   return (o&&o.editado?'EDITADO ':'')+base;
 }
 function statusClass(o){
   if(o && o.referencial){ return 'st-ref'; }
   if(o && o.origen==='otro'){ return 'st-otro'+(o.editado?' st-edit':''); }
+  if(o && o.borrador && o.status!=='ENVIADO'){ return 'st-borr'; }
   const c=(o&&o.status==='ENVIADO')?'st-env':'st-pend';
   return c+(o&&o.editado?' st-edit':'');
 }
@@ -19968,7 +20009,13 @@ function esMovil(){
 }
 async function enviarPedidos(ids){
   const list=loadOrders();
-  const sel=ids.map(id=>list.find(o=>o.id===id)).filter(Boolean);
+  let sel=ids.map(id=>list.find(o=>o.id===id)).filter(Boolean);
+  const borr=sel.filter(o=>o.borrador && o.status!=='ENVIADO');
+  if(borr.length){
+    sel=sel.filter(o=>!(o.borrador && o.status!=='ENVIADO'));
+    await askConfirm((borr.length===1?'El pedido "'+(borr[0].nombre||'')+'" está':'Hay '+borr.length+' pedidos')+' en BORRADOR y no se '+(borr.length===1?'envía':'envían')+'. Ábrelo y pulsa Guardar Pedido → Guardar definitivo para poder enviarlo.','Entendido','Cerrar');
+    if(!sel.length) return false;
+  }
   if(!sel.length){ toast('Selecciona al menos un pedido'); return; }
   const mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
   const items=[];
@@ -20047,11 +20094,12 @@ async function abrirPedido(id){
   await hidratarDocsIdb({id:o.id, meta:state.meta});
   currentOrderId=o.id; save();
   syncMetaFields();
-  filter.onlyOn=true; filter.cat=''; filter.q=''; const qi=$('#q'); if(qi) qi.value=''; syncChips();
-  setLocked(true);
+  const esBorr=!!(o.borrador && o.status!=='ENVIADO');
+  filter.onlyOn=!esBorr; filter.cat=''; filter.q=''; const qi=$('#q'); if(qi) qi.value=''; syncChips();
+  setLocked(!esBorr);   // el borrador se abre editable
   render(); updateTotals();
   cerrarPedidos();
-  toast('Pedido cargado');
+  toast(esBorr?'Borrador cargado: puedes seguir editando':'Pedido cargado');
 }
 
 function editarPedido(){ setLocked(false); filter.onlyOn=false; filter.cat=''; syncChips(); render(); updateTotals(); toast('Edición habilitada'); }
