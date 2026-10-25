@@ -551,7 +551,7 @@
     <div class="row">
       <button class="logo" id="btnAdmin" type="button" title="Modo administrador" aria-pressed="false">ADM</button>
       <div class="titlewrap">
-        <h1>Pedido <span class="appver" id="appver">v232</span></h1>
+        <h1>Pedido <span class="appver" id="appver">v233</span></h1>
         <div class="sub" id="barSub">Nuevo pedido</div>
       </div>
       <div class="invdate" id="invDate" title="Fecha del último inventario cargado"></div>
@@ -21654,7 +21654,10 @@ function buildOCComparison(drafts, disc){
   disc=disc||{d1:0,d2:0,d3:0,extra:{}};
   const descTxt=[disc.d1,disc.d2,disc.d3].filter(x=>x>0).map(x=>Math.round(x*100)+'%').join(' + ')||'sin descuento';
   const sheets=[];
-  const resumen=[];   // {num, nombre, total} — una fila por OC, para la hoja RESUMEN
+  const resumen=[];   // {num, nombre, total, fact, back} — una fila por OC, para la hoja RESUMEN
+  // Divide la cantidad de una referencia en FACTURABLE (lo que cubre el inventario actual, respetando la UMV)
+  // y BACKORDER (lo que falta). Misma fórmula que calcBackOrderSplit (cada OC se evalúa contra el inventario completo).
+  const splitInv=(p,q)=>{ let inv=Math.round(+p.inv||0); if(inv<0) inv=0; let umv=Math.round(+p.umv||0); if(umv<1) umv=1; const disp=(inv>=q)?q:Math.floor(inv/umv)*umv; return {disp:disp, back:q-disp, inv:inv}; };
   (drafts||[]).forEach(oc=>{
     if(!oc.precios || !Object.keys(oc.precios).length) return;   // solo OC que traen precios
     const rows=[];
@@ -21662,34 +21665,38 @@ function buildOCComparison(drafts, disc){
     rows.push(['Cliente', oc.nombre||'']);
     rows.push(['Fecha', isoHoy()]);
     rows.push(['Descuento del lote', descTxt]);
+    rows.push(['Nota','Facturable = lo que cubre el inventario actual (respeta la UMV) · BackOrder = lo que falta por inventario. Totales a precio de la OC.']);
     rows.push([]);
-    rows.push(['Código','Descripción','Cód. Barra','Cantidad','Precio OC $','Precio Lista c/Desc $','Dif. Unit $','Dif. %','Total OC $','Total Lista c/Desc $','Dif. Total $']);
+    rows.push(['Código','Descripción','Cód. Barra','Cantidad','INV','Cant. Facturable','Cant. BackOrder','Precio OC $','Precio Lista c/Desc $','Dif. Unit $','Dif. %','Total OC $','Total Facturable $','Total BackOrder $','Total Lista c/Desc $','Dif. Total $']);
     const codes=Object.keys(oc.qty||{}).filter(c=>byCode[c] && oc.precios[c]!=null).sort();
-    let tOC=0,tL=0,tQ=0;
+    let tOC=0,tL=0,tQ=0,tFact=0,tBack=0,tQd=0,tQb=0;
     codes.forEach(c=>{
       const p=byCode[c], q=oc.qty[c]||0, pOC=+oc.precios[c]||0;
       const pL=round2((+p.precioUsd||0)*ocFactorDesc(p, disc));   // precio de lista CON descuento del lote
+      const s=splitInv(p,q);
       const du=round2(pOC-pL), dp=pL?round2((pOC-pL)/pL*100):'', toc=round2(q*pOC), tl=round2(q*pL);
-      tOC+=toc; tL+=tl; tQ+=q;
-      rows.push([c, p.nombre||'', String(p.codigoBarra||''), q, round2(pOC), pL, du, dp, toc, tl, round2(toc-tl)]);
+      const tf=round2(s.disp*pOC), tb=round2(s.back*pOC);
+      tOC+=toc; tL+=tl; tQ+=q; tFact+=tf; tBack+=tb; tQd+=s.disp; tQb+=s.back;
+      rows.push([c, p.nombre||'', String(p.codigoBarra||''), q, s.inv, s.disp, s.back, round2(pOC), pL, du, dp, toc, tf, tb, tl, round2(toc-tl)]);
     });
     rows.push([]);
-    rows.push(['','TOTALES','',tQ,'','','','',round2(tOC),round2(tL),round2(tOC-tL)]);
+    rows.push(['','TOTALES','',tQ,'',tQd,tQb,'','','','',round2(tOC),round2(tFact),round2(tBack),round2(tL),round2(tOC-tL)]);
     if(oc.missing && oc.missing.length){ rows.push([]); rows.push(['Fuera de catálogo (sin precio de lista):']); oc.missing.forEach(x=>rows.push([String(x)])); }
     sheets.push({name:(oc.numped||'OC'), rows});
-    resumen.push({num:(oc.numped||'OC'), nombre:(oc.nombre||''), total:round2(tOC)});
+    resumen.push({num:(oc.numped||'OC'), nombre:(oc.nombre||''), total:round2(tOC), fact:round2(tFact), back:round2(tBack)});
   });
-  // Hoja RESUMEN (al inicio): Número de OC, Nombre de la tienda, Total de la OC, y la sumatoria de todas.
+  // Hoja RESUMEN (al inicio): N° de OC, tienda, TOTAL DE LA OC, TOTAL FACTURABLE, TOTAL BACKORDER + sumatorias.
   if(resumen.length){
     const r=[];
     r.push(['RESUMEN DE ÓRDENES DE COMPRA']);
     r.push(['Fecha', isoHoy()]);
+    r.push(['Nota','Facturable = lo que cubre el inventario actual (respeta la UMV) · BackOrder = lo que falta por inventario. A precio de la OC.']);
     r.push([]);
-    r.push(['Número de OC','Nombre de la tienda','Total de la OC $']);
-    let suma=0;
-    resumen.forEach(x=>{ r.push([x.num, x.nombre, x.total]); suma+=(+x.total||0); });
+    r.push(['Número de OC','Nombre de la tienda','TOTAL DE LA OC $','TOTAL FACTURABLE $','TOTAL BACKORDER $']);
+    let suma=0,sumF=0,sumB=0;
+    resumen.forEach(x=>{ r.push([x.num, x.nombre, x.total, x.fact, x.back]); suma+=(+x.total||0); sumF+=(+x.fact||0); sumB+=(+x.back||0); });
     r.push([]);
-    r.push(['','TOTAL GENERAL', round2(suma)]);
+    r.push(['','TOTAL GENERAL', round2(suma), round2(sumF), round2(sumB)]);
     sheets.unshift({name:'RESUMEN', rows:r});
   }
   return sheets;
