@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Control de Importaciones</title>
+<meta name="theme-color" content="#282828">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+:root{--ink:#282828;--azul:#009DDC;--azul2:#e6f6fc;--ama:#FFF200;--bg:#f3f4f6;--card:#fff;--line:#dfe3e8;--mut:#6b7280;--ok:#15803d;--warn:#b45309;--bad:#b91c1c}
+*{box-sizing:border-box}
+body{margin:0;font-family:Segoe UI,Roboto,Arial,sans-serif;font-size:14px;color:var(--ink);background:var(--bg)}
+header{background:var(--ink);color:#fff;display:flex;align-items:center;gap:14px;padding:10px 16px;flex-wrap:wrap;position:sticky;top:0;z-index:20}
+header h1{font-size:17px;margin:0;font-weight:600}
+header h1 b{color:var(--ama);font-weight:700}
+header small{color:#9ca3af;font-size:11px}
+nav{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+nav button{background:none;border:0;color:#d1d5db;padding:7px 12px;border-radius:6px;font-size:13px;cursor:pointer}
+nav button.on{background:var(--azul);color:#fff}
+main{padding:16px;max-width:1500px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.card h3{margin:0 0 10px;font-size:14px;display:flex;align-items:center;gap:10px}
+.card h3 .sub{font-weight:400;color:var(--mut);font-size:12px}
+.card h3 .r{margin-left:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.kpi span{display:block;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.03em}
+.kpi b{font-size:19px}
+#lk{grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+#lk .kpi{padding:9px 10px;text-align:right}#lk .kpi b{font-size:clamp(13px,1.4vw,19px)}#lk .kpi span{font-size:clamp(9px,.8vw,11px)}
+@media (max-width:640px){#lk{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}#lk .kpi b{font-size:17px}#lk .kpi span{font-size:11px}}
+.kpi small{display:block;color:var(--mut);font-size:11px}
+.kpi.hi{border-color:var(--azul);background:var(--azul2)}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;white-space:nowrap}
+th{background:#f9fafb;font-size:11px;text-transform:uppercase;letter-spacing:.02em;color:var(--mut);text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}
+td{padding:5px 8px;border-bottom:1px solid #eef0f3}
+tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.tot td{font-weight:700;background:#f9fafb;border-top:2px solid var(--line)}
+tr.clk{cursor:pointer}
+tr.marca td{background:#fff9b0}tr.pk{user-select:none}tr.clk.sel td{background:#fff9b0}tr.clk.sel td.hi{background:#ffee58}
+#selBar{min-height:38px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+th.ord{cursor:pointer;user-select:none}th.ord:hover{color:var(--azul)}
+tr.filtros th{padding:4px 6px;background:#fff;text-transform:none;letter-spacing:0}
+tr.filtros input{padding:3px 6px;font-size:12px;min-width:90px;max-width:230px;font-weight:400}input.act,tr.filtros input.act{border-color:var(--azul);background:var(--azul2);font-weight:600}
+tr.clk:hover td{background:var(--azul2)}
+td.hi{background:var(--azul2);font-weight:700}
+td.calc{color:#374151;background:#fafafa}
+td.wrap{white-space:normal;min-width:180px}
+input,select,textarea{font:inherit;color:inherit;border:1px solid var(--line);border-radius:6px;padding:5px 7px;background:#fff;width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--azul);outline-offset:-1px}
+input[type=checkbox]{width:auto}
+td input,td select{padding:4px 6px}
+td input[type=number]{text-align:right;min-width:78px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.f label{display:block;font-size:11px;color:var(--mut);margin-bottom:3px}
+.f.chk{display:flex;align-items:center;gap:6px;padding-top:18px}
+.f.chk label{margin:0;font-size:13px;color:var(--ink)}
+.btn{background:var(--azul);color:#fff;border:0;border-radius:6px;padding:7px 12px;cursor:pointer;font-size:13px}
+.btn.s{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.btn.d{background:#fff;color:var(--bad);border:1px solid #fecaca}
+.btn.x{background:none;border:0;color:var(--bad);cursor:pointer;font-size:15px;padding:2px 6px}
+.bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.bar .sp{flex:1}
+.bar input.nm{font-size:17px;font-weight:600;max-width:420px}
+.chip{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:600;background:#e5e7eb;color:#374151}
+.chip.plan{background:#f3f4f6;color:#374151;border:1px solid var(--line)}.chip.prod{background:#fef3c7;color:#92400e}.chip.tran{background:#dbeafe;color:#1e40af}
+.chip.puer{background:#ede9fe;color:#5b21b6}.chip.alma{background:#dcfce7;color:#166534}.chip.cerr{background:#e5e7eb;color:#4b5563}
+.pos{color:var(--bad)}.mut{color:var(--mut)}
+.note{font-size:12px;color:var(--mut);margin:8px 0 0}
+.fil{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.fil input,.fil select{width:auto;min-width:170px}
+.steps{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.steps button{flex:1;min-width:150px;text-align:left;background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;font:inherit;color:var(--mut)}
+.steps button b{display:inline-block;min-width:20px;height:20px;line-height:20px;text-align:center;border-radius:10px;background:#e5e7eb;color:#374151;font-size:11px;margin-right:4px;padding:0 5px}
+.steps button.done{color:var(--ink);border-color:#bbf7d0;background:#f0fdf4}.steps .done b{background:#16a34a;color:#fff}
+.steps button.cur{color:#fff;background:var(--azul);border-color:var(--azul);font-weight:600}.steps .cur b{background:#fff;color:var(--azul)}
+.steps small{display:block;font-size:11px;font-weight:400;opacity:.85;margin-left:28px;min-height:13px}
+.chk{display:flex;gap:6px;flex-wrap:wrap}.chk span{padding:3px 10px;border-radius:99px;font-size:12px}
+.chk .ok{background:#dcfce7;color:#166534}.chk .no{background:#fef3c7;color:#92400e}
+details.card>summary{list-style:none;cursor:pointer}details.card>summary::-webkit-details-marker{display:none}
+details.card>summary h3{margin:0}details.card[open]>summary h3{margin-bottom:10px}
+details.card>summary h3::before{content:'\25B8';color:var(--mut)}details.card[open]>summary h3::before{content:'\25BE'}
+/* tablas con columnas ancladas al desplazarse a la derecha (Analisis) */
+.fija2 th:first-child,.fija2 td:first-child,.fija1 th:first-child,.fija1 td:first-child{position:sticky;left:0;z-index:2;background:#fff;min-width:110px;max-width:110px;overflow:hidden;text-overflow:ellipsis}
+.fija2 th:nth-child(2),.fija2 tr:not(.tot)>td:nth-child(2){position:sticky;left:110px;z-index:2;background:#fff;white-space:nowrap;box-shadow:inset -1px 0 0 var(--line),3px 0 4px -2px rgba(0,0,0,.12)}
+.fija1 th:first-child,.fija1 td:first-child{min-width:150px;max-width:150px;box-shadow:inset -1px 0 0 var(--line),3px 0 4px -2px rgba(0,0,0,.12)}
+.fija2 th:first-child,.fija2 th:nth-child(2),.fija1 th:first-child{background:#f9fafb;z-index:3}
+.fija2 th,.fija2 th.n{text-align:center;vertical-align:middle;white-space:nowrap;line-height:1.25}
+/* Sales by product by month: maximo 10 lineas a la vista; el encabezado queda arriba y el total abajo al desplazarse */
+.tw.alto10{max-height:430px;overflow-y:auto}
+.fija2 th{position:sticky;top:0;z-index:3}
+.fija2 th:first-child,.fija2 th:nth-child(2){z-index:5}
+.fija2 tr.tot td{position:sticky;bottom:0;z-index:2;box-shadow:inset 0 1px 0 var(--line)}
+.fija2 tr.tot td:first-child{z-index:4}
+.fija2 tr.tot td:first-child,.fija1 tr.tot td:first-child{background:#f9fafb}
+.fija2 tr.clk:hover td:first-child,.fija2 tr.clk:hover td:nth-child(2){background:var(--azul2)}
+.fija2 tr.clk.sel td:first-child,.fija2 tr.clk.sel td:nth-child(2){background:#fff9b0}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+#toast.on{opacity:1}
+@media (max-width:640px){main{padding:10px}nav{margin-left:0}}
+@media print{header,.bar,.btn,nav{display:none}body{background:#fff}.card{break-inside:avoid}}
+</style>
+</head>
+<body>
+<header>
+  <h1><b>OFICA</b> · Control de Importaciones <small id="ver"></small></h1>
+  <nav id="nav">
+    <button data-v="tablero">Tablero</button>
+    <button data-v="plan">Planificación</button>
+    <button data-v="productos">Productos</button>
+    <button data-v="analisis">Análisis</button>
+    <button data-v="proveedores">Proveedores</button>
+    <button data-v="respaldo">Respaldo</button>
+  </nav>
+</header>
+<main id="main"></main>
+<div id="toast"></div>
+
+<script src="seed.js?v=39"></script>
+<script src="plan_base.js?v=39"></script>
+<script src="proformas.js?v=39"></script>
+<script src="analisis_base.js?v=39"></script>
+<script>
+const VERSION = 'v39';   // al subir la version, subir tambien el ?v= de los <script> de datos
+const KEY = 'importaciones_v1';
+const TASAS_URL = 'https://boadar.github.io/reporte-cobranza/tasas.json';
+// El lote avanza por estas etapas; en cada una se completa mas informacion
+const ETAPAS = ['En planificación', 'En fabricación', 'Despachado / Navegando', 'En nacionalización', 'En almacén'];
+const AYUDA = [
+  'Productos a comprar al proveedor, cantidades por referencia y costos confirmados: con eso sale el costo de compra en origen.',
+  'El proveedor está fabricando: orden de compra y datos de empaque.',
+  'La carga salió: se informa el flete, el seguro y los datos del embarque.',
+  'La carga llegó: tasa de aduana, impuestos, gastos locales y agente aduanal.',
+  'La mercancía está en el almacén: el costo landed queda definitivo.'];
+// estatus viejos (del Excel y de la v1-v2) -> etapa equivalente
+function normEstatus(e){
+  e = String(e || '');
+  if (ETAPAS.includes(e)) return e;
+  return ETAPAS[/monterrey|almac|cerr/i.test(e) ? 4 : /puerto|aduana|nacionaliz/i.test(e) ? 3 : /tr[aá]n|despach|naveg/i.test(e) ? 2 : /prod|fabric/i.test(e) ? 1 : 0];
+}
+const etapa = l => Math.max(0, ETAPAS.indexOf(l.estatus));
+const hoy = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+function fechaEtapa(l, i){ const h = (l.historial || []).filter(x => x.estatus === ETAPAS[i]).pop(); return h ? h.fecha.split('-').reverse().join('/') : ''; }
+// que informacion pide cada etapa y si ya esta cargada
+function pendientes(l){
+  const its = l.items || [], c = l.costos || {}, p = l.params || {}, todos = f => its.length > 0 && its.every(f);
+  return [
+    [['Proveedor', todos(i => provDe(l, i))], ['Productos con su referencia', todos(i => i.ref)], ['Cantidades por referencia', todos(i => N(i.cant) > 0)], ['Costos FOB confirmados', todos(i => N(i.fob) > 0)]],
+    [['Orden de compra', !!l.oc], ['Piezas por caja (para los bultos)', todos(i => N(i.pzasCtn) > 0)], ['Peso y CBM por bulto', todos(i => N(i.pesoBulto) > 0 && N(i.cbmBulto) > 0)]],
+    [['Flete', N(c.flete) > 0], ['Seguro', N(c.seguro) > 0], ['BL / contenedor', !!l.bl], ['Naviera', !!l.naviera], ['ETD', !!l.etd], ['ETA', !!l.eta]],
+    [['Tasa de aduana', N(p.tasaAduana) > 0], ['Código arancelario y tarifa', todos(i => i.arancel && i.tarifa !== '' && i.tarifa != null)],
+     ['Gastos locales y portuarios', (l.gastosLocales || []).some(g => N(g.bs) > 0)], ['Agente aduanal y transporte', (l.agente || []).some(a => N(a.usd) > 0)], ['Documentos entregados', /entreg/i.test(l.documentos || '')]],
+    [['Fecha de llegada al almacén', !!l.llegadaAlmacen]]];
+}
+const DOCS = ['Pendientes', 'Parciales', 'Entregados'];
+
+/* ===================== MOTOR DE COSTEO =====================
+   Replica la hoja "Estimacion Inicial Costeo de Productos":
+   todo gasto del lote se reparte entre los productos por su peso en el FOB (factor de distribucion). */
+function N(v){ v = parseFloat(v); return isFinite(v) ? v : 0; }
+function D(v, d){ v = parseFloat(v); return isFinite(v) ? v : d; }
+function sum(a){ return a.reduce((s, x) => s + x, 0); }
+
+// si se cargo el monto REAL de la planilla de aduana, se reparte en proporcion a lo calculado
+function ajustarAReal(R, k, real){
+  real = N(real); if (real <= 0) return;
+  const tot = sum(R.map(r => r[k]));
+  R.forEach(r => { r[k] = tot ? r[k] * real / tot : real * r.F; });
+}
+
+// CIF del lote: es la base con la que se reparten los gastos de un contenedor compartido
+function cifDeLote(l){
+  const p = l.params || {}, c = l.costos || {};
+  return sum((l.items || []).map(i => N(i.fob) * N(i.cant))) + N(c.flete) + (p.cifSeguro ? N(c.seguro) : 0) + (p.cifGastosOrigen ? N(c.gastosOrigen) : 0);
+}
+// reparte los gastos compartidos del contenedor entre sus lotes, segun el CIF de cada uno
+function repartoGrupo(nombre, lotes, grupos){
+  const g = (grupos || {})[nombre], ms = lotes.filter(l => l.grupo === nombre);
+  const total = g ? sum((g.compartidos || []).map(x => N(x.usd))) : 0;
+  const cifs = ms.map(cifDeLote), cifT = sum(cifs);
+  return { total, cifT, filas: ms.map((l, x) => ({ l, cif: cifs[x], pct: cifT ? cifs[x] / cifT : 0, usd: cifT ? total * cifs[x] / cifT : 0 })) };
+}
+
+// suma de un conjunto de productos ya calculados (todo el lote, o solo los que deja un filtro)
+const CLAVES_TOTAL = ['fob','cif','cifBs','advBs','tasaBs','ivaBs','advUsd','tasaUsd','ivaUsd','ivaCostoUsd','ivaCostoBs','glUsd','glBs','agUsd','agBs',
+  'nac','nacPar','nacBs','gadic','landed','landedPar','bultos','peso','cbm','cant','adic','intFin','intFlete','flete','seg','go'];
+function totales(R){
+  const T = {}; CLAVES_TOTAL.forEach(k => T[k] = sum(R.map(r => r[k])));
+  T.vsFob = T.fob ? T.landed / T.fob - 1 : 0;
+  return T;
+}
+
+function calcLote(l, lotes, grupos){
+  lotes = lotes || DB.lotes; grupos = grupos || DB.grupos;
+  const p = l.params || {}, c = l.costos || {}, its = l.items || [], gl = l.gastosLocales || [], ag = l.agente || [], re = l.realesBs || {};
+  const compUsd = l.grupo ? (repartoGrupo(l.grupo, lotes, grupos).filas.find(f => f.l === l) || { usd: 0 }).usd : 0;
+  const fobs = its.map(i => N(i.fob) * N(i.cant)), fobT = sum(fobs);
+  const adic = N(c.adicional), flete = N(c.flete), seg = N(c.seguro), go = N(c.gastosOrigen);
+  const kInt = D(p.intPct, 12) / 100 / 365 * D(p.intDias, 180);
+  const intFinCalc = (adic + fobT) * kInt, intFleteCalc = (flete + seg + go) * kInt;
+  const intFin = D(c.intFinFijo, intFinCalc), intFlete = D(c.intFleteFijo, intFleteCalc);   // monto fijo manda sobre el calculado
+  const tA = N(p.tasaAduana), tPar = N(p.tasaParalelo), tAg = N(p.tasaAgente) || tA;
+  const glBs = sum(gl.map(g => N(g.bs))), glUsd = sum(gl.map(g => N(g.tc) ? N(g.bs) / N(g.tc) : 0));
+  const agUsd = sum(ag.map(a => N(a.usd))) + compUsd;
+  const pT = D(p.pctTasa, 1) / 100, pI = D(p.pctIva, 16) / 100;
+  const kPar = (tPar > 0 && tA > 0) ? tA / tPar : 1;
+  const fueraCif = (p.cifSeguro ? 0 : seg) + (p.cifGastosOrigen ? 0 : go);
+
+  const R = its.map((i, x) => {
+    const F = fobT ? fobs[x] / fobT : 0;
+    const cif = fobs[x] + flete * F + (p.cifSeguro ? seg * F : 0) + (p.cifGastosOrigen ? go * F : 0);
+    const cifBs = cif * tA;
+    return { F, fob: fobs[x], cif, cifBs, advBs: cifBs * N(i.tarifa) / 100, tasaBs: cifBs * pT };
+  });
+  ajustarAReal(R, 'advBs', re.adv); ajustarAReal(R, 'tasaBs', re.tasa);
+  R.forEach(r => { r.ivaBs = (r.cifBs + r.advBs + r.tasaBs) * pI; });
+  ajustarAReal(R, 'ivaBs', re.iva);
+
+  R.forEach((r, x) => {
+    const i = its[x], cant = N(i.cant), F = r.F, aUsd = v => tA ? v / tA : 0;
+    r.cant = cant;
+    r.bultos = N(i.pzasCtn) ? cant / N(i.pzasCtn) : 0;
+    r.peso = r.bultos * N(i.pesoBulto); r.cbm = r.bultos * N(i.cbmBulto);
+    r.advUsd = aUsd(r.advBs); r.tasaUsd = aUsd(r.tasaBs); r.ivaUsd = aUsd(r.ivaBs);
+    r.ivaCostoUsd = i.ivaCosto ? r.ivaUsd : 0; r.ivaCostoBs = i.ivaCosto ? r.ivaBs : 0;
+    r.glUsd = glUsd * F; r.glBs = glBs * F; r.agUsd = agUsd * F; r.agBs = r.agUsd * tAg;
+    const nacional = r.advUsd + r.tasaUsd + r.glUsd + r.agUsd + r.ivaCostoUsd;   // lo que se paga en Bs
+    r.nac = r.cif + nacional; r.nacPar = r.cif + nacional * kPar;
+    r.nacBs = r.cifBs + r.advBs + r.tasaBs + r.glBs + r.agBs + r.ivaCostoBs;
+    r.adic = adic * F; r.intFin = intFin * F; r.intFlete = intFlete * F; r.flete = flete * F; r.seg = seg * F; r.go = go * F;
+    r.gadic = (adic + intFin + intFlete + fueraCif) * F;
+    r.landed = r.nac + r.gadic; r.landedPar = r.nacPar + r.gadic;
+    const u = v => cant ? v / cant : 0;
+    r.fobU = N(i.fob); r.cifU = u(r.cif); r.nacU = u(r.nac); r.gadicU = u(r.gadic);
+    r.landedU = u(r.landed); r.landedParU = u(r.landedPar);
+    r.vsFob = r.fobU ? r.landedU / r.fobU - 1 : 0;
+    r.bsU = r.nacU * tAg;
+  });
+  const T = totales(R);
+  return { R, T, fobT, adic, flete, seg, go, intFin, intFlete, intFinCalc, intFleteCalc, compUsd, glUsd, glBs, agUsd, tA, tPar, tAg, kPar };
+}
+/* ===================== FIN MOTOR ===================== */
+
+// compara el motor contra lo que dio el Excel original (seed.js trae _xl por producto)
+function validarContraExcel(){
+  return (window.SEED_LOTES || []).map(l => {
+    const { R } = calcLote(l, window.SEED_LOTES, window.SEED_GRUPOS); let dNac = 0, dLan = 0, peor = '';
+    l.items.forEach((i, x) => {
+      const a = Math.abs(R[x].nacU - i._xl.nac), b = Math.abs(R[x].landedU - i._xl.landed);
+      if (b > dLan) { dLan = b; peor = i.ref + ': app ' + R[x].landedU.toFixed(5) + ' / Excel ' + i._xl.landed.toFixed(5); }
+      dNac = Math.max(dNac, a);
+    });
+    return { lote: l.nombre, productos: l.items.length, dNac, dLan, peor };
+  });
+}
+
+/* ===================== DATOS ===================== */
+let DB = { lotes: [], grupos: {} }, TASAS = {};
+const FILTRO_LOTE = [['ref', 'REF'], ['desc', 'Descripción'], ['prov', 'Proveedor'], ['oc', 'OC']];   // mismo orden que las columnas de la tabla
+let filLote = {};    // filtro de productos dentro del lote abierto: los valores mostrados son la suma de lo filtrado
+const pasaFiltroLote = (l, i) => FILTRO_LOTE.every(([k]) => !filLote[k] || sinAcento(k === 'prov' ? provDe(l, i) : k === 'oc' ? ocDe(l, i) : i[k] || '').includes(sinAcento(filLote[k])));
+let abiertas = {};   // secciones que el usuario abrio/cerro a mano en el lote actual
+let view = 'tablero', curId = null, fil = { q: '', est: '', prov: '' }, origenLote = 'tablero', filProd = '', filCol = {}, ordProd = { k: 'ref', dir: 1 };
+let selProd = new Set();   // productos resaltados en la pagina Productos (clave: idLote|posicion)
+const $ = s => document.querySelector(s), main = $('#main');
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+const fmt = (n, d = 2) => (isFinite(n) ? n : 0).toLocaleString('es-VE', { minimumFractionDigits: d, maximumFractionDigits: d });
+const pct = n => fmt(n * 100, 1) + '%';
+const fFecha = s => s ? s.split('-').reverse().join('/') : '—';
+
+function loteSemilla(l){
+  const c = JSON.parse(JSON.stringify(l));
+  c.items.forEach(i => delete i._xl);
+  c.estatus = normEstatus(c.estatus);
+  c.updatedAt = new Date().toISOString();
+  return c;
+}
+function cargar(){
+  try { DB = JSON.parse(localStorage.getItem(KEY)) || null; } catch (e) { DB = null; }
+  const gSemilla = () => JSON.parse(JSON.stringify(window.SEED_GRUPOS || {}));
+  if (!DB || !Array.isArray(DB.lotes)) { DB = { lotes: (window.SEED_LOTES || []).map(loteSemilla), grupos: gSemilla() }; guardar(); }
+  if (!DB.grupos) {   // datos de la v1 (sin contenedores): se agrupan los lotes que el Excel ya repartia a mano
+    DB.grupos = gSemilla();
+    (window.SEED_LOTES || []).filter(s => s.grupo).forEach(s => { const l = DB.lotes.find(x => x.id === s.id); if (l) { l.grupo = s.grupo; l.agente = JSON.parse(JSON.stringify(s.agente)); } });
+    guardar();
+  }
+  DB.lotes.forEach(l => { l.estatus = normEstatus(l.estatus); });
+  if (!DB.plan || !Array.isArray(DB.plan.lineas)) { DB.plan = planInicial(); guardar(); }
+  if (aplicarProformas()) guardar();
+  // 23/10/2026: los lotes que vinieron del Excel ya llegaron todos -> "En almacen" (una sola vez; la fecha es la de aduana si la hay)
+  DB.migraciones = DB.migraciones || [];
+  if (!DB.migraciones.includes('lotes-excel-en-almacen')) {
+    DB.lotes.filter(l => /^xl-/.test(l.id) && l.estatus !== ETAPAS[4]).forEach(l => {
+      l.estatus = ETAPAS[4]; (l.historial = l.historial || []).push({ estatus: l.estatus, fecha: l.llegadaAlmacen || l.params.fechaAduana || hoy() }); l.updatedAt = new Date().toISOString(); });
+    DB.migraciones.push('lotes-excel-en-almacen'); guardar();
+  }
+  // 23/10/2026: la orden Leaderart 2026 nunca se compro -> se borra; el ultimo lote real de Leaderart es el de 2025 (BL KULS005583)
+  if (!DB.migraciones.includes('leaderart-2025b')) {
+    DB.lotes = DB.lotes.filter(l => l.id !== 'xl-leaderart');
+    const s = (window.SEED_LOTES || []).find(l => l.id === 'xl-leaderart-2025-kuls005583');
+    if (s) {   /* si el navegador trajo un seed.js viejo, se reintenta la proxima vez */
+      if (!DB.lotes.some(l => l.id === s.id)) DB.lotes.push(loteSemilla(s));
+      DB.migraciones.push('leaderart-2025b');
+    }
+    ordenarGrupos(); guardar();
+  }
+  // datos anteriores a la v4: los lotes del Excel con dos proveedores traian el nombre unido ("Civors + OFICINA")
+  (window.SEED_LOTES || []).filter(s => s.items.some(i => i.prov)).forEach(s => {
+    const l = DB.lotes.find(x => x.id === s.id); if (!l || l.items.some(i => i.prov)) return;
+    l.items.forEach(i => { const o = s.items.find(x => x.ref === i.ref); if (o) { i.prov = o.prov; i.oc = o.oc; } });
+    if (/ \+ /.test(l.proveedor || '')) l.proveedor = '';
+  });
+}
+// un contenedor existe mientras tenga lotes; al nombrarlo por primera vez se crea vacio
+function ordenarGrupos(){
+  const usados = new Set(DB.lotes.map(l => l.grupo).filter(Boolean));
+  Object.keys(DB.grupos).forEach(k => { if (!usados.has(k)) delete DB.grupos[k]; });
+  usados.forEach(k => { if (!DB.grupos[k]) DB.grupos[k] = { compartidos: [] }; });
+}
+let tGuardar = null;
+function guardar(){ try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) { toast('No se pudo guardar en este navegador'); } }
+function guardarLuego(){ clearTimeout(tGuardar); tGuardar = setTimeout(guardar, 400); }
+function toast(m){ const t = $('#toast'); t.textContent = m; t.classList.add('on'); setTimeout(() => t.classList.remove('on'), 2200); }
+const lote = () => DB.lotes.find(l => l.id === curId);
+// un lote puede traer cargas de varios proveedores: el producto manda, y si no dice nada vale el del lote
+const provDe = (l, i) => i.prov || l.proveedor || '';
+const ocDe = (l, i) => i.oc || l.oc || '';
+const provsDe = l => [...new Set((l.items || []).map(i => provDe(l, i)).filter(Boolean))];
+const todosProvs = () => [...new Set(DB.lotes.flatMap(provsDe))].sort((a, b) => a.localeCompare(b));
+function nuevoLote(){
+  return { id: 'l' + Date.now(), nombre: 'Nuevo lote', grupo: '', oc: '', proveedor: '', puerto: '', agenteCarga: '', bl: '', naviera: '', agenteAduanal: '',
+    estatus: ETAPAS[0], etd: '', eta: '', documentos: 'Pendientes', llegadaAlmacen: '', notas: '',
+    params: { fechaAduana: '', tasaAduana: '', tasaParalelo: '', pctTasa: 1, pctIva: 16, intPct: 12, intDias: 180, cifSeguro: true, cifGastosOrigen: false, tasaAgente: '' },
+    costos: { adicional: '', flete: '', seguro: '', gastosOrigen: '', intFinFijo: '', intFleteFijo: '' }, realesBs: {}, gastosLocales: [], agente: [{ concepto: 'Agente aduanal', usd: '' }, { concepto: 'Transporte / flete local', usd: '' }],
+    items: [itemVacio()], updatedAt: new Date().toISOString() };
+}
+const itemVacio = () => ({ prov: '', oc: '', ref: '', desc: '', unidad: 'UND', cant: '', inner: '', pzasCtn: '', pesoBulto: '', cbmBulto: '', fob: '', arancel: '', exoneracion: 'Paga full', tarifa: '', ivaCosto: false });
+
+function chip(e){
+  const k = ['plan', 'prod', 'tran', 'puer', 'alma'][ETAPAS.indexOf(e)] || '';
+  return `<span class="chip ${k}">${esc(e || '—')}</span>`;
+}
+function ir(v, id){
+  // al abrir un lote desde la lista filtrada por proveedor, el lote abre con ese mismo filtro
+  filLote = (v === 'lote' && view === 'tablero' && fil.prov) ? { prov: fil.prov } : {};
+  view = v; curId = id || null; abiertas = {}; if (v !== 'lote') origenLote = 'tablero'; render(); window.scrollTo(0, 0); }
+
+/* ===================== VISTAS ===================== */
+function render(){
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === view || (view === 'lote' && b.dataset.v === 'tablero')));
+  ({ tablero: vTablero, plan: vPlan, analisis: vAnalisis, lote: vLote, productos: vProductos, proveedores: vProveedores, respaldo: vRespaldo }[view])();
+}
+
+function vTablero(){
+  const calc = DB.lotes.map(l => { const c = calcLote(l), R = fil.prov ? c.R.filter((r, x) => provDe(l, l.items[x]) === fil.prov) : c.R;
+    return { l, c: fil.prov ? Object.assign({}, c, { T: totales(R) }) : c, n: R.length }; });
+  const provs = todosProvs();
+  const q = fil.q.toLowerCase();
+  const vis = calc.filter(({ l }) => (!fil.est || l.estatus === fil.est) && (!fil.prov || provsDe(l).includes(fil.prov)) &&
+    (!q || [l.nombre, l.oc, l.proveedor, l.grupo, l.puerto, l.bl, ...l.items.map(i => i.ref + ' ' + i.desc + ' ' + (i.prov || ''))].join(' ').toLowerCase().includes(q)));
+  const tF = sum(vis.map(x => x.c.T.fob)), tL = sum(vis.map(x => x.c.T.landed));
+  const enCamino = vis.filter(x => !/monterrey|almac|cerr/i.test(x.l.estatus));
+  main.innerHTML = `
+  <div class="kpis">
+    <div class="kpi"><span>Lotes</span><b>${vis.length}</b></div>
+    <div class="kpi"><span>Por llegar al almacén</span><b>${enCamino.length}</b></div>
+    <div class="kpi"><span>FOB total $</span><b>${fmt(tF)}</b></div>
+    <div class="kpi hi"><span>Costo landed total $</span><b>${fmt(tL)}</b></div>
+    <div class="kpi"><span>Landed vs FOB</span><b>${tF ? pct(tL / tF - 1) : '—'}</b></div>
+    <div class="kpi"><span>CBM total</span><b>${fmt(sum(vis.map(x => x.c.T.cbm)), 1)}</b></div>
+  </div>
+  <div class="steps" id="pipe">${ETAPAS.map(e => `<button data-est="${esc(e)}" class="${fil.est === e ? 'cur' : ''}" title="Ver solo los lotes en esta etapa"><b>${DB.lotes.filter(x => x.estatus === e).length}</b> ${esc(e)}</button>`).join('')}</div>
+  <div class="card">
+    <h3>Lotes de importación <span class="r"><button class="btn" id="bNuevo">+ Nuevo lote</button></span></h3>
+    <div class="fil">
+      <input id="fq" placeholder="Buscar lote, OC, producto…" value="${esc(fil.q)}">
+      <select id="fp"><option value="">Todos los proveedores</option>${provs.map(e => `<option ${e === fil.prov ? 'selected' : ''}>${esc(e)}</option>`).join('')}</select>
+    </div>
+    <div class="tw"><table>
+      <tr><th>Lote</th><th>OC</th><th>Proveedor</th><th>Contenedor compartido</th><th>Puerto</th><th>Estatus</th><th>ETD</th><th>ETA</th><th>Documentos</th>
+        <th class="n">Prod.</th><th class="n">Bultos</th><th class="n">CBM</th><th class="n">FOB $</th><th class="n" title="Ad-valorem + tasa 1% + IVA de los productos con IVA al costo">Impuestos $</th><th class="n">Landed $</th><th class="n">Landed vs FOB</th></tr>
+      ${vis.map(({ l, c, n }) => `<tr class="clk" data-id="${esc(l.id)}">
+        <td><b>${esc(l.nombre)}</b></td><td>${esc(l.oc)}</td><td>${esc(provsDe(l).join(' + '))}</td><td>${l.grupo ? esc(l.grupo) : '<span class="mut">—</span>'}</td><td>${esc(l.puerto)}</td><td>${chip(l.estatus)}</td>
+        <td>${fFecha(l.etd)}</td><td>${fFecha(l.eta)}</td><td>${esc(l.documentos)}</td>
+        <td class="n">${n}</td><td class="n">${fmt(c.T.bultos, 0)}</td><td class="n">${fmt(c.T.cbm, 1)}</td>
+        <td class="n">${fmt(c.T.fob)}</td><td class="n">${fmt(c.T.advUsd + c.T.tasaUsd + c.T.ivaCostoUsd)}</td><td class="n hi">${fmt(c.T.landed)}</td><td class="n">${pct(c.T.vsFob)}</td></tr>`).join('')
+        || '<tr><td colspan="16" class="mut">No hay lotes con ese filtro.</td></tr>'}
+      ${vis.length > 1 ? `<tr class="tot"><td colspan="9">Total</td><td class="n">${sum(vis.map(x => x.n))}</td><td class="n">${fmt(sum(vis.map(x => x.c.T.bultos)), 0)}</td>
+        <td class="n">${fmt(sum(vis.map(x => x.c.T.cbm)), 1)}</td><td class="n">${fmt(tF)}</td><td class="n">${fmt(sum(vis.map(x => x.c.T.advUsd + x.c.T.tasaUsd + x.c.T.ivaCostoUsd)))}</td><td class="n">${fmt(tL)}</td><td class="n">${tF ? pct(tL / tF - 1) : ''}</td></tr>` : ''}
+    </table></div>
+    ${fil.prov ? `<p class="note">Filtrado por proveedor <b>${esc(fil.prov)}</b>: los indicadores y cada lote cuentan solo los productos de ese proveedor.</p>` : ''}
+  </div>`;
+  $('#bNuevo').onclick = () => { const l = nuevoLote(); DB.lotes.push(l); guardar(); ir('lote', l.id); };
+  $('#fq').oninput = e => { fil.q = e.target.value; vTablero(); const i = $('#fq'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); };
+  $('#pipe').onclick = e => { const b = e.target.closest('[data-est]'); if (!b) return; fil.est = fil.est === b.dataset.est ? '' : b.dataset.est; vTablero(); };
+  $('#fp').onchange = e => { fil.prov = e.target.value; vTablero(); };
+  main.querySelectorAll('tr.clk').forEach(t => t.onclick = () => ir('lote', t.dataset.id));
+}
+
+const inp = (p, v, t = 'text', extra = '') => `<input data-p="${p}" type="${t}" value="${esc(v == null ? '' : v)}" ${t === 'number' ? 'step="any"' : ''} ${extra}>`;
+const campo = (lab, p, v, t, extra) => `<div class="f"><label>${lab}</label>${inp(p, v, t, extra)}</div>`;
+const check = (lab, p, v) => `<div class="f chk"><input type="checkbox" id="k_${p}" data-p="${p}" ${v ? 'checked' : ''}><label for="k_${p}">${lab}</label></div>`;
+
+// seccion plegable: abierta si el lote ya llego a la etapa en que se llena (o si el usuario la abrio)
+function sec(id, minEt, et, titulo, sub, cuerpo, estilo){
+  const abierta = id in abiertas ? abiertas[id] : et >= minEt;
+  return `<details class="card" data-sec="${id}" ${abierta ? 'open' : ''} ${estilo || ''}><summary><h3>${titulo} <span class="sub">${sub}</span>${et < minEt ? `<span class="r chip">Se completa en: ${ETAPAS[minEt]}</span>` : ''}</h3></summary>${cuerpo}</details>`;
+}
+
+function vLote(){
+  const l = lote(); if (!l) return ir('tablero');
+  const p = l.params, c = l.costos, re = l.realesBs || (l.realesBs = {}), et = etapa(l);
+  main.innerHTML = `
+  <div class="bar">
+    <button class="btn s" id="bVolver">${{ productos: '← Productos', analisis: '← Análisis' }[origenLote] || '← Lotes'}</button>
+    <input class="nm" data-p="nombre" value="${esc(l.nombre)}" placeholder="Nombre del lote">
+    <span class="sp"></span>
+    <button class="btn s" id="bCsv">Exportar costeo (CSV)</button>
+    <button class="btn s" id="bDup">Duplicar</button>
+    <button class="btn d" id="bDel">Eliminar</button>
+  </div>
+  <div class="steps" id="steps">${ETAPAS.map((e, i) => `<button data-et="${i}" class="${i < et ? 'done' : i === et ? 'cur' : ''}"><b>${i < et ? '✓' : i + 1}</b> ${esc(e)}<small>${fechaEtapa(l, i)}</small></button>`).join('')}</div>
+  <div class="card" id="chk"></div>
+  <div id="flAviso"></div>
+  <div class="kpis" id="lk"></div>
+
+  ${sec('productos', 0, et, 'Productos', 'los gastos del lote se reparten según el peso de cada producto en el FOB', `
+    <div class="tw"><table>
+      <tr><th>REF</th><th>Descripción</th><th title="Solo si este producto es de un proveedor distinto al del lote">Proveedor</th><th title="Solo si este producto es de otra orden de compra">OC</th><th>Unidad</th><th class="n">Cant.</th><th class="n">FOB unit $</th><th class="n">FOB total $</th><th class="n">Factor</th>
+        <th class="n">Inner</th><th class="n">Pzas/CTN</th><th class="n">Bultos</th><th class="n">Peso/bulto kg</th><th class="n">CBM/bulto</th>
+        <th>Cód. arancelario</th><th class="n">Tarifa %</th><th>Exoneración</th><th title="Marcar si el IVA de importación de este producto se carga al costo (según Gaceta)">IVA al costo</th><th></th></tr>
+      <tr class="filtros">${FILTRO_LOTE.map(([k, t]) => `<th><input type="search" data-fl="${k}" list="fl-${k}" class="${filLote[k] ? 'act' : ''}" value="${esc(filLote[k] || '')}" placeholder="(Todos)" title="Filtrar: escriba parte del texto o elija de la lista">
+        <datalist id="fl-${k}">${[...new Set(l.items.map(i => k === 'prov' ? provDe(l, i) : k === 'oc' ? ocDe(l, i) : i[k] || '').filter(Boolean))].map(v => `<option value="${esc(v)}">`).join('')}</datalist></th>`).join('')}
+        <th colspan="15" style="text-align:left"><button class="btn s" id="bFlClr" style="padding:3px 10px;font-size:12px">Quitar filtro</button> <span id="flInfo" class="mut" style="font-weight:400"></span></th></tr>
+      ${l.items.map((i, x) => `<tr>
+        <td>${inp(`items.${x}.ref`, i.ref, 'text', 'style="min-width:95px"')}</td>
+        <td>${inp(`items.${x}.desc`, i.desc, 'text', 'style="min-width:230px"')}</td>
+        <td>${inp(`items.${x}.prov`, i.prov, 'text', `style="min-width:110px" list="dlProv" placeholder="${esc(l.proveedor || '')}"`)}</td>
+        <td>${inp(`items.${x}.oc`, i.oc, 'text', `style="min-width:100px" placeholder="${esc(l.oc || '')}"`)}</td>
+        <td>${inp(`items.${x}.unidad`, i.unidad, 'text', 'style="min-width:80px"')}</td>
+        <td>${inp(`items.${x}.cant`, i.cant, 'number')}</td>
+        <td>${inp(`items.${x}.fob`, i.fob, 'number')}</td>
+        <td class="n calc" id="c-fob-${x}"></td><td class="n calc" id="c-fac-${x}"></td>
+        <td>${inp(`items.${x}.inner`, i.inner, 'number', 'style="min-width:60px"')}</td>
+        <td>${inp(`items.${x}.pzasCtn`, i.pzasCtn, 'number', 'style="min-width:60px"')}</td>
+        <td class="n calc" id="c-bul-${x}"></td>
+        <td>${inp(`items.${x}.pesoBulto`, i.pesoBulto, 'number', 'style="min-width:70px"')}</td>
+        <td>${inp(`items.${x}.cbmBulto`, i.cbmBulto, 'number')}</td>
+        <td>${inp(`items.${x}.arancel`, i.arancel, 'text', 'style="min-width:120px"')}</td>
+        <td>${inp(`items.${x}.tarifa`, i.tarifa, 'number', 'style="min-width:60px"')}</td>
+        <td>${inp(`items.${x}.exoneracion`, i.exoneracion, 'text', 'style="min-width:95px"')}</td>
+        <td style="text-align:center"><input type="checkbox" data-p="items.${x}.ivaCosto" ${i.ivaCosto ? 'checked' : ''}></td>
+        <td><button class="btn x" data-del="items.${x}" title="Quitar producto">✕</button></td></tr>`).join('')}
+      <tr class="tot"><td colspan="7">Total</td><td class="n" id="c-fob-t"></td><td colspan="3"></td><td class="n" id="c-bul-t"></td><td class="n" id="c-peso-t"></td><td class="n" id="c-cbm-t"></td><td colspan="5"></td></tr>
+    </table></div>
+    <div class="bar" style="margin:10px 0 0"><button class="btn" id="bAddItem">+ Producto</button>
+      <span class="note" style="margin:0">Planificación: referencia, cantidad y FOB. Si el lote trae cargas de varios proveedores, indique el proveedor en cada producto. Fabricación: empaque. Nacionalización: código arancelario, tarifa e IVA al costo.</span></div>`)}
+
+  ${sec('compra', 0, et, 'Datos de la compra', '', `
+    <div class="grid">
+      ${campo('Proveedor' + (l.items.some(i => i.prov) ? ' (el resto del lote)' : ''), 'proveedor', l.proveedor, 'text', 'list="dlProv"' + (l.items.some(i => i.prov) ? ' placeholder="varios: ver productos"' : ''))}
+      ${campo('Orden de compra (OC)', 'oc', l.oc)}
+      ${campo('Puerto de origen', 'puerto', l.puerto)}
+      ${campo('Documentos', 'documentos', l.documentos, 'text', 'list="dlDocs"')}
+    </div>
+    <div class="f" style="margin-top:10px"><label>Notas</label><textarea data-p="notas" rows="2">${esc(l.notas)}</textarea></div>
+    ${l.archivo ? `<p class="note">Costeo original: <a href="${encodeURI(l.archivo)}" download>${esc(l.archivo.split('/').pop())}</a></p>` : ''}
+    <datalist id="dlProv">${todosProvs().map(x => `<option value="${esc(x)}">`).join('')}</datalist>
+    <datalist id="dlDocs">${DOCS.map(x => `<option value="${x}">`).join('')}</datalist>`)}
+
+  ${sec('origen', 0, et, 'Costos en origen y financiamiento', 'en $, totales del lote', `
+    <div class="grid">
+      ${campo('Gastos locales en origen $', 'costos.gastosOrigen', c.gastosOrigen, 'number')}
+      ${campo('Costo adicional $', 'costos.adicional', c.adicional, 'number')}
+      ${campo('Interés anual %', 'params.intPct', p.intPct, 'number')}
+      ${campo('Días financiados', 'params.intDias', p.intDias, 'number')}
+      ${campo('Interés financiamiento $ (vacío = calculado)', 'costos.intFinFijo', c.intFinFijo, 'number', 'id="c-intfin"')}
+      ${campo('Interés flete $ (vacío = calculado)', 'costos.intFleteFijo', c.intFleteFijo, 'number', 'id="c-intflete"')}
+    </div>`)}
+
+  ${sec('embarque', 2, et, 'Embarque: flete y seguro', 'se informa cuando la carga sale', `
+    <div class="grid">
+      ${campo('Flete $', 'costos.flete', c.flete, 'number')}
+      ${campo('Seguro $', 'costos.seguro', c.seguro, 'number')}
+      ${campo('ETD (salida)', 'etd', l.etd, 'date')}
+      ${campo('ETA (llegada a puerto)', 'eta', l.eta, 'date')}
+      ${campo('Nro. BL / Contenedor', 'bl', l.bl)}
+      ${campo('Naviera', 'naviera', l.naviera)}
+      ${campo('Agente de carga', 'agenteCarga', l.agenteCarga)}
+      ${campo('Contenedor compartido (opcional)', 'grupo', l.grupo, 'text', 'list="dlGrupo" placeholder="nombre del contenedor"')}
+    </div>
+    <datalist id="dlGrupo">${Object.keys(DB.grupos).map(x => `<option value="${esc(x)}">`).join('')}</datalist>`)}
+
+  ${sec('aduana', 3, et, 'Aduana e impuestos', '', `
+    <div class="grid">
+      ${campo('Agente aduanal', 'agenteAduanal', l.agenteAduanal)}
+      ${campo('Fecha de nacionalización', 'params.fechaAduana', p.fechaAduana, 'date', 'data-tasa="params.tasaAduana"')}
+      ${campo('Tasa oficial aduana Bs/$', 'params.tasaAduana', p.tasaAduana, 'number')}
+      ${campo('Tasa paralelo Bs/$ (opcional)', 'params.tasaParalelo', p.tasaParalelo, 'number')}
+      ${campo('Tasa servicio aduana %', 'params.pctTasa', p.pctTasa, 'number')}
+      ${campo('IVA %', 'params.pctIva', p.pctIva, 'number')}
+    </div>
+    <div class="grid" style="margin-top:4px">
+      ${check('El CIF de aduana incluye el seguro', 'params.cifSeguro', p.cifSeguro)}
+      ${check('El CIF de aduana incluye los gastos locales en origen', 'params.cifGastosOrigen', p.cifGastosOrigen)}
+    </div>
+    <p class="note">CIF = FOB + flete (+ seguro y gastos en origen si están marcados; varía según el lote). Lo que no entra al CIF, más el costo adicional y los intereses, va como “gastos adicionales” directo al costo landed.</p>
+    <div class="grid" style="margin-top:10px">
+      ${campo('Ad-valorem REAL de la planilla Bs', 'realesBs.adv', re.adv, 'number', 'placeholder="calculado"')}
+      ${campo('Tasa aduanera REAL Bs', 'realesBs.tasa', re.tasa, 'number', 'placeholder="calculado"')}
+      ${campo('IVA REAL de la planilla Bs', 'realesBs.iva', re.iva, 'number', 'placeholder="calculado"')}
+      <div class="f"><label>Calculado: Ad-valorem / Tasa / IVA (Bs)</label><input id="c-imp" disabled></div>
+    </div>
+    <p class="note">Los montos REALES son opcionales: déjelos vacíos mientras estima; al tener la planilla de liquidación escríbalos y el costeo usa esos.</p>`)}
+
+  ${sec('gl', 3, et, 'Gastos locales y portuarios', 'pagados en Bs; cada uno con la tasa del día en que se pagó', `
+    <div class="tw"><table>
+      <tr><th>Concepto</th><th>Fecha de pago</th><th class="n">Tasa Bs/$</th><th class="n">Monto Bs</th><th class="n">Monto $</th><th></th></tr>
+      ${l.gastosLocales.map((g, x) => `<tr>
+        <td>${inp(`gastosLocales.${x}.concepto`, g.concepto, 'text', 'style="min-width:260px"')}</td>
+        <td>${inp(`gastosLocales.${x}.fecha`, g.fecha, 'date', `data-tasa="gastosLocales.${x}.tc"`)}</td>
+        <td>${inp(`gastosLocales.${x}.tc`, g.tc, 'number')}</td>
+        <td>${inp(`gastosLocales.${x}.bs`, g.bs, 'number', 'style="min-width:120px"')}</td>
+        <td class="n calc" id="c-gl-${x}"></td>
+        <td><button class="btn x" data-del="gastosLocales.${x}">✕</button></td></tr>`).join('') || '<tr><td colspan="6" class="mut">Sin gastos cargados todavía.</td></tr>'}
+      <tr class="tot"><td colspan="2">Total</td><td class="n" id="c-gl-tc"></td><td class="n" id="c-gl-bs"></td><td class="n" id="c-gl-t"></td><td></td></tr>
+    </table></div>
+    <div class="bar" style="margin:10px 0 0"><button class="btn" id="bAddGl">+ Gasto</button></div>`)}
+
+  ${sec('agente', 3, et, 'Agente aduanal y transporte', 'pactados en $', `
+    <div class="grid" style="margin-bottom:10px">${campo('Tasa Bs/$ del pago (también da el “Costo Bs”)', 'params.tasaAgente', p.tasaAgente, 'number')}</div>
+    <div class="tw"><table>
+      <tr><th>Concepto</th><th class="n">Monto $</th><th class="n">Monto Bs</th><th></th></tr>
+      ${l.agente.map((a, x) => `<tr>
+        <td>${inp(`agente.${x}.concepto`, a.concepto, 'text', 'style="min-width:260px"')}</td>
+        <td>${inp(`agente.${x}.usd`, a.usd, 'number')}</td>
+        <td class="n calc" id="c-ag-${x}"></td>
+        <td><button class="btn x" data-del="agente.${x}">✕</button></td></tr>`).join('') || (l.grupo ? '' : '<tr><td colspan="4" class="mut">Sin conceptos.</td></tr>')}
+      ${l.grupo ? `<tr><td>Parte de los gastos del contenedor compartido <span class="mut">(se calcula abajo)</span></td><td class="n calc" id="c-ag-comp"></td><td class="n calc" id="c-ag-compbs"></td><td></td></tr>` : ''}
+      <tr class="tot"><td>Total</td><td class="n" id="c-ag-t"></td><td class="n" id="c-ag-bs"></td><td></td></tr>
+    </table></div>
+    <div class="bar" style="margin:10px 0 0"><button class="btn" id="bAddAg">+ Concepto</button></div>`)}
+
+  ${l.grupo ? sec('grupo', 3, et, 'Contenedor compartido: ' + esc(l.grupo), 'gastos en $ que se reparten entre sus lotes según el CIF de cada uno', `
+    <div class="tw" style="max-width:760px"><table>
+      <tr><th>Concepto</th><th class="n">Monto $</th><th></th></tr>
+      ${(DB.grupos[l.grupo].compartidos).map((g, x) => `<tr>
+        <td><input data-gp="${x}.concepto" value="${esc(g.concepto)}" style="min-width:260px"></td>
+        <td><input data-gp="${x}.usd" type="number" step="any" value="${esc(g.usd)}"></td>
+        <td><button class="btn x" data-gdel="${x}">✕</button></td></tr>`).join('') || '<tr><td colspan="3" class="mut">Todavía no hay gastos compartidos.</td></tr>'}
+    </table></div>
+    <div class="bar" style="margin:10px 0 0"><button class="btn" id="bAddComp">+ Gasto compartido</button></div>
+    <div id="resGrupo" style="margin-top:10px"></div>
+    <p class="note">Estos gastos son del contenedor: lo que cambie aquí se ve igual desde cualquiera de sus lotes. Para sacar este lote del contenedor, borre el nombre en “Contenedor compartido”.</p>`, 'style="border-color:var(--azul)"') : ''}
+
+  ${sec('almacen', 4, et, 'Llegada al almacén', '', `
+    <div class="grid">${campo('Fecha de llegada al almacén (estimada o real)', 'llegadaAlmacen', l.llegadaAlmacen, 'date')}</div>`)}
+
+  <div class="card"><h3>Costeo por producto <span class="sub">valores unitarios en $ salvo indicación</span></h3><div id="resCosteo"></div></div>
+  <div class="card"><h3>Resumen por concepto</h3><div id="resResumen"></div></div>`;
+
+  $('#bVolver').onclick = () => ir(origenLote);
+  $('#bFlClr').onclick = () => { filLote = {}; vLote(); };
+  $('#steps').onclick = e => { const b = e.target.closest('[data-et]'); if (b) cambiarEtapa(+b.dataset.et); };
+  $('#bAddItem').onclick = () => { l.items.push(itemVacio()); tocar(l); vLote(); };
+  $('#bAddGl').onclick = () => { l.gastosLocales.push({ concepto: '', fecha: '', tc: '', bs: '' }); tocar(l); vLote(); };
+  $('#bAddAg').onclick = () => { l.agente.push({ concepto: '', usd: '' }); tocar(l); vLote(); };
+  if (l.grupo) $('#bAddComp').onclick = () => { DB.grupos[l.grupo].compartidos.push({ concepto: '', usd: '' }); tocar(l); vLote(); };
+  $('#bDup').onclick = () => { const n = JSON.parse(JSON.stringify(l)); n.id = 'l' + Date.now(); n.nombre += ' (copia)'; n.oc = ''; n.grupo = ''; n.estatus = ETAPAS[0]; n.historial = []; DB.lotes.push(n); guardar(); ir('lote', n.id); toast('Lote duplicado'); };
+  $('#bDel').onclick = () => { if (confirm('¿Eliminar el lote "' + l.nombre + '"? No se puede deshacer.')) { DB.lotes = DB.lotes.filter(x => x !== l); ordenarGrupos(); guardar(); ir('tablero'); } };
+  $('#bCsv').onclick = () => exportarCsv(l);
+  recalc();
+}
+
+function cambiarEtapa(i){
+  const l = lote(); if (i === etapa(l)) return;
+  l.estatus = ETAPAS[i]; (l.historial = l.historial || []).push({ estatus: l.estatus, fecha: hoy() });
+  abiertas = {}; tocar(l); vLote(); window.scrollTo(0, 0); toast('Estatus: ' + l.estatus);
+}
+main.addEventListener('toggle', e => { if (e.target.dataset && e.target.dataset.sec) abiertas[e.target.dataset.sec] = e.target.open; }, true);
+function tocar(l){ l.updatedAt = new Date().toISOString(); guardarLuego(); }
+function setPath(o, path, val){ const k = path.split('.'); for (let i = 0; i < k.length - 1; i++) o = o[k[i]] || (o[k[i]] = {}); o[k[k.length - 1]] = val; }
+
+main.addEventListener('input', e => {
+  const el = e.target; if (view !== 'lote') return;
+  const l = lote();
+  if (el.dataset.gp) {   // gasto compartido del contenedor
+    const [idx, k] = el.dataset.gp.split('.');
+    DB.grupos[l.grupo].compartidos[+idx][k] = el.type === 'number' ? (el.value === '' ? '' : parseFloat(el.value)) : el.value;
+    tocar(l); recalc(); return;
+  }
+  if (el.dataset.fl) { filLote[el.dataset.fl] = el.value.trim(); el.classList.toggle('act', !!el.value.trim()); recalc(); return; }
+  if (!el.dataset.p || el.dataset.p === 'grupo') return;   // el contenedor se aplica al terminar de escribir (change)
+  setPath(l, el.dataset.p, el.type === 'checkbox' ? el.checked : el.type === 'number' ? (el.value === '' ? '' : parseFloat(el.value)) : el.value);
+  tocar(l); recalc();
+});
+// al poner una fecha, si la tasa esta vacia se trae la del BCV de ese dia
+main.addEventListener('change', e => {
+  const el = e.target; if (view !== 'lote') return;
+  if (el.dataset.p === 'grupo') {
+    const l = lote(), nuevo = el.value.trim(); if (nuevo === (l.grupo || '')) return;
+    l.grupo = nuevo; ordenarGrupos(); tocar(l); vLote();
+    if (nuevo) toast(DB.lotes.filter(x => x.grupo === nuevo).length > 1 ? 'Lote agregado al contenedor' : 'Contenedor creado: asigne el mismo nombre a los otros lotes');
+    return;
+  }
+  if (!el.dataset.tasa || !el.value) return;
+  const t = TASAS[el.value], dest = main.querySelector(`[data-p="${el.dataset.tasa}"]`);
+  if (t && dest && dest.value === '') { dest.value = t[0]; dest.dispatchEvent(new Event('input', { bubbles: true })); toast('Tasa BCV del ' + fFecha(el.value) + ': ' + fmt(t[0], 4)); }
+});
+main.addEventListener('click', e => {
+  const g = e.target.closest('[data-gdel]');
+  if (g && view === 'lote') { const l = lote(); DB.grupos[l.grupo].compartidos.splice(+g.dataset.gdel, 1); tocar(l); vLote(); return; }
+  const b = e.target.closest('[data-del]'); if (!b || view !== 'lote') return;
+  const [arr, idx] = b.dataset.del.split('.'), l = lote();
+  if (arr === 'items' && l.items.length === 1) return toast('El lote necesita al menos un producto');
+  l[arr].splice(+idx, 1); tocar(l); vLote();
+});
+
+function recalc(){
+  const l = lote(), c = calcLote(l), ok = l.items.map(i => pasaFiltroLote(l, i)), nOk = ok.filter(Boolean).length, filtrado = nOk < ok.length,
+    T = filtrado ? totales(c.R.filter((r, x) => ok[x])) : c.T, set = (id, v) => { const el = document.getElementById(id); if (el) el['value' in el && el.tagName === 'INPUT' ? 'value' : 'textContent'] = v; };
+  const et = etapa(l), pend = pendientes(l), atras = pend.slice(0, et).flat().filter(x => !x[1]).map(x => x[0]);
+  $('#chk').innerHTML = `<h3>${esc(ETAPAS[et])} <span class="sub">${AYUDA[et]}</span>${et < ETAPAS.length - 1 ? `<span class="r"><button class="btn" id="bAvz">Pasar a “${esc(ETAPAS[et + 1])}” →</button></span>` : ''}</h3>
+    <div class="chk">${pend[et].map(([t, ok]) => `<span class="${ok ? 'ok' : 'no'}">${ok ? '✓' : '○'} ${t}</span>`).join('')}</div>
+    ${atras.length ? `<p class="note">Quedó pendiente de etapas anteriores: ${atras.join(', ')}.</p>` : ''}`;
+  if ($('#bAvz')) $('#bAvz').onclick = () => cambiarEtapa(et + 1);
+  const kpi = (t, v, ayuda, cls) => `<div class="kpi ${cls || ''}" title="${ayuda}"><span>${t}</span><b>${fmt(v)}</b></div>`;
+  $('#lk').innerHTML =
+    kpi('Costo FOB $', T.fob, 'Cantidad × FOB unitario de los productos', et === 0 ? 'hi' : '') +
+    kpi('Flete + seguro $', T.flete + T.seg, 'Flete y seguro del embarque') +
+    kpi('CIF $', T.cif, 'Base de aduana: FOB + flete (+ seguro y gastos en origen si están marcados en Aduana)') +
+    kpi('Gastos adicionales $', T.gadic, 'Costo adicional + intereses de financiamiento + lo que no entró al CIF') +
+    kpi('Impuestos $', T.advUsd + T.tasaUsd + T.ivaCostoUsd, 'Arancel ad-valorem + tasa 1% + IVA solo de los productos marcados con IVA al costo') +
+    kpi('Gastos locales $', T.glUsd + T.agUsd, 'Gastos locales y portuarios + agente aduanal y transporte') +
+    `<div class="kpi hi" title="CIF + impuestos + gastos locales + gastos adicionales"><span>Costo landed $</span><b>${fmt(T.landed)}</b><small>${pct(T.vsFob)} sobre el FOB</small></div>`;
+  $('#flInfo').innerHTML = filtrado ? `<b style="color:var(--warn)">Mostrando ${nOk} de ${ok.length} productos</b>` : 'Escriba bajo REF, Descripción, Proveedor u OC para filtrar';
+  $('#flAviso').innerHTML = filtrado ? `<p class="note" style="margin:0 0 8px"><b style="color:var(--warn)">Filtro activo: ${nOk} de ${ok.length} productos.</b> Los indicadores, totales y el resumen son la suma de lo filtrado.</p>` : '';
+  c.R.forEach((r, x) => { const f = main.querySelector(`[data-p="items.${x}.ref"]`); if (f) f.closest('tr').hidden = !ok[x];
+    set('c-bul-' + x, fmt(r.bultos, r.bultos % 1 ? 1 : 0)); set('c-fob-' + x, fmt(r.fob)); set('c-fac-' + x, pct(r.F)); });
+  set('c-bul-t', fmt(T.bultos, 0)); set('c-peso-t', fmt(T.peso, 0) + ' kg'); set('c-cbm-t', fmt(T.cbm, 2)); set('c-fob-t', fmt(T.fob));
+  $('#c-intfin').placeholder = fmt(c.intFinCalc); $('#c-intflete').placeholder = fmt(c.intFleteCalc);
+  set('c-imp', fmt(c.T.advBs) + ' / ' + fmt(c.T.tasaBs) + ' / ' + fmt(c.T.ivaBs));   // siempre del lote completo: se compara con la planilla
+  l.gastosLocales.forEach((g, x) => set('c-gl-' + x, N(g.tc) ? fmt(N(g.bs) / N(g.tc)) : '—'));
+  set('c-gl-t', fmt(c.glUsd)); set('c-gl-bs', fmt(c.glBs)); set('c-gl-tc', c.glUsd ? fmt(c.glBs / c.glUsd, 4) : '');
+  l.agente.forEach((a, x) => set('c-ag-' + x, fmt(N(a.usd) * c.tAg)));
+  set('c-ag-t', fmt(c.agUsd)); set('c-ag-bs', fmt(c.agUsd * c.tAg));
+  if (l.grupo) {
+    set('c-ag-comp', fmt(c.compUsd)); set('c-ag-compbs', fmt(c.compUsd * c.tAg));
+    const g = repartoGrupo(l.grupo, DB.lotes, DB.grupos);
+    $('#resGrupo').innerHTML = `<div class="tw" style="max-width:760px"><table>
+      <tr><th>Lote del contenedor</th><th class="n">CIF $</th><th class="n">% del contenedor</th><th class="n">Le toca $</th></tr>
+      ${g.filas.map(f => `<tr ${f.l === l ? '' : `class="clk" data-id="${esc(f.l.id)}"`}><td>${f.l === l ? '<b>' + esc(f.l.nombre) + '</b> <span class="mut">(este lote)</span>' : esc(f.l.nombre)}</td>
+        <td class="n">${fmt(f.cif)}</td><td class="n">${pct(f.pct)}</td><td class="n ${f.l === l ? 'hi' : ''}">${fmt(f.usd)}</td></tr>`).join('')}
+      <tr class="tot"><td>Total</td><td class="n">${fmt(g.cifT)}</td><td class="n">100,0%</td><td class="n">${fmt(g.total)}</td></tr>
+    </table></div>`;
+    $('#resGrupo').querySelectorAll('tr.clk').forEach(t => t.onclick = () => ir('lote', t.dataset.id));
+  }
+
+  const par = c.tPar > 0;
+  $('#resCosteo').innerHTML = `<div class="tw"><table>
+    <tr><th>REF</th><th>Descripción</th><th class="n">Cant.</th><th class="n">FOB</th><th class="n">CIF</th><th class="n">Ad-valorem</th><th class="n">Tasa</th>
+      <th class="n">IVA al costo</th><th class="n">G. locales</th><th class="n">Agente+transp.</th><th class="n">Nacionalizado</th><th class="n">G. adicionales</th>
+      <th class="n">Landed unit $</th>${par ? '<th class="n">Landed paralelo</th>' : ''}<th class="n">Landed vs FOB</th><th class="n">Costo Bs unit</th><th class="n">Landed total $</th></tr>
+    ${c.R.map((r, x) => { if (!ok[x]) return ''; const i = l.items[x], u = v => fmt(r.cant ? v / r.cant : 0, 4); return `<tr>
+      <td>${esc(i.ref)}</td><td>${esc(i.desc)}</td><td class="n">${fmt(r.cant, 0)}</td><td class="n">${fmt(r.fobU, 4)}</td><td class="n">${fmt(r.cifU, 4)}</td>
+      <td class="n">${u(r.advUsd)}</td><td class="n">${u(r.tasaUsd)}</td><td class="n">${i.ivaCosto ? u(r.ivaUsd) : '<span class="mut">—</span>'}</td>
+      <td class="n">${u(r.glUsd)}</td><td class="n">${u(r.agUsd)}</td><td class="n">${fmt(r.nacU, 4)}</td><td class="n">${fmt(r.gadicU, 4)}</td>
+      <td class="n hi">${fmt(r.landedU, 4)}</td>${par ? `<td class="n">${fmt(r.landedParU, 4)}</td>` : ''}<td class="n">${pct(r.vsFob)}</td><td class="n">${fmt(r.bsU)}</td><td class="n">${fmt(r.landed)}</td></tr>`; }).join('')}
+    <tr class="tot"><td colspan="2">${filtrado ? 'Total de lo filtrado $' : 'Total del lote $'}</td><td class="n">${fmt(T.cant, 0)}</td><td class="n">${fmt(T.fob)}</td><td class="n">${fmt(T.cif)}</td>
+      <td class="n">${fmt(T.advUsd)}</td><td class="n">${fmt(T.tasaUsd)}</td><td class="n">${fmt(T.ivaCostoUsd)}</td><td class="n">${fmt(T.glUsd)}</td><td class="n">${fmt(T.agUsd)}</td>
+      <td class="n">${fmt(T.nac)}</td><td class="n">${fmt(T.gadic)}</td><td class="n">—</td>${par ? `<td class="n">${fmt(T.landedPar)}</td>` : ''}<td class="n">${pct(T.vsFob)}</td><td class="n">${fmt(T.nac * c.tAg)}</td><td class="n">${fmt(T.landed)}</td></tr>
+  </table></div>`;
+
+  const p = l.params, fila = (n, usd, bs, cls = '') => `<tr class="${cls}"><td>${n}</td><td class="n">${fmt(usd)}</td><td class="n">${bs == null ? '' : fmt(bs)}</td><td class="n">${T.fob ? pct(usd / T.fob) : ''}</td></tr>`;
+  const ivaCred = T.ivaUsd - T.ivaCostoUsd;
+  $('#resResumen').innerHTML = `<div class="tw" style="max-width:760px"><table>
+    <tr><th>Concepto</th><th class="n">Monto $</th><th class="n">Monto Bs</th><th class="n">% del FOB</th></tr>
+    ${fila('Valor FOB', T.fob)}
+    ${fila('Flete', T.flete)}
+    ${fila('Seguro' + (p.cifSeguro ? '' : ' <span class="mut">(fuera del CIF)</span>'), T.seg)}
+    ${fila('Gastos locales en origen' + (p.cifGastosOrigen ? '' : ' <span class="mut">(fuera del CIF)</span>'), T.go)}
+    ${fila('Costo adicional', T.adic)}
+    ${fila('Interés por financiamiento', T.intFin)}
+    ${fila('Interés financiamiento flete', T.intFlete)}
+    ${fila('Arancel ad-valorem', T.advUsd, T.advBs)}
+    ${fila('Tasa servicio aduana', T.tasaUsd, T.tasaBs)}
+    ${fila('IVA cargado al costo', T.ivaCostoUsd, T.ivaCostoBs)}
+    ${fila('Gastos locales y portuarios', T.glUsd, T.glBs)}
+    ${fila('Agente aduanal + transporte', T.agUsd, T.agBs)}
+    ${fila('COSTO LANDED TOTAL', T.landed, null, 'tot')}
+    ${fila('IVA no cargado al costo <span class="mut">(crédito fiscal)</span>', ivaCred, ivaCred * c.tA)}
+    ${fila('TOTAL DESEMBOLSO (landed + IVA crédito)', T.landed + ivaCred, null, 'tot')}
+  </table></div>
+  <p class="note">${fmt(T.bultos, 0)} bultos · ${fmt(T.peso, 0)} kg · ${fmt(T.cbm, 2)} CBM${T.cbm ? ' · landed por CBM $' + fmt(T.landed / T.cbm) : ''}${par ? ' · brecha paralelo/oficial ' + pct(c.tPar / c.tA - 1) : ''}</p>`;
+}
+
+function exportarCsv(l){
+  const c = calcLote(l), n = v => String(Math.round(v * 1e6) / 1e6).replace('.', ',');
+  const head = ['OC', 'Proveedor', 'REF', 'Descripcion', 'Unidad', 'Cant', 'FOB unit $', 'FOB total $', 'CIF total $', 'Ad-valorem $', 'Tasa $', 'IVA $', 'IVA al costo', 'Gastos locales $',
+    'Agente+transporte $', 'Nacionalizado unit $', 'Gastos adicionales unit $', 'Landed unit $', 'Landed paralelo unit $', 'Landed vs FOB %', 'Costo Bs unit', 'Landed total $'];
+  const rows = c.R.map((r, x) => { const i = l.items[x]; return [ocDe(l, i), provDe(l, i), i.ref, i.desc, i.unidad, n(r.cant), n(r.fobU), n(r.fob), n(r.cif), n(r.advUsd), n(r.tasaUsd), n(r.ivaUsd), i.ivaCosto ? 'SI' : 'NO',
+    n(r.glUsd), n(r.agUsd), n(r.nacU), n(r.gadicU), n(r.landedU), n(r.landedParU), n(r.vsFob * 100), n(r.bsU), n(r.landed)]; });
+  const csv = '﻿' + [head, ...rows].map(f => f.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+  descargar('Costeo ' + l.nombre.replace(/[\\/:*?"<>|]/g, '') + '.csv', csv, 'text/csv');
+}
+function descargar(nombre, contenido, tipo){
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([contenido], { type: tipo })); a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+function pintarSel(){
+  const b = $('#selBar'), n = selProd.size; if (!b) return;
+  b.innerHTML = n ? `<b>${n} producto${n > 1 ? 's' : ''} resaltado${n > 1 ? 's' : ''}</b><button class="btn s" id="bQuitaSel">Quitar resaltado</button>
+      <span class="mut">Doble clic en un producto: abre el lote completo donde está.</span>`
+    : '<span class="mut">Un clic resalta un producto (puede marcar varios). Doble clic en un producto: abre el lote completo donde está.</span>';
+  if (n) $('#bQuitaSel').onclick = () => { selProd.clear(); vProductos(); };
+}
+// doble clic: abre el lote completo donde esta esa referencia y la deja marcada en su tabla de productos
+function verLoteDeProducto(key){
+  const [id, x] = key.split('|');
+  origenLote = view; ir('lote', id);
+  const i = main.querySelector(`[data-p="items.${x}.ref"]`), tr = i && i.closest('tr');
+  if (tr) { tr.classList.add('marca'); tr.scrollIntoView({ block: 'center' }); }
+}
+// columnas de la pagina Productos: las de texto llevan un campo para escribir (con lista de sugerencias); todas ordenan al tocar el titulo
+const sinAcento = t => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const COLS_PROD = [
+  { k: 'ref', t: 'REF', lista: 1 }, { k: 'desc', t: 'Descripción', lista: 1 }, { k: 'lote', t: 'Lote', lista: 1 }, { k: 'prov', t: 'Proveedor', lista: 1 },
+  { k: 'oc', t: 'OC', lista: 1 }, { k: 'est', t: 'Estatus', lista: 1 },
+  { k: 'cant', t: 'Cant.', d: 0 }, { k: 'fobU', t: 'FOB unit $', d: 4 }, { k: 'nacU', t: 'Nacionalizado $', d: 4 }, { k: 'landedU', t: 'Landed unit $', d: 4, hi: 1 },
+  { k: 'vsFob', t: 'Landed vs FOB', pct: 1 }, { k: 'bsU', t: 'Costo Bs unit', d: 2 }];
+
+function vProductos(foco){
+  const filas = [];
+  DB.lotes.forEach(l => { const c = calcLote(l); l.items.forEach((i, x) => { const r = c.R[x];
+    filas.push({ id: l.id, key: l.id + '|' + x, ref: i.ref || '', desc: i.desc || '', lote: l.nombre || '', prov: provDe(l, i), oc: ocDe(l, i), est: l.estatus,
+      cant: r.cant, fobU: r.fobU, nacU: r.nacU, landedU: r.landedU, vsFob: r.vsFob, bsU: r.bsU }); }); });
+  const listas = COLS_PROD.filter(c => c.lista), q = filProd.toLowerCase();
+  const pasaTexto = f => !q || listas.map(c => f[c.k]).join(' ').toLowerCase().includes(q);
+  // pasa(f, salvo): cumple todos los filtros de columna menos el de la columna "salvo"
+  const pasa = (f, salvo) => pasaTexto(f) && listas.every(c => c.k === salvo || !filCol[c.k] || sinAcento(f[c.k]).includes(sinAcento(filCol[c.k])));   // basta con que CONTENGA lo escrito
+  const txt = (x, y) => String(x).localeCompare(String(y), 'es', { numeric: true });
+  const col = COLS_PROD.find(c => c.k === ordProd.k) || COLS_PROD[0];
+  const vis = filas.filter(f => pasa(f)).sort((x, y) => ordProd.dir * (col.lista ? txt(x[col.k], y[col.k]) : x[col.k] - y[col.k]) || txt(x.ref, y.ref) || txt(x.oc, y.oc));
+  // cada lista ofrece solo los valores que quedan con los demas filtros puestos (como el autofiltro de Excel)
+  const opciones = k => [...new Set(filas.filter(f => pasa(f, k)).map(f => f[k]))].sort(txt);
+  const nFil = listas.filter(c => filCol[c.k]).length + (q ? 1 : 0);
+  const celda = (c, f) => c.k === 'est' ? `<td>${chip(f.est)}</td>` : c.lista ? `<td>${c.k === 'ref' ? '<b>' + esc(f.ref) + '</b>' : esc(f[c.k])}</td>`
+    : `<td class="n ${c.hi ? 'hi' : ''}">${c.pct ? pct(f[c.k]) : fmt(f[c.k], c.d)}</td>`;
+  main.innerHTML = `<div class="card"><h3>Costo por producto <span class="sub">todos los lotes — en cada columna escriba parte del texto (ej. SLC) o elija de la lista; toque un título para ordenar</span></h3>
+    <div class="fil"><input id="fqp" placeholder="Buscar en cualquier columna…" value="${esc(filProd)}">
+      ${nFil ? `<button class="btn s" id="bLimpiar">Quitar filtros (${nFil})</button>` : ''}</div>
+    <div id="selBar"></div>
+    <div class="tw"><table>
+      <tr>${COLS_PROD.map(c => `<th class="ord ${c.lista ? '' : 'n'}" data-ord="${c.k}">${c.t}${ordProd.k === c.k ? (ordProd.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('')}</tr>
+      <tr class="filtros">${COLS_PROD.map(c => !c.lista ? '<th></th>' : `<th><input type="search" data-fc="${c.k}" list="dl-${c.k}" class="${filCol[c.k] ? 'act' : ''}" value="${esc(filCol[c.k] || '')}" placeholder="(Todos)" title="Escriba parte del texto o elija de la lista">
+        <datalist id="dl-${c.k}">${opciones(c.k).filter(Boolean).map(v => `<option value="${esc(v)}">`).join('')}</datalist></th>`).join('')}</tr>
+      ${vis.map(f => `<tr class="clk pk ${selProd.has(f.key) ? 'sel' : ''}" data-key="${esc(f.key)}">${COLS_PROD.map(c => celda(c, f)).join('')}</tr>`).join('')
+        || `<tr><td colspan="${COLS_PROD.length}" class="mut">Ningún producto cumple esos filtros.</td></tr>`}
+    </table></div><p class="note">${vis.length} de ${filas.length} productos${vis.length ? ' · ' + fmt(sum(vis.map(f => f.cant)), 0) + ' unidades · FOB $' + fmt(sum(vis.map(f => f.cant * f.fobU))) + ' · landed $' + fmt(sum(vis.map(f => f.cant * f.landedU))) : ''}.</p></div>`;
+  $('#fqp').oninput = e => { filProd = e.target.value; vProductos(); const i = $('#fqp'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); };
+  if (nFil) $('#bLimpiar').onclick = () => { filCol = {}; filProd = ''; vProductos(); };
+  main.querySelectorAll('[data-fc]').forEach(el => el.oninput = () => { filCol[el.dataset.fc] = el.value.trim(); vProductos(el.dataset.fc); });
+  if (foco) { const i = main.querySelector(`[data-fc="${foco}"]`); if (i) { i.focus(); try { i.setSelectionRange(i.value.length, i.value.length); } catch (e) {} } }
+  main.querySelectorAll('[data-ord]').forEach(el => el.onclick = () => { const k = el.dataset.ord; ordProd = { k, dir: ordProd.k === k ? -ordProd.dir : 1 }; vProductos(); });
+  // un clic resalta (sin redibujar, para que el doble clic caiga sobre la misma fila); doble clic = ir al tablero
+  main.querySelectorAll('tr.pk').forEach(t => {
+    t.onclick = () => { const k = t.dataset.key; selProd.has(k) ? selProd.delete(k) : selProd.add(k); t.classList.toggle('sel', selProd.has(k)); pintarSel(); };
+    t.ondblclick = () => verLoteDeProducto(t.dataset.key);
+  });
+  pintarSel();
+}
+
+function vProveedores(){
+  const g = {};
+  // se suma producto por producto: un lote con dos proveedores aporta a cada uno lo suyo
+  DB.lotes.forEach(l => { const c = calcLote(l); l.items.forEach((i, x) => {
+    const k = provDe(l, i) || '(sin proveedor)', r = c.R[x], o = (g[k] = g[k] || { lotes: [], fob: 0, landed: 0, items: 0, cbm: 0 });
+    if (!o.lotes.includes(l)) o.lotes.push(l);
+    o.fob += r.fob; o.landed += r.landed; o.items++; o.cbm += r.cbm; }); });
+  const ks = Object.keys(g).sort((a, b) => g[b].fob - g[a].fob), tF = sum(ks.map(k => g[k].fob));
+  main.innerHTML = `<div class="card"><h3>Proveedores</h3><div class="tw"><table>
+    <tr><th>Proveedor</th><th class="n">Lotes</th><th class="n">Productos</th><th class="n">CBM</th><th class="n">FOB $</th><th class="n">% de las compras</th><th class="n">Landed $</th><th class="n">Landed vs FOB</th><th>Lotes</th></tr>
+    ${ks.map(k => `<tr><td><b>${esc(k)}</b></td><td class="n">${g[k].lotes.length}</td><td class="n">${g[k].items}</td><td class="n">${fmt(g[k].cbm, 1)}</td><td class="n">${fmt(g[k].fob)}</td>
+      <td class="n">${tF ? pct(g[k].fob / tF) : ''}</td><td class="n hi">${fmt(g[k].landed)}</td><td class="n">${g[k].fob ? pct(g[k].landed / g[k].fob - 1) : ''}</td>
+      <td class="wrap">${g[k].lotes.map(l => `<a href="#" data-id="${esc(l.id)}">${esc(l.nombre)}</a>`).join(' · ')}</td></tr>`).join('')}
+  </table></div></div>`;
+  main.querySelectorAll('a[data-id]').forEach(a => a.onclick = e => { e.preventDefault(); ir('lote', a.dataset.id); });
+}
+
+function vRespaldo(){
+  main.innerHTML = `
+  <div class="card"><h3>Respaldo de los datos</h3>
+    <p>Los lotes se guardan en <b>este navegador</b>. Descargue un respaldo con frecuencia, y úselo también para pasar los datos a otro equipo.</p>
+    <div class="bar"><button class="btn" id="bExp">Descargar respaldo (.json)</button>
+      <button class="btn s" id="bImp">Cargar respaldo…</button><input type="file" id="fImp" accept=".json" hidden></div>
+  </div>
+  <div class="card"><h3>Lotes del Excel original</h3>
+    <p>La app viene precargada con ${(window.SEED_LOTES || []).length} lotes leídos de “Estimacion Inicial Costeo de Productos.xlsx”.</p>
+    <div class="bar"><button class="btn s" id="bVal">Verificar cálculo contra el Excel</button><button class="btn d" id="bSeed">Restaurar los lotes del Excel</button></div>
+    <div id="valOut"></div>
+  </div>`;
+  $('#bExp').onclick = () => descargar('importaciones-respaldo-' + new Date().toISOString().slice(0, 10) + '.json', JSON.stringify(DB, null, 1), 'application/json');
+  $('#bImp').onclick = () => $('#fImp').click();
+  $('#fImp').onchange = async e => {
+    try { const d = JSON.parse(await e.target.files[0].text()); if (!Array.isArray(d.lotes)) throw 0;
+      if (confirm('Se reemplazan los ' + DB.lotes.length + ' lotes actuales por los ' + d.lotes.length + ' del archivo. ¿Continuar?')) { DB = d; DB.grupos = DB.grupos || {}; if (!DB.plan) DB.plan = planInicial(); aplicarProformas(); ordenarGrupos(); guardar(); toast('Respaldo cargado'); ir('tablero'); }
+    } catch (x) { alert('El archivo no es un respaldo válido de esta app.'); }
+  };
+  $('#bSeed').onclick = () => {
+    if (!confirm('Se vuelven a cargar los lotes del Excel. Los lotes con el mismo origen se REEMPLAZAN por la versión del Excel; los creados por usted se conservan. ¿Continuar?')) return;
+    const ids = new Set((window.SEED_LOTES || []).map(l => l.id));
+    DB.lotes = DB.lotes.filter(l => !ids.has(l.id)).concat((window.SEED_LOTES || []).map(loteSemilla));
+    Object.assign(DB.grupos, JSON.parse(JSON.stringify(window.SEED_GRUPOS || {}))); ordenarGrupos(); guardar(); toast('Lotes restaurados'); ir('tablero');
+  };
+  $('#bVal').onclick = () => {
+    const v = validarContraExcel();
+    $('#valOut').innerHTML = `<div class="tw"><table><tr><th>Lote</th><th class="n">Productos</th><th class="n">Dif. máx. nacionalizado $</th><th class="n">Dif. máx. landed unit $</th><th>Resultado</th><th>Mayor diferencia</th></tr>
+      ${v.map(r => `<tr><td>${esc(r.lote)}</td><td class="n">${r.productos}</td><td class="n">${r.dNac.toFixed(5)}</td><td class="n">${r.dLan.toFixed(5)}</td>
+        <td>${r.dLan < 0.0005 ? '<b style="color:var(--ok)">Igual al Excel</b>' : '<b style="color:var(--warn)">Difiere</b>'}</td><td class="mut">${r.dLan < 0.0005 ? '' : esc(r.peor)}</td></tr>`).join('')}
+    </table></div>`;
+  };
+}
+
+/* ===================== PLANIFICACION =====================
+   Plan de compra por referencia, como la hoja "COMPRA OCT 2026":
+   compra = venta estimada - inventario + venta pendiente;  costo total = compra x costo FOB.
+   Cada linea trae ademas los datos del ULTIMO lote donde vino esa referencia (FOB, empaque, landed). */
+const PB = () => window.PLAN_BASE || { productos: [], extras: [] };
+const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+let filPlan = {}, ordPlan = { k: 'prov', dir: 1 }, grupoPlan = 'prov', visPlan = [];
+let _pbMap = null;
+const claveRef = r => String(r || '').trim().toLowerCase();
+const pbMap = () => _pbMap || (_pbMap = Object.fromEntries(PB().productos.map(p => [claveRef(p.ref), p])));
+const idLinea = () => 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+// ultimo lote real (no los que siguen en planificacion) donde vino cada referencia
+function historialRefs(){
+  const m = {};
+  DB.lotes.filter(l => etapa(l) > 0).forEach(l => { const c = calcLote(l); l.items.forEach((i, x) => {
+    const k = claveRef(i.ref); if (!k) return;
+    const cand = { l, i, r: c.R[x], orden: (l.params.fechaAduana || '') + '|' + (l.oc || '') };
+    if (!m[k] || cand.orden > m[k].orden) m[k] = cand; }); });
+  return m;
+}
+function lineaNueva(ref, H){
+  const k = claveRef(ref), b = pbMap()[k], h = H[k];
+  return { id: idLinea(), ref: b ? b.ref : h ? h.i.ref : String(ref).trim(), prov: b ? b.prov : h ? provDe(h.l, h.i) : '', desc: b ? b.desc : h ? h.i.desc : '',
+    inv: b ? b.inv : '', pend: b ? b.pend : '', est: b ? b.est : '', compraFija: '', fob: b && b.fob ? b.fob : h ? h.r.fobU : '' };
+}
+// plan inicial = lo que el Excel ya tenia con compra (mas sus partidas globales, ej. "Nuevos proyectos")
+function planInicial(){
+  const H = historialRefs(), b = PB();
+  return { nombre: (b.origen || 'Plan de compra').split(' / ').pop(), lineas: b.productos.filter(p => p.compraXl > 0).map(p => lineaNueva(p.ref, H))
+    .concat((b.extras || []).map(e => ({ id: idLinea(), ref: '', prov: e.prov, desc: e.desc, inv: '', pend: '', est: '', compraFija: 1, fob: e.monto }))) };
+}
+// Proformas (proformas.js): cada una entra UNA vez al plan como lineas con su cantidad y precio, y queda como documento anexo.
+// Si la referencia ya estaba en el plan, se completa esa linea en vez de duplicarla.
+function aplicarProformas(){
+  const P = window.PROFORMAS || [], pl = DB.plan; pl.proformas = pl.proformas || []; pl.docs = pl.docs || []; let n = 0;
+  P.forEach(pf => {
+    if (pl.proformas.includes(pf.id)) {   /* ya aplicada: solo se completan codigos OFICA que se hayan indicado despues */
+      pf.items.forEach(it => { const ln = it.ref && pl.lineas.find(l => l.proforma === pf.id && l.codProv === it.cod && (!l.ref || (l.ref === l.codProv && it.ref !== l.ref)));   /* vacio, o codigo temporal = el del proveedor */
+        if (ln) { const b = pbMap()[claveRef(it.ref)]; ln.ref = it.ref; if (b) { ln.inv = b.inv; ln.pend = b.pend; ln.est = b.est; } n++; } });
+      return;
+    }
+    pf.items.forEach(it => {
+      let ln = it.ref && pl.lineas.find(l => claveRef(l.ref) === claveRef(it.ref) && !l.proforma);
+      if (!ln) { const b = pbMap()[claveRef(it.ref)]; ln = { id: idLinea(), ref: it.ref || '', prov: pf.proveedor, desc: it.desc, inv: b ? b.inv : '', pend: b ? b.pend : '', est: b ? b.est : '' }; pl.lineas.push(ln); }
+      Object.assign(ln, { compraFija: it.cant, fob: it.precio, proforma: pf.id, codProv: it.cod, unidad: it.unidad, cajas: it.cajas, arancel: it.arancel || '' });
+    });
+    pl.proformas.push(pf.id);
+    pl.docs.push({ id: pf.id, titulo: 'Proforma ' + pf.proveedor + ' ' + pf.id, fecha: pf.fecha, total: pf.total, lineas: pf.items.length, pdf: pf.pdf, xlsx: pf.xlsx,
+      detalle: [pf.razonSocial, pf.incoterm, pf.condicion, 'despacho ' + pf.despacho].filter(Boolean).join(' · ') });
+    n++;
+  });
+  return n;
+}
+function calcLinea(ln, H){
+  const k = claveRef(ln.ref), b = pbMap()[k], h = H[k], m2 = PB().mesesAnio2 || 10;
+  const sug = Math.max(0, N(ln.est) - N(ln.inv) + N(ln.pend));
+  const compra = (ln.compraFija === '' || ln.compraFija == null) ? sug : N(ln.compraFija), total = compra * N(ln.fob);
+  const pz = h ? N(h.i.pzasCtn) : 0, bultos = pz ? compra / pz : 0, cbm = bultos * (h ? N(h.i.cbmBulto) : 0);
+  const v1 = b ? sum(b.v1) : 0, v2 = b ? sum(b.v2) : 0;
+  return { sug, compra, total, bultos, cbm, landed: h && h.r.fobU ? total * h.r.landedU / h.r.fobU : 0, v1, v2, prom: b ? (sum(b.v1.slice(m2)) + v2) / 12 : 0,
+    b, h, lote: h ? h.l.nombre : '', fobHist: h ? h.r.fobU : 0, enLote: !!ln.loteId && DB.lotes.some(l => l.id === ln.loteId) };
+}
+const familia = ref => ((String(ref || '').match(/^[A-Za-z]+/) || [''])[0].toUpperCase()) || '(sin referencia)';
+const GRUPOS_PLAN = { prov: 'Proveedor', prof: 'Proforma', fam: 'Familia (letras de la REF)', lote: 'Último lote', ref: 'Producto' };
+const FILTROS_PLAN = ['ref', 'desc', 'prov', 'prof', 'lote'];
+function filasPlan(){
+  const H = historialRefs();
+  return DB.plan.lineas.map(ln => { const c = calcLinea(ln, H);
+    return { ln, c, ref: ln.ref || '', desc: ln.desc || '', prov: ln.prov || '', prof: ln.proforma || '', cod: ln.ref || ln.codProv || '', lote: c.lote, fam: familia(ln.ref),
+      inv: N(ln.inv), pend: N(ln.pend), est: N(ln.est), fob: N(ln.fob), v1: c.v1, v2: c.v2, prom: c.prom, compra: c.compra, total: c.total, fobHist: c.fobHist, bultos: c.bultos, cbm: c.cbm, landed: c.landed }; });
+}
+const pasaPlan = (f, salvo) => FILTROS_PLAN.every(k => k === salvo || !filPlan[k] || sinAcento(f[k]).includes(sinAcento(filPlan[k])));
+function tocarPlan(){ guardarLuego(); }
+
+function vPlan(foco){
+  const b = PB(), filas = filasPlan(), txt = (x, y) => String(x).localeCompare(String(y), 'es', { numeric: true });
+  const esTexto = ['ref', 'desc', 'prov', 'prof', 'lote'].includes(ordPlan.k);
+  const vis = filas.filter(f => pasaPlan(f)).sort((x, y) => ordPlan.dir * (esTexto ? txt(x[ordPlan.k], y[ordPlan.k]) : x[ordPlan.k] - y[ordPlan.k]) || txt(x.prov, y.prov) || txt(x.ref, y.ref));
+  visPlan = vis.map(f => f.ln.id);
+  const opciones = k => [...new Set(filas.filter(f => pasaPlan(f, k)).map(f => f[k]))].filter(Boolean).sort(txt);
+  const nFil = FILTROS_PLAN.filter(k => filPlan[k]).length;
+  const H = historialRefs(), cat = {};   // catalogo para agregar: base del Excel + referencias que ya vinieron en algun lote
+  b.productos.forEach(p => cat[claveRef(p.ref)] = { ref: p.ref, desc: p.desc, prov: p.prov });
+  Object.keys(H).forEach(k => { if (!cat[k]) cat[k] = { ref: H[k].i.ref, desc: H[k].i.desc, prov: provDe(H[k].l, H[k].i) }; });
+  const catalogo = Object.values(cat).sort((x, y) => txt(x.ref, y.ref)), provsCat = [...new Set(catalogo.map(c => c.prov).filter(Boolean))].sort(txt);
+  const th = (k, t, num, tip) => `<th class="ord ${num ? 'n' : ''}" data-ordp="${k}" ${tip ? `title="${tip}"` : ''}>${t}${ordPlan.k === k ? (ordPlan.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`;
+  const fl = k => `<th><input type="search" data-fpl="${k}" list="dlp-${k}" class="${filPlan[k] ? 'act' : ''}" value="${esc(filPlan[k] || '')}" placeholder="(Todos)" title="Escriba parte del texto o elija de la lista">
+      <datalist id="dlp-${k}">${opciones(k).map(v => `<option value="${esc(v)}">`).join('')}</datalist></th>`;
+  const ip = (ln, k, t, extra) => `<input data-pl="${ln.id}.${k}" type="${t || 'number'}" ${t ? '' : 'step="any"'} value="${esc(ln[k] == null ? '' : ln[k])}" ${extra || ''}>`;
+  main.innerHTML = `
+  <div class="bar"><input class="nm" id="plNombre" value="${esc(DB.plan.nombre)}" placeholder="Nombre del plan" title="Nombre del plan de compra"><span class="sp"></span>
+    <button class="btn" id="plLotes">Crear lotes con lo filtrado</button><button class="btn s" id="plCsv">Exportar (CSV)</button>
+    <button class="btn s" id="plRecargar">Recargar del Excel</button><button class="btn d" id="plVaciar">Vaciar plan</button></div>
+  <div class="kpis" id="plK"></div>
+  ${(DB.plan.docs || []).length ? `<div class="card"><h3>Documentos anexos <span class="sub">proformas cargadas al plan</span></h3><div class="tw"><table>
+    <tr><th>Documento</th><th>Fecha</th><th>Detalle</th><th class="n">Líneas</th><th class="n">Total $</th><th>Archivos</th><th></th></tr>
+    ${DB.plan.docs.map(d => `<tr><td><b>${esc(d.titulo)}</b></td><td>${fFecha(d.fecha)}</td><td class="wrap">${esc(d.detalle || '')}</td><td class="n">${d.lineas || ''}</td><td class="n">${d.total ? fmt(d.total) : ''}</td>
+      <td>${d.pdf ? `<a href="${encodeURI(d.pdf)}" target="_blank">PDF original</a>` : ''}${d.pdf && d.xlsx ? ' · ' : ''}${d.xlsx ? `<a href="${encodeURI(d.xlsx)}" download>Excel con lo extraído</a>` : ''}</td>
+      <td><button class="btn s" data-verpf="${esc(d.id)}" style="padding:3px 10px;font-size:12px">Ver sus líneas</button></td></tr>`).join('')}
+  </table></div></div>` : ''}
+  <div class="card"><h3>Agregar al plan <span class="sub">los datos vienen de ${esc(b.origen || 'la base')} (leído el ${fFecha(b.leido)}) y del último lote de cada referencia</span></h3>
+    <div class="fil" style="margin:0;align-items:center">
+      <input id="plRef" list="dlCat" placeholder="Referencia o descripción…" style="min-width:280px">
+      <datalist id="dlCat">${catalogo.map(c => `<option value="${esc(c.ref)}">${esc(c.desc)} · ${esc(c.prov)}</option>`).join('')}</datalist>
+      <button class="btn" id="plAddRef">+ Agregar producto</button>
+      <span class="mut" style="margin:0 6px">o</span>
+      <select id="plProv"><option value="">Elegir proveedor…</option>${provsCat.map(p => `<option>${esc(p)}</option>`).join('')}</select>
+      <button class="btn" id="plAddProv">+ Agregar todas sus referencias</button>
+      <button class="btn s" id="plLibre" title="Una partida sin referencia, por un monto global">+ Partida global</button>
+    </div></div>
+  <div class="card"><h3>Plan de compra <span class="sub">compra = venta estimada − inventario + venta pendiente (o la que usted escriba) · costo total = compra × costo FOB</span>
+      ${nFil ? '<span class="r"><button class="btn s" id="plClr">Quitar filtros (' + nFil + ')</button></span>' : ''}</h3>
+    <div class="tw"><table>
+      <tr>${th('ref', 'REF', 0, 'Código OFICA. Si está vacío, se muestra en gris el código del proveedor')}${th('desc', 'Descripción')}${th('prov', 'Proveedor')}${th('prof', 'Proforma', 0, 'Proforma del proveedor de donde salió la línea')}${th('inv', 'Inventario', 1)}${th('v1', 'Vta ' + b.anio1, 1, 'Unidades vendidas en ' + b.anio1)}${th('v2', 'Vta ' + b.anio2, 1, 'Unidades vendidas en ' + b.anio2 + ' (hasta ' + MESES[(b.mesesAnio2 || 10) - 1] + ')')}
+        ${th('prom', 'Prom. mes', 1, 'Promedio mensual de los últimos 12 meses')}${th('pend', 'Venta pendiente', 1, 'Lo que falta por vender de aquí a fin de año')}${th('est', 'Venta estimada', 1, 'Venta esperada del período que se quiere cubrir')}
+        ${th('compra', 'Compra', 1, 'Vacío = calculada. Escriba un número para fijarla a mano')}${th('fob', 'Costo FOB $', 1)}${th('total', 'Costo total $', 1)}
+        ${th('lote', 'Último lote')}${th('fobHist', 'FOB últ. lote', 1)}${th('bultos', 'Bultos', 1, 'Según las piezas por caja del último lote')}${th('cbm', 'CBM', 1)}${th('landed', 'Landed estimado $', 1, 'Costo total × la relación landed/FOB del último lote')}<th></th></tr>
+      <tr class="filtros">${fl('ref')}${fl('desc')}${fl('prov')}${fl('prof')}<th colspan="9"></th>${fl('lote')}<th colspan="5"></th></tr>
+      ${vis.map(({ ln, c }) => `<tr data-ln="${ln.id}">
+        <td>${ip(ln, 'ref', 'text', `style="min-width:105px${!ln.ref && ln.codProv ? ';background:#fff9b0' : ''}" placeholder="${ln.codProv ? esc(ln.codProv) + ' (prov.)' : ''}" title="${ln.codProv ? 'Código del proveedor: ' + esc(ln.codProv) : ''}"`)}</td><td>${ip(ln, 'desc', 'text', 'style="min-width:220px"')}</td><td>${ip(ln, 'prov', 'text', 'style="min-width:150px" list="dlProvPlan"')}</td>
+        <td>${ln.proforma ? esc(ln.proforma) : '<span class="mut">—</span>'}</td>
+        <td>${ip(ln, 'inv')}</td>
+        <td class="n calc" title="${c.b ? esc(c.b.v1.map((v, i) => MESES[i] + ' ' + v).join(' · ')) : 'sin historial de ventas'}">${c.b ? fmt(c.v1, 0) : '—'}</td>
+        <td class="n calc" title="${c.b ? esc(c.b.v2.map((v, i) => MESES[i] + ' ' + v).join(' · ')) : ''}">${c.b ? fmt(c.v2, 0) : '—'}</td>
+        <td class="n calc">${c.b ? fmt(c.prom, 0) : '—'}</td>
+        <td>${ip(ln, 'pend')}</td><td>${ip(ln, 'est')}</td>
+        <td>${ip(ln, 'compraFija', '', `id="x-${ln.id}-compra" style="font-weight:600"`)}</td>
+        <td>${ip(ln, 'fob')}</td><td class="n hi" id="x-${ln.id}-total"></td>
+        <td>${c.h ? esc(c.lote) : '<span class="mut">nuevo</span>'}${c.enLote ? ' <span class="chip alma" title="Ya se creó un lote con esta línea">en lote</span>' : ''}</td>
+        <td class="n calc" id="x-${ln.id}-fobh"></td><td class="n calc" id="x-${ln.id}-bul"></td><td class="n calc" id="x-${ln.id}-cbm"></td><td class="n calc" id="x-${ln.id}-lan"></td>
+        <td><button class="btn x" data-pdel="${ln.id}" title="Quitar esta línea">✕</button></td></tr>`).join('')
+        || '<tr><td colspan="19" class="mut">El plan está vacío o ninguna línea cumple los filtros. Agregue productos arriba.</td></tr>'}
+    </table></div>
+    <datalist id="dlProvPlan">${provsCat.map(p => `<option value="${esc(p)}">`).join('')}</datalist>
+    <p class="note" id="plNota"></p></div>
+  <div class="card"><h3>Sumatoria <span class="sub">de lo que está filtrado</span>
+      <span class="r"><select id="plGrupo" style="width:auto">${Object.keys(GRUPOS_PLAN).map(k => `<option value="${k}" ${k === grupoPlan ? 'selected' : ''}>Sumar por: ${GRUPOS_PLAN[k]}</option>`).join('')}</select></span></h3>
+    <div id="plR"></div></div>`;
+
+  $('#plNombre').oninput = e => { DB.plan.nombre = e.target.value; tocarPlan(); };
+  const agregar = refs => { const ya = new Set(DB.plan.lineas.map(l => claveRef(l.ref))); let n = 0;
+    refs.forEach(r => { if (r && !ya.has(claveRef(r))) { DB.plan.lineas.push(lineaNueva(r, H)); ya.add(claveRef(r)); n++; } }); return n; };
+  $('#plAddRef').onclick = () => { const v = $('#plRef').value.trim(); if (!v) return toast('Escriba o elija una referencia');
+    const c = catalogo.find(x => claveRef(x.ref) === claveRef(v)) || catalogo.find(x => sinAcento(x.desc) === sinAcento(v));
+    const n = agregar([c ? c.ref : v]); tocarPlan(); filPlan = {}; vPlan(); toast(n ? (c ? 'Agregado: ' + c.ref : 'Agregada como referencia nueva: ' + v) : 'Esa referencia ya está en el plan'); };
+  $('#plRef').onkeydown = e => { if (e.key === 'Enter') $('#plAddRef').click(); };
+  $('#plAddProv').onclick = () => { const p = $('#plProv').value; if (!p) return toast('Elija un proveedor');
+    const n = agregar(catalogo.filter(c => c.prov === p).map(c => c.ref)); tocarPlan(); filPlan = { prov: p }; vPlan(); toast(n ? n + ' referencias agregadas de ' + p : 'Todas las referencias de ' + p + ' ya estaban en el plan'); };
+  $('#plLibre').onclick = () => { DB.plan.lineas.push({ id: idLinea(), ref: '', prov: '', desc: 'Partida global', inv: '', pend: '', est: '', compraFija: 1, fob: '' }); tocarPlan(); filPlan = {}; vPlan(); };
+  if (nFil) $('#plClr').onclick = () => { filPlan = {}; vPlan(); };
+  $('#plGrupo').onchange = e => { grupoPlan = e.target.value; pintarPlan(); };
+  $('#plVaciar').onclick = () => { if (confirm('¿Quitar las ' + DB.plan.lineas.length + ' líneas del plan? Los lotes ya creados no se tocan.')) { DB.plan.lineas = []; filPlan = {}; tocarPlan(); vPlan(); } };   /* los documentos anexos se conservan */
+  $('#plRecargar').onclick = () => { if (confirm('Se reemplaza el plan actual por el del Excel (' + (b.origen || '') + '). ¿Continuar?')) { DB.plan = planInicial(); aplicarProformas(); filPlan = {}; tocarPlan(); vPlan(); } };
+  $('#plCsv').onclick = exportarPlanCsv;
+  $('#plLotes').onclick = crearLotesDelPlan;
+  main.querySelectorAll('[data-fpl]').forEach(el => el.oninput = () => { filPlan[el.dataset.fpl] = el.value.trim(); vPlan(el.dataset.fpl); });
+  main.querySelectorAll('[data-ordp]').forEach(el => el.onclick = () => { const k = el.dataset.ordp; ordPlan = { k, dir: ordPlan.k === k ? -ordPlan.dir : 1 }; vPlan(); });
+  main.querySelectorAll('[data-pdel]').forEach(el => el.onclick = () => { DB.plan.lineas = DB.plan.lineas.filter(l => l.id !== el.dataset.pdel); tocarPlan(); vPlan(); });
+  main.querySelectorAll('[data-verpf]').forEach(el => el.onclick = () => { filPlan = { prof: el.dataset.verpf }; vPlan(); });
+  if (foco) { const i = main.querySelector(`[data-fpl="${foco}"]`); if (i) { i.focus(); try { i.setSelectionRange(i.value.length, i.value.length); } catch (e) {} } }
+  pintarPlan();
+}
+
+// repinta lo calculado sin redibujar la tabla (para no perder el cursor al escribir)
+function pintarPlan(){
+  const filas = filasPlan(), porId = Object.fromEntries(filas.map(f => [f.ln.id, f])), vis = visPlan.map(id => porId[id]).filter(Boolean);
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerHTML = v; };
+  vis.forEach(({ ln, c }) => {
+    const i = document.getElementById('x-' + ln.id + '-compra'); if (i) i.placeholder = fmt(c.sug, 0);
+    set('x-' + ln.id + '-total', fmt(c.total));
+    const dif = c.h && N(ln.fob) && Math.abs(N(ln.fob) / c.fobHist - 1) > 0.001;
+    set('x-' + ln.id + '-fobh', c.h ? fmt(c.fobHist, 4) + (dif ? ` <span class="${N(ln.fob) > c.fobHist ? 'pos' : ''}" style="${N(ln.fob) > c.fobHist ? '' : 'color:var(--ok)'}" title="Variación del costo FOB frente al último lote">${N(ln.fob) > c.fobHist ? '▲' : '▼'}${fmt(Math.abs(N(ln.fob) / c.fobHist - 1) * 100, 1)}%</span>` : '') : '—');
+    set('x-' + ln.id + '-bul', c.bultos ? fmt(c.bultos, c.bultos % 1 ? 1 : 0) : '—'); set('x-' + ln.id + '-cbm', c.cbm ? fmt(c.cbm, 2) : '—'); set('x-' + ln.id + '-lan', c.landed ? fmt(c.landed) : '—');
+  });
+  const T = k => sum(vis.map(f => f[k])), tot = T('total');
+  $('#plK').innerHTML = `
+    <div class="kpi"><span>Líneas</span><b>${vis.length}${vis.length < filas.length ? ' <small style="display:inline">de ' + filas.length + '</small>' : ''}</b></div>
+    <div class="kpi"><span>Proveedores</span><b>${new Set(vis.map(f => f.prov).filter(Boolean)).size}</b></div>
+    <div class="kpi"><span>Unidades a comprar</span><b>${fmt(sum(vis.filter(f => f.cod).map(f => f.compra)), 0)}</b></div>
+    <div class="kpi hi"><span>Costo total FOB $</span><b>${fmt(tot)}</b></div>
+    <div class="kpi" title="Solo las referencias que ya vinieron en algún lote"><span>CBM estimado</span><b>${fmt(T('cbm'), 1)}</b></div>
+    <div class="kpi" title="Costo total × la relación landed/FOB del último lote de cada referencia"><span>Landed estimado $</span><b>${fmt(T('landed'))}</b></div>`;
+  const g = {}; vis.forEach(f => { const k = f[grupoPlan] || (grupoPlan === 'lote' ? '(sin lote anterior)' : '(sin dato)'), o = (g[k] = g[k] || { n: 0, u: 0, t: 0, cbm: 0, lan: 0 });
+    o.n++; o.u += f.cod ? f.compra : 0; o.t += f.total; o.cbm += f.cbm; o.lan += f.landed; });
+  const ks = Object.keys(g).sort((x, y) => g[y].t - g[x].t || x.localeCompare(y));
+  $('#plR').innerHTML = `<div class="tw" style="max-width:900px"><table>
+    <tr><th>${GRUPOS_PLAN[grupoPlan]}</th><th class="n">Líneas</th><th class="n">Unidades</th><th class="n">Costo total FOB $</th><th class="n">% del plan</th><th class="n">CBM</th><th class="n">Landed estimado $</th></tr>
+    ${ks.map(k => `<tr><td><b>${esc(k)}</b></td><td class="n">${g[k].n}</td><td class="n">${fmt(g[k].u, 0)}</td><td class="n hi">${fmt(g[k].t)}</td><td class="n">${tot ? pct(g[k].t / tot) : ''}</td><td class="n">${g[k].cbm ? fmt(g[k].cbm, 1) : '—'}</td><td class="n">${g[k].lan ? fmt(g[k].lan) : '—'}</td></tr>`).join('')}
+    <tr class="tot"><td>Total</td><td class="n">${vis.length}</td><td class="n">${fmt(sum(ks.map(k => g[k].u)), 0)}</td><td class="n">${fmt(tot)}</td><td class="n">${tot ? '100,0%' : ''}</td><td class="n">${fmt(T('cbm'), 1)}</td><td class="n">${fmt(T('landed'))}</td></tr>
+  </table></div>`;
+  const sinFob = vis.filter(f => f.compra > 0 && !f.fob).length, nuevos = vis.filter(f => f.ref && !f.c.h).length, sinCod = vis.filter(f => !f.ref && f.ln.codProv).length;
+  $('#plNota').innerHTML = [sinCod ? `<b style="color:var(--warn)">${sinCod} líneas de proforma sin código OFICA</b> (casilla amarilla: escríbalo ahí)` : '', sinFob ? `<b style="color:var(--warn)">${sinFob} líneas con compra pero sin costo FOB</b> (no suman al costo total)` : '', nuevos ? `${nuevos} referencias sin lote anterior (sin bultos, CBM ni landed estimado)` : ''].filter(Boolean).join(' · ');
+}
+main.addEventListener('input', e => {
+  const el = e.target; if (view !== 'plan' || !el.dataset.pl) return;
+  const [id, k] = el.dataset.pl.split('.'), ln = DB.plan.lineas.find(l => l.id === id); if (!ln) return;
+  ln[k] = el.type === 'number' ? (el.value === '' ? '' : parseFloat(el.value)) : el.value;
+  tocarPlan(); pintarPlan();
+});
+
+function exportarPlanCsv(){
+  const porId = Object.fromEntries(filasPlan().map(f => [f.ln.id, f])), n = v => String(Math.round(v * 1e6) / 1e6).replace('.', ',');
+  const head = ['REF', 'Codigo proveedor', 'Proforma', 'Descripcion', 'Proveedor', 'Inventario', 'Venta pendiente', 'Venta estimada', 'Compra', 'Costo FOB $', 'Costo total $', 'Ultimo lote', 'FOB ultimo lote', 'Bultos', 'CBM', 'Landed estimado $'];
+  const rows = visPlan.map(id => porId[id]).filter(Boolean).map(f => [f.ref, f.ln.codProv || '', f.prof, f.desc, f.prov, n(f.inv), n(f.pend), n(f.est), n(f.compra), n(f.fob), n(f.total), f.lote, n(f.fobHist), n(f.bultos), n(f.cbm), n(f.landed)]);
+  descargar('Plan ' + (DB.plan.nombre || 'de compra').replace(/[\\/:*?"<>|]/g, '') + '.csv', '\ufeff' + [head, ...rows].map(f => f.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(';')).join('\r\n'), 'text/csv');
+}
+
+// un lote "En planificacion" por proveedor, con las lineas filtradas que tienen compra; cada producto hereda empaque y arancel de su ultimo lote
+function crearLotesDelPlan(){
+  const porId = Object.fromEntries(filasPlan().map(f => [f.ln.id, f]));
+  const cand = visPlan.map(id => porId[id]).filter(f => f && f.cod && f.compra > 0 && !f.c.enLote);
+  if (!cand.length) return toast('No hay líneas con referencia y compra que no estén ya en un lote');
+  const porProv = {}; cand.forEach(f => (porProv[f.prov || '(sin proveedor)'] = porProv[f.prov || '(sin proveedor)'] || []).push(f));
+  const provs = Object.keys(porProv);
+  if (!confirm('Se crearán ' + provs.length + ' lotes en estatus "En planificación", uno por proveedor:\n\n' + provs.map(p => '• ' + p + ': ' + porProv[p].length + ' productos, $' + fmt(sum(porProv[p].map(f => f.total)))).join('\n') + '\n\n¿Continuar?')) return;
+  provs.forEach((p, n) => {
+    const fs = porProv[p], l = nuevoLote(), h0 = (fs.find(f => f.c.h) || { c: {} }).c.h;
+    l.id = 'l' + Date.now() + n; l.nombre = (DB.plan.nombre || 'Plan') + ' — ' + p; l.proveedor = p === '(sin proveedor)' ? '' : p;
+    l.historial = [{ estatus: l.estatus, fecha: hoy() }];
+    if (h0) { l.puerto = / \+ /.test(h0.l.puerto || '') ? '' : h0.l.puerto || ''; /* si el ultimo lote mezclaba dos cargas, el puerto no se hereda */ l.agenteAduanal = h0.l.agenteAduanal || ''; l.params.cifSeguro = !!h0.l.params.cifSeguro; l.params.cifGastosOrigen = !!h0.l.params.cifGastosOrigen; }
+    l.notas = 'Creado desde Planificación (' + (DB.plan.nombre || '') + ') el ' + fFecha(hoy()) + '.';
+    l.items = fs.map(f => { const i = f.c.h ? f.c.h.i : {};
+      return Object.assign(itemVacio(), { ref: f.cod, desc: f.desc, cant: f.compra, fob: f.fob === 0 ? '' : f.fob, unidad: i.unidad || f.ln.unidad || 'UND', inner: i.inner || '', pzasCtn: i.pzasCtn || (f.ln.cajas ? Math.round(f.compra / f.ln.cajas * 100) / 100 : ''),
+        pesoBulto: i.pesoBulto || '', cbmBulto: i.cbmBulto || '', arancel: i.arancel || f.ln.arancel || '', exoneracion: i.exoneracion || 'Paga full', tarifa: i.tarifa == null ? '' : i.tarifa, ivaCosto: !!i.ivaCosto }); });
+    DB.lotes.push(l); fs.forEach(f => { f.ln.loteId = l.id; });
+  });
+  guardar(); fil = { q: '', est: ETAPAS[0], prov: '' }; ir('tablero'); toast(provs.length + ' lotes creados en planificación');
+}
+
+/* ===================== ANALISIS =====================
+   Por producto y proveedor: que se compro en cada lote, cuanto se vendio cada mes y como fue quedando el inventario.
+   Ventas: historico de Pedidos OFICA (analisis_base.js + el publicado en GitHub, que se baja al abrir la pagina);
+   desde 2025 manda el Excel de planificacion (plan_base.js), que llega al mes mas reciente.
+   Inventario final de cada mes: se reconstruye hacia atras desde el inventario actual (inv. del mes anterior = inv. - compras + ventas). */
+const AB = () => window.ANALISIS_BASE || { catalogo: {}, ventas: {} };
+const URL_VENTAS = 'https://boadar.github.io/practica-git/pedidos/historico_ventas.json';
+let ordB = { k: 'tot', dir: -1 }, filAn = {}, ordAn = { k: 'fecha', dir: -1 }, selAn = new Set(), periodoAn = '12', ventasVivas = null, ctxAn = null;
+const COLS_AN = [
+  { k: 'ref', t: 'REF', txt: 1 }, { k: 'desc', t: 'Descripción', txt: 1 }, { k: 'prov', t: 'Proveedor', txt: 1 }, { k: 'cat', t: 'Categoría', txt: 1 },
+  { k: 'lote', t: 'Lote', txt: 1 }, { k: 'est', t: 'Estatus', txt: 1 }, { k: 'fecha', t: 'Llegada', txt: 1 },
+  { k: 'cant', t: 'Cant.', d: 0 }, { k: 'fobU', t: 'FOB unit $', d: 4 }, { k: 'fob', t: 'FOB total $', d: 2 }, { k: 'inner', t: 'Inner', d: 0 },
+  { k: 'pzas', t: 'Pzas/CTN', d: 0 }, { k: 'cbmB', t: 'CBM/bulto', d: 4 }, { k: 'landedU', t: 'Landed unit $', d: 4, hi: 1 }, { k: 'landed', t: 'Landed total $', d: 2 }];
+const FILTROS_AN = ['ref', 'desc', 'prov', 'cat', 'lote', 'est'];
+const pad2 = n => String(n).padStart(2, '0');
+const nomMes = ym => MESES[+ym.slice(5, 7) - 1] + ' ' + ym.slice(2, 4);
+const MESES_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const nomMesEn = ym => MESES_EN[+ym.slice(5, 7) - 1] + '<br>' + ym.slice(2, 4);   /* encabezados de la tabla de ventas (en ingles, en dos lineas) */
+function mesesEntre(a, b){ const r = []; let y = +a.slice(0, 4), m = +a.slice(5, 7); while (y * 12 + m <= +b.slice(0, 4) * 12 + +b.slice(5, 7)) { r.push(y + '-' + pad2(m)); if (++m > 12) { m = 1; y++; } } return r; }
+// categoria: la que el usuario fijo en esta app (DB.categorias) manda sobre la del catalogo
+const catCatalogo = ref => { const c = AB().catalogo[String(ref || '').toUpperCase()]; return (c && c.cat) || familia(ref); };
+const catDe = ref => ((DB.categorias || {})[String(ref || '').toUpperCase()]) || catCatalogo(ref);
+const fechaLlegada = l => l.llegadaAlmacen || l.params.fechaAduana || l.eta || ((l.historial || []).filter(h => h.estatus === ETAPAS[4]).pop() || {}).fecha || '';
+
+function cargarVentasVivas(){
+  fetch(URL_VENTAS).then(r => r.json()).then(h => {
+    const v = {}; Object.values(h).forEach(prods => Object.entries(prods).forEach(([p, ms]) => { const o = v[p.toUpperCase()] = v[p.toUpperCase()] || {}; Object.entries(ms).forEach(([ym, n]) => { o[ym] = (o[ym] || 0) + n; }); }));
+    ventasVivas = v; if (view === 'analisis') vAnalisis();
+  }).catch(() => {});
+}
+// venta mensual de una referencia: historico (guardado + publicado) y, para los meses que cubre, el Excel de planificacion
+function ventasMes(ref){
+  const k = String(ref || '').toUpperCase(), m = Object.assign({}, AB().ventas[k] || {}, (ventasVivas && ventasVivas[k]) || {});
+  const b = pbMap()[claveRef(ref)], P = PB();
+  if (b) { b.v1.forEach((v, i) => { m[P.anio1 + '-' + pad2(i + 1)] = v; }); b.v2.forEach((v, i) => { m[P.anio2 + '-' + pad2(i + 1)] = v; }); }
+  return m;
+}
+function invActual(ref){ const b = pbMap()[claveRef(ref)]; if (b) return N(b.inv); const c = AB().catalogo[String(ref || '').toUpperCase()]; return c && c.invCat != null ? N(c.invCat) : 0; }
+// ultimo mes con datos de venta: ahi se ancla el inventario actual
+function mesFinal(){
+  const P = PB(), c = [AB().hasta || ''];
+  if (P.anio2) c.push(P.anio2 + '-' + pad2(P.mesesAnio2 || 12));
+  if (ventasVivas) Object.values(ventasVivas).forEach(o => Object.keys(o).forEach(k => c.push(k)));
+  return c.filter(Boolean).sort().pop() || hoy().slice(0, 7);
+}
+function filasAnalisis(){
+  const r = [];
+  DB.lotes.forEach(l => { const c = calcLote(l), f = fechaLlegada(l); l.items.forEach((i, x) => { const q = c.R[x];
+    r.push({ key: l.id + '|' + x, id: l.id, ref: i.ref || '', desc: i.desc || '', prov: provDe(l, i), cat: catDe(i.ref), lote: l.nombre || '', est: l.estatus, fecha: f, recibido: etapa(l) === 4,
+      cant: q.cant, fobU: q.fobU, fob: q.fob, inner: N(i.inner), pzas: N(i.pzasCtn), cbmB: N(i.cbmBulto), landedU: q.landedU, landed: q.landed }); }); });
+  // referencias con NEW ORDER en el Excel de estimacion que nunca vinieron en un lote cargado: una fila "(sin lote)" para que se puedan filtrar y analizar
+  const yaEstan = new Set(r.map(f => claveRef(f.ref)));
+  PB().productos.filter(p => N(p.compraXl) > 0 && !yaEstan.has(claveRef(p.ref))).forEach(p => {
+    r.push({ key: '', id: '', ref: p.ref, desc: p.desc, prov: p.prov, cat: catDe(p.ref), lote: '(sin lote)', est: '', fecha: '', recibido: false,
+      cant: 0, fobU: N(p.fob), fob: 0, inner: 0, pzas: 0, cbmB: 0, landedU: 0, landed: 0 }); });
+  return r;
+}
+// compras recibidas, ventas e inventario final por mes de un conjunto de referencias
+function evolucion(refs, filas, meses){
+  const V = {}, C = {}, L = {};
+  refs.forEach(r => { const vm = ventasMes(r); meses.forEach(m => { V[m] = (V[m] || 0) + N(vm[m]); }); });
+  const claves = new Set(refs.map(claveRef));
+  filas.filter(f => f.recibido && f.fecha && claves.has(claveRef(f.ref))).forEach(f => { const m = f.fecha.slice(0, 7); C[m] = (C[m] || 0) + f.cant; (L[m] = L[m] || new Set()).add(f.lote); });
+  let inv = sum(refs.map(invActual)); const I = {};
+  for (let i = meses.length - 1; i >= 0; i--) { const m = meses[i]; I[m] = inv; inv = inv - N(C[m]) + N(V[m]); }
+  return { V, C, I, L };
+}
+
+function vAnalisis(foco){
+  if (ventasVivas === null) { ventasVivas = false; cargarVentasVivas(); }
+  const filas = filasAnalisis(), txt = (x, y) => String(x).localeCompare(String(y), 'es', { numeric: true });
+  const pasa = (f, salvo) => FILTROS_AN.every(k => k === salvo || !filAn[k] || sinAcento(f[k]).includes(sinAcento(filAn[k])));
+  const col = COLS_AN.find(c => c.k === ordAn.k) || COLS_AN[0];
+  const vis = filas.filter(f => pasa(f)).sort((a, b) => ordAn.dir * (col.txt ? txt(a[col.k], b[col.k]) : a[col.k] - b[col.k]) || txt(a.ref, b.ref) || txt(b.fecha, a.fecha));
+  const opciones = k => [...new Set(filas.filter(f => pasa(f, k)).map(f => f[k]))].filter(Boolean).sort(txt);
+  const refs = [...new Map(vis.filter(f => f.ref).map(f => [claveRef(f.ref), f])).values()].sort((a, b) => txt(a.ref, b.ref));
+  // meses: desde el primer dato de venta o compra hasta el ultimo mes con ventas
+  const fin = mesFinal(), primeros = [AB().desde || fin]; filas.forEach(f => { if (f.recibido && f.fecha) primeros.push(f.fecha.slice(0, 7)); });
+  const rango = mesesEntre(primeros.sort()[0] > fin ? fin : primeros.sort()[0], fin);
+  const anios = [...new Set(rango.map(m => m.slice(0, 4)))].reverse();
+  const per = periodoAn === 'todo' ? rango : /^\d{4}$/.test(periodoAn) ? rango.filter(m => m.startsWith(periodoAn)) : rango.slice(-(+periodoAn));
+  const perSet = new Set(per), cache = new Map(), vm = r => cache.get(r) || (cache.set(r, ventasMes(r)), cache.get(r));
+  // LAST ORDER: cantidad de la referencia en el ultimo lote real registrado (el de fecha de llegada mas reciente; no cuenta lotes en planificacion)
+  const ultimo = {};
+  filas.filter(g => g.id && g.est !== ETAPAS[0]).forEach(g => { const k = claveRef(g.ref), o = ultimo[k], orden = (g.fecha || '') + '|' + g.lote;
+    if (!o || orden > o.orden) ultimo[k] = { orden, lote: g.lote, fecha: g.fecha, cant: g.cant }; else if (orden === o.orden) o.cant += g.cant; });
+  const filaB = refs.map(f => { const v = vm(f.ref), meses = per.map(m => N(v[m])), tot = sum(meses), inv = invActual(f.ref);
+    const comp = sum(filas.filter(g => g.recibido && claveRef(g.ref) === claveRef(f.ref) && perSet.has((g.fecha || '').slice(0, 7))).map(g => g.cant));
+    /* inventario al cierre del periodo: se reconstruye desde el inventario actual (+ ventas posteriores - compras posteriores) */
+    const cierre = evolucion([f.ref], filas, rango).I[per[per.length - 1]];
+    const prom = per.length ? tot / per.length : 0;
+    return { f, meses, tot, prom, comp, cierre, ini: cierre + tot - comp, inv, mi: prom ? inv / prom : Infinity,
+      nueva: N((pbMap()[claveRef(f.ref)] || {}).compraXl), ultima: (ultimo[claveRef(f.ref)] || {}).cant || 0, ultimaLote: ultimo[claveRef(f.ref)] || null };   /* NEW ORDER = columna AC (COMPRA) de la hoja del Excel de estimacion */ });
+  // orden de la tabla de ventas: tocar un titulo ordena creciente, tocarlo otra vez decreciente
+  const valB = (r, k) => k === 'ref' ? r.f.ref : k === 'desc' ? r.f.desc : /^m\d+$/.test(k) ? r.meses[+k.slice(1)] : r[k];
+  if (/^m\d+$/.test(ordB.k) && +ordB.k.slice(1) >= per.length) ordB = { k: 'tot', dir: -1 };
+  if (ordB.k === 'comp' && !filaB.some(r => r.comp)) ordB = { k: 'tot', dir: -1 };
+  filaB.sort((a, b) => { const x = valB(a, ordB.k), y = valB(b, ordB.k);
+    return ordB.dir * (typeof x === 'string' ? txt(x, y) : (x === y ? 0 : x > y ? 1 : -1)) || txt(a.f.ref, b.f.ref); });
+  const verComp = filaB.some(r => r.comp);   /* si nada se compro en el periodo, la columna Comprado se oculta */
+  // fila de totales: si hay lineas resaltadas, es el SUBTOTAL de lo resaltado; si no, el total de todo lo filtrado
+  const totalB = () => {
+    const sel = filaB.filter(r => selAn.has(claveRef(r.f.ref))), rs = sel.length ? sel : filaB, S = k => sum(rs.map(r => r[k])), tv = S('tot'), ti = S('inv');
+    return `<tr class="tot" id="totB"><td colspan="2">${sel.length ? 'SUBTOTAL (' + sel.length + ' selected)' : 'TOTAL'}</td>${per.map((m, i) => `<td class="n">${fmt(sum(rs.map(r => r.meses[i])), 0)}</td>`).join('')}
+      <td class="n">${fmt(tv, 0)}</td><td class="n">${fmt(per.length ? tv / per.length : 0, 0)}</td><td class="n">${fmt(S('ini'), 0)}</td>${verComp ? `<td class="n">${fmt(S('comp'), 0)}</td>` : ''}<td class="n">${fmt(S('cierre'), 0)}</td>
+      <td class="n">${fmt(ti, 0)}</td><td class="n">${tv ? fmt(ti / (tv / per.length), 1) : '—'}</td><td class="n">${fmt(S('ultima'), 0)}</td><td class="n">${fmt(S('nueva'), 0)}</td></tr>`;
+  };
+  const thB = (k, t, num, tip) => `<th class="ord ${num ? 'n' : ''}" data-ordb="${k}" ${tip ? `title="${tip}"` : ''}>${t}${ordB.k === k ? (ordB.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`;
+  ctxAn = { filas, refs, rango, per, totalB };
+  const nFil = FILTROS_AN.filter(k => filAn[k]).length;
+  const th = c => `<th class="ord ${c.txt ? '' : 'n'}" data-orda="${c.k}">${c.t}${ordAn.k === c.k ? (ordAn.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`;
+  const fl = k => `<th><input type="search" data-fan="${k}" list="dla-${k}" class="${filAn[k] ? 'act' : ''}" value="${esc(filAn[k] || '')}" placeholder="(Todos)" title="Escriba parte del texto o elija de la lista">
+      <datalist id="dla-${k}">${opciones(k).map(v => `<option value="${esc(v)}">`).join('')}</datalist></th>`;
+  const propia = r => !!(DB.categorias || {})[String(r || '').toUpperCase()];
+  const celda = (c, f) => c.k === 'cat' && f.ref ? `<td><input data-cat="${esc(f.ref)}" list="dlCats" class="${propia(f.ref) ? 'act' : ''}" value="${esc(f.cat)}" style="min-width:190px"
+      title="${propia(f.ref) ? 'Categoría puesta en esta app (catálogo: ' + esc(catCatalogo(f.ref)) + '). Bórrela para volver a la del catálogo.' : 'Categoría del catálogo. Escriba otra para cambiarla en esta app.'}"></td>`
+    : c.k === 'est' ? `<td>${chip(f.est)}</td>` : c.k === 'fecha' ? `<td>${f.fecha ? fFecha(f.fecha) : '<span class="mut">—</span>'}</td>`
+    : c.txt ? `<td>${c.k === 'ref' ? '<b>' + esc(f.ref) + '</b>' : esc(f[c.k])}</td>` : `<td class="n ${c.hi ? 'hi' : ''}">${f[c.k] ? fmt(f[c.k], c.d) : '<span class="mut">—</span>'}</td>`;
+  const T = k => sum(vis.map(f => f[k])), totVen = sum(filaB.map(r => r.tot)), totInv = sum(filaB.map(r => r.inv));
+  main.innerHTML = `
+  <div class="kpis">
+    <div class="kpi"><span>Referencias</span><b>${refs.length}</b></div>
+    <div class="kpi"><span>Lotes</span><b>${new Set(vis.map(f => f.id).filter(Boolean)).size}</b></div>
+    <div class="kpi"><span>Unidades compradas</span><b>${fmt(T('cant'), 0)}</b></div>
+    <div class="kpi"><span>FOB total $</span><b>${fmt(T('fob'))}</b></div>
+    <div class="kpi hi"><span>Landed total $</span><b>${fmt(T('landed'))}</b></div>
+    <div class="kpi"><span>Vendido en el período</span><b>${fmt(totVen, 0)}</b></div>
+    <div class="kpi" title="Inventario según el Excel de planificación (o el catálogo de pedidos si no está ahí)"><span>Inventario actual</span><b>${fmt(totInv, 0)}</b></div>
+  </div>
+  <div class="card"><h3>Compras por lote <span class="sub">cada fila es un producto en un lote · un clic resalta el producto · doble clic abre el lote</span>
+      ${nFil ? `<span class="r"><button class="btn s" id="anClr">Quitar filtros (${nFil})</button></span>` : ''}</h3>
+    <div class="tw"><table>
+      <tr>${COLS_AN.map(th).join('')}</tr>
+      <tr class="filtros">${COLS_AN.map(c => FILTROS_AN.includes(c.k) ? fl(c.k) : '<th></th>').join('')}</tr>
+      ${vis.map(f => `<tr class="clk pk ${selAn.has(claveRef(f.ref)) ? 'sel' : ''}" data-ref="${esc(claveRef(f.ref))}" data-key="${esc(f.key)}">${COLS_AN.map(c => celda(c, f)).join('')}</tr>`).join('')
+        || `<tr><td colspan="${COLS_AN.length}" class="mut">Ningún producto cumple esos filtros.</td></tr>`}
+      ${vis.length ? `<tr class="tot"><td colspan="7">Total (${vis.length} filas)</td><td class="n">${fmt(T('cant'), 0)}</td><td></td><td class="n">${fmt(T('fob'))}</td><td colspan="4"></td><td class="n">${fmt(T('landed'))}</td></tr>` : ''}
+    </table></div>
+    <datalist id="dlCats">${[...new Set(Object.values(AB().catalogo).map(c => c.cat).concat(Object.values(DB.categorias || {})).filter(Boolean))].sort(txt).map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+    <p class="note">La categoría se puede cambiar escribiendo en su casilla (vale para todos los lotes de esa referencia). Las cambiadas en esta app se ven en azul; si la borra, vuelve la del catálogo.</p></div>
+
+  <div class="card"><h3>Sales by product by month <span class="sub">units sold · adds up the references filtered above</span>
+      <span class="r" style="display:flex;gap:8px;align-items:center"><button class="btn" id="anQuitaSelB" style="${selAn.size ? '' : 'display:none'}">Clear selection</button><select id="anPer" style="width:auto">${[['12', 'Last 12 months'], ['24', 'Last 24 months'], ...anios.map(a => [a, 'Year ' + a]), ['todo', 'All (since ' + nomMesEn(rango[0]).replace('<br>', ' ') + ')']]
+        .map(([v, t]) => `<option value="${v}" ${v === periodoAn ? 'selected' : ''}>${t}</option>`).join('')}</select></span></h3>
+    <div class="tw alto10"><table class="fija2">
+      <tr>${thB('ref', 'REF')}${thB('desc', 'DESCRIPTION')}${per.map((m, i) => thB('m' + i, nomMesEn(m), 1)).join('')}
+        ${thB('tot', 'TOTAL<br>SALES', 1, 'Total vendido en el período')}${thB('prom', 'PROM.<br>MONTH', 1, 'Promedio mensual de venta')}${thB('ini', 'INITIAL<br>INV.', 1, 'Inventario al empezar el período = inventario cierre + vendido − comprado')}${verComp ? thB('comp', 'PURCHASED', 1, 'Unidades de lotes ya en almacén que llegaron en el período') : ''}
+        ${thB('cierre', 'FINAL<br>INV.', 1, 'Inventario al final del período elegido = inventario actual + ventas posteriores − compras posteriores')}${thB('inv', 'CURRENT<br>INV.', 1, 'Inventario actual')}${thB('mi', 'INV. IN<br>MONTHS', 1, 'Inventario actual ÷ promedio mensual de venta')}${thB('ultima', 'LAST<br>ORDER', 1, 'Cantidad pedida en el último lote registrado de esa referencia')}${thB('nueva', 'NEW<br>ORDER', 1, 'Nueva compra: columna AC (COMPRA) de la hoja ' + esc((PB().origen || '').split(' / ').pop()) + ' del Excel de estimación')}</tr>
+      ${filaB.map(r => `<tr class="clk pk ${selAn.has(claveRef(r.f.ref)) ? 'sel' : ''}" data-ref="${esc(claveRef(r.f.ref))}"><td><b>${esc(r.f.ref)}</b></td><td>${esc(r.f.desc)}</td>
+        ${r.meses.map(v => `<td class="n">${v ? fmt(v, 0) : '<span class="mut">·</span>'}</td>`).join('')}
+        <td class="n hi">${fmt(r.tot, 0)}</td><td class="n">${fmt(r.prom, 0)}</td><td class="n ${r.ini < 0 ? 'pos' : ''}">${fmt(r.ini, 0)}</td>${verComp ? `<td class="n">${r.comp ? fmt(r.comp, 0) : '—'}</td>` : ''}<td class="n ${r.cierre < 0 ? 'pos' : ''}">${fmt(r.cierre, 0)}</td>
+        <td class="n">${fmt(r.inv, 0)}</td><td class="n">${r.prom ? fmt(r.mi, 1) : '—'}</td><td class="n" title="${r.ultimaLote ? esc(r.ultimaLote.lote) + (r.ultimaLote.fecha ? ' · ' + fFecha(r.ultimaLote.fecha) : '') : 'Sin lote registrado'}">${r.ultima ? fmt(r.ultima, 0) : '—'}</td><td class="n hi">${r.nueva ? fmt(r.nueva, 0) : '—'}</td></tr>`).join('')
+        || `<tr><td colspan="${per.length + 10 + (verComp ? 1 : 0)}" class="mut">No references.</td></tr>`}
+      ${filaB.length > 1 ? totalB() : ''}
+    </table></div>
+    <p class="note">Sales: Pedidos OFICA sales history (${ventasVivas ? 'updated from GitHub' : 'saved copy, ' + esc(AB().desde || '') + ' to ' + esc(AB().hasta || '')}) and, since ${esc(String(PB().anio1 || ''))}, the planning Excel. Last month with data: ${nomMesEn(fin).replace('<br>', ' ')}.</p></div>
+
+  <div class="card" id="anEvo"></div>`;
+
+  $('#anPer').onchange = e => { periodoAn = e.target.value; vAnalisis(); };
+  $('#anQuitaSelB').onclick = quitarSeleccionAn;
+  main.querySelectorAll('[data-ordb]').forEach(el => el.onclick = () => { const k = el.dataset.ordb; ordB = { k, dir: ordB.k === k ? -ordB.dir : 1 }; vAnalisis(); });
+  if (nFil) $('#anClr').onclick = () => { filAn = {}; vAnalisis(); };
+  main.querySelectorAll('[data-fan]').forEach(el => el.oninput = () => { filAn[el.dataset.fan] = el.value.trim(); vAnalisis(el.dataset.fan); });
+  main.querySelectorAll('[data-orda]').forEach(el => el.onclick = () => { const k = el.dataset.orda; ordAn = { k, dir: ordAn.k === k ? -ordAn.dir : (COLS_AN.find(c => c.k === k).txt ? 1 : -1) }; vAnalisis(); });
+  main.querySelectorAll('[data-cat]').forEach(el => {
+    el.onclick = el.ondblclick = e => e.stopPropagation();   /* escribir en la casilla no resalta la fila ni abre el lote */
+    el.onkeydown = e => { if (e.key === 'Enter') el.blur(); };
+    el.onchange = () => { const k = el.dataset.cat.toUpperCase(), v = el.value.trim(); DB.categorias = DB.categorias || {};
+      if (!v || v === catCatalogo(el.dataset.cat)) delete DB.categorias[k]; else DB.categorias[k] = v;
+      guardar(); vAnalisis(); toast(v && DB.categorias[k] ? 'Categoría de ' + el.dataset.cat + ': ' + v : 'Vuelve la categoría del catálogo para ' + el.dataset.cat); };
+  });
+  main.querySelectorAll('tr.pk').forEach(t => {
+    t.onclick = () => { const r = t.dataset.ref; if (!r) return; selAn.has(r) ? selAn.delete(r) : selAn.add(r);
+      main.querySelectorAll('tr.pk').forEach(x => x.classList.toggle('sel', selAn.has(x.dataset.ref))); refrescarTotalB(); pintarEvolucion(); };
+  /* QUITAR SELECCION: deselecciona todas las filas de una vez */
+    if (t.dataset.key) t.ondblclick = () => verLoteDeProducto(t.dataset.key);
+  });
+  ajustarAltoB();
+  if (foco) { const i = main.querySelector(`[data-fan="${foco}"]`); if (i) { i.focus(); try { i.setSelectionRange(i.value.length, i.value.length); } catch (e) {} } }
+  pintarEvolucion();
+}
+
+// alto del recuadro = encabezado + 10 lineas + total (si la pagina no esta visible queda el maximo fijo del CSS)
+function ajustarAltoB(){
+  const t = document.querySelector('table.fija2'); if (!t) return;
+  const filas = [...t.rows].slice(1).filter(r => r.id !== 'totB'), tot = document.getElementById('totB');
+  const h = t.rows[0].offsetHeight + filas.slice(0, 10).reduce((a, r) => a + r.offsetHeight, 0) + (tot ? tot.offsetHeight : 0) + 2;
+  if (h > 60) t.parentElement.style.maxHeight = h + 'px';
+}
+function refrescarTotalB(){ const t = $('#totB'); if (t && ctxAn && ctxAn.totalB) t.outerHTML = ctxAn.totalB(); const b = $('#anQuitaSelB'); if (b) b.style.display = selAn.size ? '' : 'none'; }
+function quitarSeleccionAn(){ selAn.clear(); main.querySelectorAll('tr.pk').forEach(x => x.classList.remove('sel')); refrescarTotalB(); pintarEvolucion(); }
+// evolucion: lo resaltado (si hay algo resaltado dentro de lo filtrado) o la suma de todo lo filtrado
+function pintarEvolucion(){
+  const box = $('#anEvo'); if (!box || !ctxAn) return;
+  const { filas, refs, rango, per } = ctxAn, elegidas = refs.filter(f => selAn.has(claveRef(f.ref))), usar = elegidas.length ? elegidas : refs;
+  const E = evolucion(usar.map(f => f.ref), filas, rango);
+  const titulo = usar.length === 1 ? esc(usar[0].ref) + ' — ' + esc(usar[0].desc) : (elegidas.length ? 'Suma de los ' + usar.length + ' productos resaltados' : 'Suma de las ' + usar.length + ' referencias filtradas');
+  const negativo = per.some(m => E.I[m] < 0);
+  box.innerHTML = `<h3>Evolución: compras, ventas e inventario <span class="sub">${titulo}</span>
+      ${elegidas.length ? '<span class="r"><button class="btn s" id="anQuitaSel">Quitar selección</button></span>' : ''}</h3>
+    ${usar.length ? `<div class="tw"><table class="fija1">
+      <tr><th>Unidades</th>${per.map(m => `<th class="n">${nomMes(m)}</th>`).join('')}<th class="n">Total</th></tr>
+      <tr><td><b>Compras recibidas</b></td>${per.map(m => `<td class="n" ${E.L[m] ? `title="${esc([...E.L[m]].join(', '))}" style="background:#e6f6fc;font-weight:600"` : ''}>${E.C[m] ? fmt(E.C[m], 0) : '<span class="mut">·</span>'}</td>`).join('')}<td class="n">${fmt(sum(per.map(m => N(E.C[m]))), 0)}</td></tr>
+      <tr><td><b>Ventas</b></td>${per.map(m => `<td class="n">${E.V[m] ? fmt(E.V[m], 0) : '<span class="mut">·</span>'}</td>`).join('')}<td class="n">${fmt(sum(per.map(m => N(E.V[m]))), 0)}</td></tr>
+      <tr class="tot"><td>Inventario final</td>${per.map(m => `<td class="n ${E.I[m] < 0 ? 'pos' : ''}">${fmt(E.I[m], 0)}</td>`).join('')}<td></td></tr>
+    </table></div>
+    <p class="note">El inventario final de cada mes se reconstruye hacia atrás desde el inventario actual (${fmt(sum(usar.map(f => invActual(f.ref))), 0)} und): inventario del mes anterior = inventario − compras + ventas. Pase el cursor sobre una compra para ver de qué lote vino.
+      ${negativo ? '<b style="color:var(--bad)">Hay meses en negativo:</b> falta algún lote cargado en la app, o la fecha de llegada de un lote no es la real.' : ''}</p>`
+    : '<p class="mut">Filtre o resalte productos para ver su evolución.</p>'}`;
+  if (elegidas.length) $('#anQuitaSel').onclick = quitarSeleccionAn;
+}
+
+/* ===================== ARRANQUE ===================== */
+$('#ver').textContent = VERSION;
+$('#nav').addEventListener('click', e => { if (e.target.dataset.v) ir(e.target.dataset.v); });
+cargar(); render();
+fetch(TASAS_URL).then(r => r.json()).then(t => { TASAS = t || {}; }).catch(() => {});
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
